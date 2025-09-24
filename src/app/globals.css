@@ -1,26 +1,319 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --background: #0a0712; /* purple-ish black */
+  --foreground: #eaeaea;
+  --font-sans: var(--font-comic);
   --font-mono: var(--font-geist-mono);
+  --dot-color: rgba(168, 85, 247, 0.16); /* violet-tinted dots */
+  --accent: #7c3aed; /* violet-600 */
+  --accent-soft: #a78bfa; /* violet-300 */
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #ffffff;
+    --foreground: #171717;
+    --dot-color: rgba(0, 0, 0, 0.1);
   }
 }
 
+/* Ensure next-themes class switching overrides variables */
+.light {
+  --background: #ffffff;
+  --foreground: #171717;
+  --dot-color: rgba(0, 0, 0, 0.1);
+}
+.dark {
+  --background: #0a0712; /* purple-ish black */
+  --foreground: #eaeaea;
+  --dot-color: rgba(168, 85, 247, 0.16); /* violet-tinted dots */
+  --accent: #7c3aed;
+  --accent-soft: #a78bfa;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
+  /* Removed colorful radial gradient glows */
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), "Comic Neue", "Comic Sans MS", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+/* Comic-style panels */
+.panel-comic {
+  background: color-mix(in lch, var(--background) 65%, white 8%);
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 18px;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.6);
+}
+
+/* Halftone overlay utility */
+.halftone::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(currentColor 0.6px, transparent 0.6px);
+  background-size: 6px 6px;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+/* Dotted grid background */
+.bg-dot-grid {
+  background-image: radial-gradient(
+    var(--dot-color) 0.9px,
+    transparent 0.9px
+  ); /* smaller dots */
+  background-size: 18px 18px;
+  background-position: 0 0;
+}
+
+/* Spotlight gradient that follows cursor (unused now, safe to keep) */
+.spotlight::before {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  background: radial-gradient(
+      600px 300px at var(--mx, 50%) var(--my, 50%),
+      rgba(56, 189, 248, 0.18),
+      transparent 60%
+    ),
+    radial-gradient(
+      500px 250px at calc(var(--mx, 50%) - 120px) calc(var(--my, 50%) - 60px),
+      rgba(168, 85, 247, 0.18),
+      transparent 60%
+    );
+  filter: blur(20px);
+  pointer-events: none;
+}
+
+/* Glassmorphism helpers */
+.glass {
+  background: color-mix(in lch, var(--background) 70%, white 10%);
+  backdrop-filter: saturate(140%) blur(16px);
+  -webkit-backdrop-filter: saturate(140%) blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Card hover elevation */
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Animated underline for section headings */
+.underline-accent {
+  position: relative;
+}
+.underline-accent::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -6px;
+  height: 3px;
+  width: 60px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-soft));
+}
+
+/* Shiny button micro-interaction */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 80%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  transform: skewX(-20deg);
+}
+.btn-shine:hover::after {
+  left: 120%;
+  transition: left 0.7s ease;
+}
+
+/* Sheen hover (subtle diagonal light sweep, no neon) */
+.sheen-hover {
+  position: relative;
+  overflow: hidden;
+}
+.sheen-hover::before {
+  content: "";
+  position: absolute;
+  inset: -20% -80%;
+  background: linear-gradient(
+    115deg,
+    transparent 45%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 55%
+  );
+  transform: translateX(-60%);
+  transition: transform 0.9s ease;
+  pointer-events: none;
+}
+.sheen-hover:hover::before {
+  transform: translateX(80%);
+}
+
+/* Subtle float animation */
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+.animate-float-slow {
+  animation: float-y 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Optional: inner bevel for glass cards without glow */
+.glass-bevel {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04), 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* Heatmap colors for accessibility */
+.react-calendar-heatmap .color-empty {
+  fill: rgba(255, 255, 255, 0.06);
+}
+.react-calendar-heatmap .color-scale-1 {
+  fill: #1f2a44;
+}
+.react-calendar-heatmap .color-scale-2 {
+  fill: #2c4a7c;
+}
+.react-calendar-heatmap .color-scale-3 {
+  fill: #3565a8;
+}
+.react-calendar-heatmap .color-scale-4 {
+  fill: #4d9be6;
+}
+.react-calendar-heatmap text {
+  fill: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+}
+
+/* Purple theme utilities */
+.btn-primary {
+  background: linear-gradient(135deg, #7c3aed, #a78bfa);
+  color: white;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-primary:hover {
+  filter: brightness(1.05);
+  transform: translateY(-2px);
+}
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-ghost {
+  background: rgba(124, 58, 237, 0.08);
+  color: #e9e7ff;
+  border: 1px solid rgba(124, 58, 237, 0.28);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.btn-ghost:hover {
+  background: rgba(124, 58, 237, 0.12);
+  transform: translateY(-2px);
+}
+.btn-ghost:active {
+  transform: translateY(0);
+}
+
+.chip-soft {
+  background: rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(124, 58, 237, 0.28);
+  color: #e5d9ff;
+}
+
+.card-violet-hover {
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.card-violet-hover:hover {
+  border-color: rgba(167, 139, 250, 0.4);
+  box-shadow: 0 12px 50px rgba(124, 58, 237, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Comic speech bubble */
+.speech-bubble {
+  position: relative;
+  display: inline-block;
+  background: rgba(124, 58, 237, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  color: var(--foreground);
+  border-radius: 14px;
+  padding: 6px 10px;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.6);
+}
+.speech-bubble::before,
+.speech-bubble::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  top: 100%;
+  border: 10px solid transparent;
+}
+.speech-bubble::before { /* outline */
+  margin-top: 2px;
+  border-top-color: rgba(0, 0, 0, 0.6);
+}
+.speech-bubble::after { /* fill */
+  border-top-color: rgba(124, 58, 237, 0.12);
+  margin-top: 0px;
+}
+
+/* Starburst helper (usage: wrap an element and place this behind) */
+.starburst {
+  position: absolute;
+  inset: auto;
+  width: 120px;
+  height: 120px;
+  left: -18px;
+  top: -18px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* Comic card utility (thicker border + offset shadow) */
+.comic-card {
+  background: color-mix(in lch, var(--background) 60%, white 6%);
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* Accent link style */
+.link-accent {
+  color: var(--accent-soft);
+  transition: color 0.2s ease;
+}
+.link-accent:hover {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }

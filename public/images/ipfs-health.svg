@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#0EA5E9" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#111827" stop-opacity="0.0"/>
+    </radialGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0B0F1A"/>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- IPFS-like hexagon node -->
+  <g transform="translate(250,190)">
+    <polygon points="140,0 280,80 280,240 140,320 0,240 0,80" fill="#0F172A" stroke="#22D3EE" stroke-width="4" opacity="0.9"/>
+    <circle cx="140" cy="-10" r="8" fill="#22D3EE"/>
+    <circle cx="290" cy="80" r="8" fill="#22D3EE"/>
+    <circle cx="290" cy="240" r="8" fill="#22D3EE"/>
+    <circle cx="140" cy="330" r="8" fill="#22D3EE"/>
+    <circle cx="-10" cy="240" r="8" fill="#22D3EE"/>
+    <circle cx="-10" cy="80" r="8" fill="#22D3EE"/>
+    <line x1="140" y1="-10" x2="290" y2="80" stroke="url(#teal)" stroke-width="3" stroke-opacity="0.8"/>
+    <line x1="290" y1="80" x2="290" y2="240" stroke="url(#teal)" stroke-width="3" stroke-opacity="0.8"/>
+    <line x1="290" y1="240" x2="140" y2="330" stroke="url(#teal)" stroke-width="3" stroke-opacity="0.8"/>
+    <line x1="140" y1="330" x2="-10" y2="240" stroke="url(#teal)" stroke-width="3" stroke-opacity="0.8"/>
+    <line x1="-10" y1="240" x2="-10" y2="80" stroke="url(#teal)" stroke-width="3" stroke-opacity="0.8"/>
+    <line x1="-10" y1="80" x2="140" y2="-10" stroke="url(#teal)" stroke-width="3" stroke-opacity="0.8"/>
+  </g>
+
+  <!-- Health card with pulse -->
+  <g transform="translate(640,170)">
+    <rect x="0" y="0" rx="18" ry="18" width="310" height="200" fill="#0F172A" stroke="#34D399" stroke-width="3" opacity="0.95"/>
+    <text x="24" y="42" fill="#9CA3AF" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial" font-size="18">IPFS Health Storage</text>
+    <path d="M24 120 C60 105, 70 105, 90 120 S120 150, 140 120 S160 90, 180 120 S210 150, 230 120 S260 90, 286 120" stroke="url(#green)" stroke-width="3" fill="none"/>
+    <circle cx="86" cy="118" r="4" fill="#34D399"/>
+    <circle cx="178" cy="118" r="4" fill="#34D399"/>
+    <circle cx="286" cy="120" r="3.5" fill="#34D399"/>
+  </g>
+
+  <!-- Subtle corner accents -->
+  <g opacity="0.25">
+    <circle cx="1080" cy="70" r="60" fill="url(#teal)"/>
+    <circle cx="100" cy="560" r="80" fill="url(#green)"/>
+  </g>
+</svg>
