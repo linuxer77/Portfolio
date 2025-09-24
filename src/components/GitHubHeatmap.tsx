@@ -47,12 +47,18 @@ export default function GitHubHeatmap() {
   const empty = !isLoading && !error && (!days || days.length === 0);
 
   return (
-    <section className="rounded-2xl p-4 sm:p-5 bg-zinc-900/60 border border-white/10 text-white backdrop-blur card-hover">
+    <section className="comic-card relative p-4 sm:p-5 border border-white/10 text-white card-hover overflow-hidden">
+      {/* burst accents */}
+      <span className="absolute -right-8 -top-8 size-28 -rotate-12 opacity-25 starburst" />
+      <span className="absolute -left-10 bottom-0 size-24 rotate-6 opacity-15 starburst" />
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h2 className="text-xl font-semibold">GitHub Activity</h2>
-        <div className="text-xs text-zinc-400 flex items-center gap-2">
-          <span>Total:</span>
-          <motion.span className="inline-flex px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-200">
+        <h2 className="text-xl font-bold h-comic tracking-wider">
+          GitHub Activity
+        </h2>
+        <div className="text-xs text-zinc-300/90 flex items-center gap-2">
+          <span>Total</span>
+          <motion.span className="inline-flex px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-100">
             {rounded}
           </motion.span>
         </div>
@@ -85,7 +91,7 @@ export default function GitHubHeatmap() {
           {!isLoading && !error && !empty && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               {/* Scale down the heatmap grid to reduce box sizes */}
-              <div className="origin-top-left scale-[0.88] sm:scale-[0.9] md:scale-[0.92]">
+              <div className="origin-top-left scale-[0.9] sm:scale-[0.95]">
                 <div className="min-w-[640px]">
                   <Calendar
                     startDate={
@@ -128,19 +134,19 @@ export default function GitHubHeatmap() {
     fill: rgba(255, 255, 255, 0.06);
   }
   .react-calendar-heatmap .color-scale-1 {
-    fill: #274060;
+    fill: #1f2a44;
   }
   .react-calendar-heatmap .color-scale-2 {
-    fill: #3b6ea5;
+    fill: #2c4a7c;
   }
   .react-calendar-heatmap .color-scale-3 {
-    fill: #57a0d3;
+    fill: #3565a8;
   }
   .react-calendar-heatmap .color-scale-4 {
-    fill: #7ec8e3;
+    fill: #4d9be6;
   }
   .react-calendar-heatmap text {
     fill: rgba(255, 255, 255, 0.5);
-    font-size: 9px;
+    font-size: 10px;
   }
 `}</style>;

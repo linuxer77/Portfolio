@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Comic_Neue } from "next/font/google";
+import { Geist, Geist_Mono, Lora, Cinzel_Decorative } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/react";
@@ -18,10 +18,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const comic = Comic_Neue({
-  variable: "--font-comic",
+const lora = Lora({
+  variable: "--font-lora",
   subsets: ["latin"],
-  weight: ["300", "400", "700"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const cinzel = Cinzel_Decorative({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["400", "700", "900"],
 });
 
 export const metadata: Metadata = {
@@ -68,7 +74,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${comic.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${lora.variable} ${cinzel.variable} antialiased`}
       >
         <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark">
           <SplashScreen />

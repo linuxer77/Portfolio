@@ -11,26 +11,26 @@ type Props = {
 export default function Section({ id, title, subtitle, children }: Props) {
   const hasTitle = Boolean(title && title.trim().length > 0);
   return (
-    <section id={id} className="scroll-mt-24">
+    <section id={id} className="scroll-mt-24 relative">
       {hasTitle && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.5 }}
-          className="mb-6"
+          className="mb-4"
         >
-          <h2 className="underline-accent inline-block text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+          <h2 className="h-comic inline-block text-2xl sm:text-3xl font-normal text-white tracking-wide">
             {title}
           </h2>
           {subtitle && (
-            <p className="text-sm sm:text-base mt-2 max-w-2xl bg-clip-text text-transparent bg-gradient-to-r from-zinc-300 to-zinc-400/80">
+            <p className="text-sm sm:text-base mt-2 max-w-2xl text-zinc-300/90">
               {subtitle}
             </p>
           )}
         </motion.div>
       )}
-      <div className="space-y-4">{children}</div>
+      <div className="">{children}</div>
     </section>
   );
 }

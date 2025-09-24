@@ -1,13 +1,121 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0712; /* purple-ish black */
-  --foreground: #eaeaea;
-  --font-sans: var(--font-comic);
+  --background: radial-gradient(
+    1200px 800px at 50% 10%,
+    #2a103a 0%,
+    #14081e 45%,
+    #0a0612 100%
+  );
+  --foreground: #efe7ff;
+  --font-sans: var(--font-lora);
+  --font-display: var(--font-display);
   --font-mono: var(--font-geist-mono);
-  --dot-color: rgba(168, 85, 247, 0.16); /* violet-tinted dots */
-  --accent: #7c3aed; /* violet-600 */
-  --accent-soft: #a78bfa; /* violet-300 */
+  --accent: #e3b341; /* heroic gold */
+  --accent-2: #a78bfa; /* violet */
+}
+
+/* Background */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Georgia, serif;
+}
+
+/* Grain overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: url("/paper-noise.png");
+  background-size: 700px 700px;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  z-index: -1;
+}
+
+/* Display headings */
+.h-display {
+  font-family: var(--font-display), "Cinzel", serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Ornate underline */
+.underline-ornate {
+  position: relative;
+}
+.underline-ornate::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -8px;
+  height: 3px;
+  width: 80px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+}
+
+/* Heroic buttons */
+.btn-hero {
+  background: linear-gradient(135deg, var(--accent), #ffd973);
+  color: #2a103a;
+  border: 1px solid rgba(255, 217, 115, 0.5);
+  box-shadow: 0 6px 0 rgba(227, 179, 65, 0.35);
+}
+.btn-hero:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+.btn-hero:active {
+  transform: translateY(0);
+}
+
+.btn-ghost-dark {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Cards */
+.card-fantasy {
+  background: linear-gradient(
+    135deg,
+    rgba(26, 14, 36, 0.85),
+    rgba(14, 8, 22, 0.85)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Vintage paper texture backdrop (subtle) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("/paper-noise.png");
+  background-size: 600px 600px;
+  opacity: 0.08;
+  mix-blend-mode: overlay;
+  z-index: -1;
+}
+
+/* Big comic display headings */
+.h-comic {
+  font-family: var(--font-display), Impact, "Bebas Neue", system-ui, sans-serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Framed panel border inspired by art deco */
+.panel-framed {
+  background: color-mix(in lch, var(--background) 70%, white 6%);
+  border: 3px solid rgba(236, 233, 245, 0.22);
+  border-radius: 18px;
+  box-shadow: 0 0 0 6px rgba(236, 233, 245, 0.06) inset,
+    6px 6px 0 rgba(0, 0, 0, 0.6);
 }
 
 @media (prefers-color-scheme: light) {
@@ -40,15 +148,16 @@ body {
   /* Removed colorful radial gradient glows */
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), "Comic Neue", "Comic Sans MS", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: var(--font-sans), "Comic Neue", "Comic Sans MS", system-ui,
+    -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
 /* Comic-style panels */
 .panel-comic {
   background: color-mix(in lch, var(--background) 65%, white 8%);
-  border: 2px solid rgba(255,255,255,0.12);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 18px;
-  box-shadow: 4px 4px 0 rgba(0,0,0,0.6);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6);
 }
 
 /* Halftone overlay utility */
@@ -278,11 +387,13 @@ body {
   top: 100%;
   border: 10px solid transparent;
 }
-.speech-bubble::before { /* outline */
+.speech-bubble::before {
+  /* outline */
   margin-top: 2px;
   border-top-color: rgba(0, 0, 0, 0.6);
 }
-.speech-bubble::after { /* fill */
+.speech-bubble::after {
+  /* fill */
   border-top-color: rgba(124, 58, 237, 0.12);
   margin-top: 0px;
 }
@@ -297,6 +408,21 @@ body {
   top: -18px;
   opacity: 0.35;
   pointer-events: none;
+}
+
+/* Starburst badge */
+.starburst {
+  --c: rgba(255, 255, 255, 0.14);
+  background: conic-gradient(
+      from 0deg,
+      transparent 0 10deg,
+      var(--c) 10deg 20deg
+    )
+    50%/100% 100% no-repeat;
+  -webkit-mask: radial-gradient(circle, transparent 32px, #000 32px);
+  mask: radial-gradient(circle, transparent 32px, #000 32px);
+  border-radius: 50%;
+  filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, 0.6));
 }
 
 /* Comic card utility (thicker border + offset shadow) */
@@ -316,4 +442,84 @@ body {
   color: #fff;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* Gaming style navbar */
+.nav-pixel {
+  background: rgba(20, 17, 26, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.nav-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  width: 100%;
+  border-radius: 14px;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.nav-btn:hover {
+  transform: translateY(-1px);
+}
+.nav-indicator {
+  position: absolute;
+  inset: 4px;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(124, 58, 237, 0.35),
+    rgba(167, 139, 250, 0.35)
+  );
+  box-shadow: inset 0 0 0 2px rgba(167, 139, 250, 0.35),
+    0 6px 18px rgba(124, 58, 237, 0.25);
+}
+.nav-tip {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+  background: rgba(20, 17, 26, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+li:hover > .nav-tip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(2px);
+}
+
+/* Purple comic background */
+.bg-comic-purple::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  /* Stack: tint gradient on top of photo; SVG fallback last */
+  background-image: radial-gradient(
+      1200px 800px at 50% 20%,
+      rgba(124, 58, 237, 0.35),
+      rgba(10, 6, 18, 0.85)
+    ),
+    url("/images/3d-mountain-landscape-sunset.jpg"),
+    url("/images/bg-comic-purple.svg");
+  background-position: center, center, center;
+  background-size: cover, cover, cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  opacity: 0.95;
+}
+
+/* Parallax adjustments for comic background */
+.bg-parallax::before {
+  transform: translate3d(var(--bgx, 0), var(--bgy, 0), 0) scale(1.02);
+  transition: transform 0.08s linear;
 }

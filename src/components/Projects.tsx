@@ -33,7 +33,7 @@ export function ProjectsGrid({
           viewport={{ once: true }}
           transition={{ duration: 0.4, delay: i * 0.05 }}
           key={p.title}
-          className="group relative rounded-3xl overflow-hidden border border-white/10 backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,.35)] bg-[linear-gradient(135deg,rgba(14,14,18,.9),rgba(20,20,26,.82))] transition-transform duration-500 will-change-transform hover:scale-[1.01] hover:-rotate-[0.35deg] sheen-hover glass-bevel cursor-pointer card-violet-hover"
+          className="group relative overflow-hidden comic-card transition-transform duration-500 will-change-transform hover:scale-[1.01] sheen-hover cursor-pointer"
         >
           {/* Full-card clickable overlay: prefer demo, fallback to repo */}
           {(p.demo || p.repo) && (
@@ -46,7 +46,7 @@ export function ProjectsGrid({
             />
           )}
 
-          <div className="relative aspect-[16/9] overflow-hidden">
+          <div className="relative aspect-[16/9] overflow-hidden rounded-t-[18px]">
             <Image
               src={p.image}
               alt={p.title}
@@ -54,16 +54,16 @@ export function ProjectsGrid({
               className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-transparent" />
-            <div className="absolute inset-0 pointer-events-none ring-0 ring-violet-500/0 transition-[ring,opacity] duration-500 group-hover:ring-4 group-hover:ring-violet-500/20 opacity-0 group-hover:opacity-100" />
           </div>
-          <div className="p-5 sm:p-6">
-            <h3 className="text-lg font-semibold text-white tracking-tight">
+          <div className="relative p-5 sm:p-6">
+            <div className="halftone absolute inset-0 text-violet-300/60 rounded-b-[18px]" />
+            <h3 className="text-lg font-semibold text-white tracking-tight relative">
               {p.title}
             </h3>
-            <p className="text-sm text-zinc-300/90 mt-1 line-clamp-2">
+            <p className="text-sm text-zinc-300/90 mt-1 line-clamp-2 relative">
               {p.description}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2 relative">
               {p.tech.map((t) => (
                 <span
                   key={t}
@@ -72,19 +72,6 @@ export function ProjectsGrid({
                   {t}
                 </span>
               ))}
-            </div>
-            {/* Keep Live link for clarity; remove Code link */}
-            <div className="mt-4 flex gap-3">
-              {p.demo && (
-                <a
-                  href={p.demo}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm inline-flex items-center gap-2 link-accent"
-                >
-                  <FaExternalLinkAlt /> Live
-                </a>
-              )}
             </div>
           </div>
         </motion.article>
