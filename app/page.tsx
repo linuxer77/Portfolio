@@ -45,7 +45,9 @@ export default function HomePage() {
               activeId={active}
               onSelect={setActive}
             />
-            <ContentWindow component={activeComponent ?? (AboutContent as any)} />
+            <ContentWindow
+              component={activeComponent ?? (AboutContent as any)}
+            />
           </div>
         </div>
       )}
