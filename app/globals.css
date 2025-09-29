@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Purple-dark centric palette */
+  --bg: #0f0a1f; /* deep purple black */
+  --panel: #1a132b; /* general panel */
+  --panel-sidebar: #1a132b; /* sidebar surface (lighter than editor) */
+  --panel-editor: #0b0716; /* editor surface (darker to highlight main window) */
+  --ring: #2a2340; /* purple-tinted border */
+  --muted: #a89cc0; /* muted text with purple hue */
+  --accent: #a78bfa; /* primary accent (folders, headings) */
+  --accent2: #c084fc; /* links / secondary accent */
+  --accent3: #22d3ee; /* tertiary (info/success-ish) */
+  /* List/UI highlights with purple tint */
+  --list-hover-bg: rgba(167, 139, 250, 0.1);
+  --list-active-bg: rgba(167, 139, 250, 0.18);
+  --font-press-start: "Press Start 2P", monospace;
+  --font-pixel: "VT323", monospace;
+}
+
+html,
+body,
+#__next {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: #eae9e6;
+  font-family: var(--font-pixel);
+  font-size: 1.025rem; /* subtle overall bump */
+}
+
+.retro-heading {
+  /* kept for backward-compat; no longer used for new headings */
+  font-family: var(--font-pixel);
+  letter-spacing: 0.01em;
+}
+
+h1,
+h2,
+h3,
+h4,
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  font-family: var(--font-pixel);
+  font-weight: 900;
+}
+
+/* Size up headings to look more like proper titles */
+.prose h1 {
+  font-size: clamp(1.875rem, 1.4rem + 1.8vw, 2.5rem);
+}
+.prose h2 {
+  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+}
+.prose h3 {
+  font-size: clamp(1.25rem, 1.05rem + 0.9vw, 1.5rem);
+}
+.prose h4 {
+  font-size: clamp(1.125rem, 1rem + 0.6vw, 1.25rem);
+}
+
+.scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 9999px;
+}
+
+/* Ensure Tailwind Typography uses the monospaced font */
+.prose {
+  font-family: var(--font-pixel);
+}
+
+/* Make description paragraphs across content larger and bolder */
+.prose p {
+  font-weight: 800;
+  font-size: clamp(1.0625rem, 1rem + 0.6vw, 1.25rem);
+  line-height: 1.6;
+}
+
+.prose ul li,
+.prose ol li {
+  font-weight: 700;
+  font-size: clamp(1.0625rem, 1rem + 0.6vw, 1.25rem);
+  line-height: 1.6;
+}
+
+/* Opt-out helper for small meta text inside prose */
+.prose .desc-meta {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
