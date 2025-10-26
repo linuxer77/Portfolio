@@ -1,6 +1,6 @@
 # Harshit Gupta — Portfolio (Next.js + Tailwind)
 
-This is a file-explorer style portfolio inspired by Sharath's site, implemented with Next.js App Router and Tailwind CSS.
+This is a file-explorer style portfolio inspired by Sharath's site (https://sharaths-files.vercel.app/), implemented with Next.js App Router and Tailwind CSS.
 
 ## Scripts
 
