@@ -13,6 +13,7 @@ import AboutContent from "@/components/content/AboutContent";
 import AboutDetails from "@/components/content/AboutDetails";
 import ProjectAlgoTrading from "@/components/content/ProjectAlgoTrading";
 import ProjectVeriCred from "@/components/content/ProjectVeriCred";
+import ProjectChessSteganography from "@/components/content/ProjectChessSteganography";
 import ConnectLinks from "@/components/content/ConnectLinks";
 import TechLanguages from "@/components/content/TechLanguages";
 import TechFrameworks from "@/components/content/TechFrameworks";
@@ -65,6 +66,19 @@ export const fileTree: TreeItem[] = [
                 name: "vericred.jsx",
                 type: "file",
                 component: ProjectVeriCred,
+              },
+            ],
+          },
+          {
+            id: "projects-other",
+            name: "other projects",
+            type: "folder",
+            children: [
+              {
+                id: "project-chess-steganography",
+                name: "chess-steganography.jsx",
+                type: "file",
+                component: ProjectChessSteganography,
               },
             ],
           },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, ReactNode } from "react";
 import {
   AboutPanel,
   HighlightsPanel,
@@ -18,7 +18,7 @@ export interface TreeNode {
   label: string;
   type: NodeType;
   children?: TreeNode[];
-  panel?: React.ReactNode;
+  panel?: ReactNode;
 }
 
 const tree: TreeNode[] = [
@@ -135,7 +135,7 @@ export default function FileExplorer() {
   const [active, setActive] = useState<string>("about-details");
 
   const activePanel = useMemo(() => {
-    const walk = (nodes: TreeNode[]): React.ReactNode | null => {
+    const walk = (nodes: TreeNode[]): ReactNode | null => {
       for (const n of nodes) {
         if (n.id === active) return n.panel ?? null;
         if (n.children) {
