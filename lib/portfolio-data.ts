@@ -18,6 +18,9 @@ import ConnectLinks from "@/components/content/ConnectLinks";
 import TechLanguages from "@/components/content/TechLanguages";
 import TechFrameworks from "@/components/content/TechFrameworks";
 import TechTechnologies from "@/components/content/TechTechnologies";
+import ExperienceLog from "@/components/content/ExperienceLog";
+import ProjectOverwatch from "@/components/content/ProjectOverwatch";
+import { EducationFile, CertificationFile } from "@/components/content/Credentials";
 
 export const fileTree: TreeItem[] = [
   {
@@ -31,18 +34,43 @@ export const fileTree: TreeItem[] = [
         type: "folder",
         children: [
           {
+            id: "about-home",
+            name: "welcome.md",
+            type: "file",
+            component: AboutContent,
+          },
+          {
             id: "about-details",
-            name: "details.jsx",
+            name: "profile.md",
             type: "file",
             component: AboutDetails,
           },
         ],
       },
       {
+        id: "experience",
+        name: "experience",
+        type: "folder",
+        children: [{ id: "experience-log", name: "experience.md", type: "file", component: ExperienceLog }],
+      },
+      {
         id: "projects",
         name: "projects",
         type: "folder",
         children: [
+          {
+            id: "projects-extensions",
+            name: "extensions",
+            type: "folder",
+            children: [
+              {
+                id: "project-overwatch",
+                name: "overwatch-ai.jsx",
+                type: "file",
+                component: ProjectOverwatch,
+              },
+            ],
+          },
           {
             id: "projects-trading",
             name: "trading",
@@ -82,6 +110,15 @@ export const fileTree: TreeItem[] = [
               },
             ],
           },
+        ],
+      },
+      {
+        id: "credentials",
+        name: "credentials",
+        type: "folder",
+        children: [
+          { id: "education", name: "education.md", type: "file", component: EducationFile },
+          { id: "certification", name: "oci-certificate.md", type: "file", component: CertificationFile },
         ],
       },
       {

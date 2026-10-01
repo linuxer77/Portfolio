@@ -1,21 +1,21 @@
+import Image from "next/image";
 import { TypeAnimation } from "react-type-animation";
 
 export default function AboutContent() {
   return (
-    <div className="prose prose-invert max-w-none">
-      <div className="flex h-full min-h-[360px] w-full items-center justify-center text-center">
-        <div>
-          <h3 className="text-accent font-retroSans font-extrabold text-5xl md:text-6xl mb-3">
-            Welcome
-          </h3>
+    <article className="document welcome-document">
+      <div className="welcome-copy">
+        <span className="doc-kicker">BACKEND DEVELOPER</span>
+        <h1>Harshit<br /><em>Gupta.</em></h1>
+        <div className="typed-line">
           <TypeAnimation
-            sequence={["Hi there! I'm harshit...", 1200]}
-            wrapper="p"
-            speed={60}
-            className="text-muted font-extrabold text-4xl md:text-5xl font-retroSans"
+            sequence={["Backend developer.", 1300, "Systems builder.", 1300, "Go + Python engineer.", 1300]}
+            wrapper="span" speed={55} repeat={Infinity}
           />
         </div>
+        <p>Computer Science Engineering student working primarily with Go and Python across backend systems, payments, infrastructure, and security.</p>
       </div>
-    </div>
+      <div className="welcome-art"><div className="mini-sun" /><Image src="/samurai-engineer-pixel.png" alt="Cyber samurai" fill priority sizes="400px" /></div>
+    </article>
   );
 }

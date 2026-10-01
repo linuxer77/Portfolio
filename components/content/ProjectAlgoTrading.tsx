@@ -34,12 +34,13 @@ export default function ProjectAlgoTrading() {
         </Link>
       </p>
 
-      <p>
-        Built a CoinDCX trading system generating ≈₹10,000 monthly profit, using
-        a Go bot to track 400+ tokens with real-time alerts via Pushover, fully
-        controllable through Telegram Bot, deployed on AWS EC2 for 24/7
-        reliability.{" "}
-      </p>
+      <p>Built a Go market scanner using a worker-pool pattern to monitor 400+ crypto tickers in real time, generating ₹10,000–15,000 monthly profit.</p>
+      <ul>
+        <li>Used mutex locking to prevent race conditions across parallel market data streams.</li>
+        <li>Containerized with Docker and deployed on Azure for reliable 24/7 uptime.</li>
+        <li>Added real-time buy/sell alerts via Telegram and Pushover APIs.</li>
+      </ul>
+      <div className="doc-tags"><span>Go</span><span>Python</span><span>Azure</span><span>Docker</span><span>Telegram API</span><span>Pushover</span></div>
     </div>
   );
 }

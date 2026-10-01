@@ -1,56 +1,76 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
+import { motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
+import { FaGithub, FaLinkedinIn, FaEnvelope, FaFilePdf, FaTerminal } from "react-icons/fa6";
 import Sidebar from "@/components/ui/Sidebar";
 import ContentWindow from "@/components/ui/ContentWindow";
-import { fileTree, type TreeItem } from "@/lib/portfolio-data";
 import Splash from "@/components/ui/Splash";
-import AboutContent from "@/components/content/AboutContent";
+import { fileTree, type TreeItem } from "@/lib/portfolio-data";
+
+function findItem(items: TreeItem[], id: string): TreeItem | null {
+  for (const item of items) {
+    if (item.id === id) return item;
+    if (item.children) { const match = findItem(item.children, id); if (match) return match; }
+  }
+  return null;
+}
+function findPath(items: TreeItem[], id: string, path: string[] = []): string[] {
+  for (const item of items) {
+    const next = [...path, item.name];
+    if (item.id === id) return next;
+    if (item.children) { const match = findPath(item.children, id, next); if (match.length) return match; }
+  }
+  return [];
+}
 
 export default function HomePage() {
   const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setReady(true), 1000);
-    return () => clearTimeout(t);
-  }, []);
+  const [active, setActive] = useState("about-home");
+  const [open, setOpen] = useState<Record<string, boolean>>({ portfolio: true, about: true, experience: true, projects: true, "projects-extensions": true });
+  const reduceMotion = useReducedMotion();
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const samuraiX = useSpring(mouseX, { stiffness: 45, damping: 18 });
+  const samuraiY = useSpring(mouseY, { stiffness: 45, damping: 18 });
 
-  // Start with all folders collapsed; clicking toggles them open
-  const [open, setOpen] = useState<Record<string, boolean>>({});
-  const [active, setActive] = useState<string | null>(null);
+  useEffect(() => { const timer = setTimeout(() => setReady(true), 3200); return () => clearTimeout(timer); }, []);
+  const activeItem = useMemo(() => findItem(fileTree, active), [active]);
+  const activePath = useMemo(() => findPath(fileTree, active), [active]);
+  const ActiveComponent = activeItem?.component ?? null;
 
-  const activeComponent = useMemo(() => {
-    const walk = (items: TreeItem[]): any => {
-      for (const it of items) {
-        if (it.id === active) return it.component ?? null;
-        if (it.children) {
-          const r = walk(it.children);
-          if (r) return r;
-        }
-      }
-      return null;
-    };
-    return walk(fileTree);
-  }, [active]);
+  const handlePointer = (event: React.PointerEvent<HTMLElement>) => {
+    if (reduceMotion) return;
+    mouseX.set((event.clientX / window.innerWidth - 0.5) * 18);
+    mouseY.set((event.clientY / window.innerHeight - 0.5) * 12);
+  };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6 md:p-10 overflow-auto">
-      {!ready ? (
-        <Splash />
-      ) : (
-        <div className="w-full max-w-[1200px] animate-fade-in scale-[3.2] origin-top-left">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-[240px,1fr] h-[600px] overflow-auto rounded-3xl ring-4 ring-ring/80 p-2 bg-panel/40 shadow-2xl">
-            <Sidebar
-              items={fileTree}
-              open={open}
-              onToggle={(id) => setOpen((s) => ({ ...s, [id]: !s[id] }))}
-              activeId={active}
-              onSelect={setActive}
-            />
-            <ContentWindow
-              component={activeComponent ?? (AboutContent as any)}
-            />
+    <main className="archive-world" onPointerMove={handlePointer}>
+      {!ready && <Splash />}
+      <div className="world-sun" aria-hidden="true" />
+      <div className="ink-cloud cloud-one" aria-hidden="true" />
+      <div className="ink-cloud cloud-two" aria-hidden="true" />
+      <div className="world-mountains" aria-hidden="true"><i /><i /><i /></div>
+      <motion.img className="world-samurai" src="/samurai-engineer-pixel.png" alt="" aria-hidden="true" style={{ x: samuraiX, y: samuraiY }} />
+
+      <section className="archive-shell">
+        <header className="archive-titlebar">
+          <div className="window-dots" aria-hidden="true"><span /><span /><span /></div>
+          <div className="archive-brand"><strong>HARSHIT GUPTA</strong></div>
+          <div className="archive-actions">
+            <a href="https://github.com/linuxer77" target="_blank" rel="noreferrer" aria-label="GitHub"><FaGithub /></a>
+            <a href="https://www.linkedin.com/in/harshit-gupta-046b66278/" target="_blank" rel="noreferrer" aria-label="LinkedIn"><FaLinkedinIn /></a>
+            <a href="mailto:harshitgit23@gmail.com" aria-label="Email"><FaEnvelope /></a>
+            <a href="/resume.pdf" target="_blank" aria-label="Résumé"><FaFilePdf /></a>
           </div>
+        </header>
+        <div className="archive-toolbar"><div className="breadcrumb"><FaTerminal /> {activePath.join(" / ")}</div></div>
+        <div className="archive-grid">
+          <Sidebar items={fileTree} open={open} onToggle={(id) => setOpen((state) => ({ ...state, [id]: !state[id] }))} activeId={active} onSelect={setActive} />
+          <ContentWindow component={ActiveComponent} fileName={activeItem?.name ?? "welcome.md"} />
         </div>
-      )}
+      </section>
     </main>
   );
 }

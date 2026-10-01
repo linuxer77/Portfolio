@@ -21,16 +21,11 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Press+Start+2P:wght@400&family=VT323:wght@400&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@600;700;800;900&family=Press+Start+2P&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body
-        className={`min-h-screen bg-bg antialiased text-[18px] md:text-[20px]`}
-      >
-        <div className="pointer-events-none fixed inset-0 opacity-30 [background:radial-gradient(800px_400px_at_70%_20%,#ffffff10,transparent),radial-gradient(600px_300px_at_10%_90%,#2a9d8f10,transparent)]" />
-        <div className="relative">{children}</div>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

@@ -13,16 +13,15 @@ const config: Config = {
         retroSans: ["var(--font-pixel)", "system-ui", "sans-serif"],
       },
       colors: {
-        // Purple-dark palette
-        bg: "#0f0a1f",
-        panel: "#1a132b",
-        panelSidebar: "#1a132b",
-        panelEditor: "#0b0716",
-        ring: "#2a2340",
-        muted: "#a89cc0",
-        accent: "#a78bfa", // folder/title purple
-        accent2: "#c084fc", // link-hover purple
-        accent3: "#22d3ee", // cyan accent
+        bg: "#f3e5c8",
+        panel: "#fbf4e2",
+        panelSidebar: "#ead3a8",
+        panelEditor: "#fbf4e2",
+        ring: "#221d1a",
+        muted: "#7e684e",
+        accent: "#d9251b",
+        accent2: "#2f3f73",
+        accent3: "#a4671c",
       },
       boxShadow: {
         glass: "0 12px 40px rgba(0,0,0,0.35)",

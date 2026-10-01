@@ -8,6 +8,10 @@ import {
   SiRemix,
   SiIpfs,
   SiJsonwebtokens,
+  SiPostgresql,
+  SiMysql,
+  SiSqlite,
+  SiRedis,
 } from "react-icons/si";
 import { IoCloudOutline } from "react-icons/io5";
 
@@ -18,6 +22,11 @@ const items = [
   { label: "VS Code", Icon: SiVisualstudiocode },
   { label: "Docker", Icon: SiDocker },
   { label: "AWS", Icon: SiAmazon },
+  { label: "OCI", Icon: IoCloudOutline },
+  { label: "PostgreSQL", Icon: SiPostgresql },
+  { label: "MySQL", Icon: SiMysql },
+  { label: "SQLite", Icon: SiSqlite },
+  { label: "Redis", Icon: SiRedis },
   { label: "Remix IDE", Icon: SiRemix },
   { label: "REST APIs", Icon: SiJsonwebtokens },
   { label: "IPFS", Icon: SiIpfs },

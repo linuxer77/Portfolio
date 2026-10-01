@@ -45,6 +45,12 @@ export default function ProjectVeriCred() {
         A secure web portal streamlines the full flow from issuer onboarding to
         credential creation and verification.
       </p>
+      <ul>
+        <li>Built as an EVM-compatible dApp issuing academic credentials as ERC-721 NFTs.</li>
+        <li>Developed Go middleware using go-ethereum for on-chain minting and verification.</li>
+        <li>Used IPFS content addressing for tamper-resistant, permanently accessible records.</li>
+      </ul>
+      <div className="doc-tags"><span>Go</span><span>Solidity</span><span>React</span><span>IPFS</span><span>Go-eth</span></div>
     </div>
   );
 }

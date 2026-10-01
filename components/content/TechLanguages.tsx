@@ -1,9 +1,9 @@
-import { SiPython, SiGo, SiHtml5, SiSolidity } from "react-icons/si";
+import { SiPython, SiGo, SiJavascript, SiSolidity } from "react-icons/si";
 
 const items = [
   { label: "Python", Icon: SiPython },
   { label: "Golang", Icon: SiGo },
-  { label: "HTML/CSS", Icon: SiHtml5 },
+  { label: "JavaScript", Icon: SiJavascript },
   { label: "Solidity", Icon: SiSolidity },
 ];
 

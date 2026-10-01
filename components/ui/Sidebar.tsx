@@ -15,10 +15,7 @@ export default function Sidebar({
   onSelect: (id: string) => void;
 }) {
   return (
-    <aside className="rounded-xl bg-panelSidebar/80 p-4 shadow-glass ring-2 ring-ring/70 h-full overflow-y-auto overflow-x-hidden scrollbar">
-      <h2 className="mb-3 font-retroSans text-2xl md:text-3xl font-extrabold text-accent">
-        Explorer
-      </h2>
+    <aside className="archive-sidebar scrollbar">
       <FileTree
         items={items}
         open={open}
