@@ -54,9 +54,10 @@
 .blade-flash:before{content:"";position:absolute;left:0;right:0;top:11px;height:12px;background:linear-gradient(180deg,var(--paper-light) 0 38%,#fff 39% 61%,var(--paper-light) 62% 100%);clip-path:polygon(0 50%,2.2% 5%,48% 22%,50% 0,52% 22%,97.8% 5%,100% 50%,97.8% 95%,52% 78%,50% 100%,48% 78%,2.2% 95%);filter:drop-shadow(0 0 3px #fff) drop-shadow(0 0 7px rgba(255,255,255,.8))}
 .blade-flash:after{content:"";position:absolute;left:3%;top:5px;width:94%;height:2px;background:repeating-linear-gradient(90deg,transparent 0 3%,#fff 3.1% 12%,transparent 12.1% 16%,#fff 16.1% 31%,transparent 31.1% 35%,#fff 35.1% 68%,transparent 68.1% 72%,#fff 72.1% 91%,transparent 91.1% 100%);clip-path:polygon(0 50%,3% 0,97% 0,100% 50%,97% 100%,3% 100%);filter:drop-shadow(0 0 2px #fff)}
 .impact-white-frame{position:absolute;z-index:8;inset:0;background:#fff;pointer-events:none}
-.blood-origin{position:absolute;z-index:9;left:var(--cut-x);top:var(--cut-y);width:1px;height:1px}.blood-origin i{position:absolute;display:block;border-radius:70% 35% 65% 40%;background:var(--red);box-shadow:2px 2px 0 rgba(0,0,0,.25)}
-.blood-origin .blood-shard{border-radius:12% 70% 18% 65%;clip-path:polygon(50% 0,100% 34%,72% 100%,8% 78%,0 26%)}
-.blood-flood{position:absolute;z-index:10;left:var(--cut-x);top:var(--cut-y);width:90px;height:90px;margin:-45px;border-radius:50%;background:var(--red);transform-origin:center}
+.blood-splash-origin{position:absolute;z-index:10;left:var(--cut-x);top:var(--cut-y);width:1px;height:1px;perspective:900px;pointer-events:none}
+.blood-splash-cinematic{position:absolute;left:0;top:0;width:min(1050px,92vmax);aspect-ratio:1;transform-style:preserve-3d;filter:saturate(1.08) contrast(1.06);will-change:transform,opacity,filter}
+.blood-splash-cinematic img{object-fit:contain}
+.blood-flood{position:absolute;z-index:8;left:var(--cut-x);top:var(--cut-y);width:90px;height:90px;margin:-45px;border-radius:50%;background:var(--red);transform-origin:center}
 .impact-flash{position:absolute;z-index:9;left:72%;top:51%;width:110px;height:110px;margin:-55px;border:5px solid var(--paper-light);border-radius:50%;box-shadow:0 0 30px var(--paper-light)}
 .archive-world:after{content:"";position:absolute;z-index:4;inset:0;pointer-events:none;opacity:.055;background-image:repeating-linear-gradient(0deg,var(--ink) 0 1px,transparent 1px 4px)}
 .world-samurai,.welcome-art img,.cinematic-samurai img{image-rendering:pixelated}

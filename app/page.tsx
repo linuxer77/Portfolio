@@ -34,7 +34,7 @@ export default function HomePage() {
   const samuraiX = useSpring(mouseX, { stiffness: 45, damping: 18 });
   const samuraiY = useSpring(mouseY, { stiffness: 45, damping: 18 });
 
-  useEffect(() => { const timer = setTimeout(() => setReady(true), 3200); return () => clearTimeout(timer); }, []);
+  useEffect(() => { const timer = setTimeout(() => setReady(true), 5900); return () => clearTimeout(timer); }, []);
   const activeItem = useMemo(() => findItem(fileTree, active), [active]);
   const activePath = useMemo(() => findPath(fileTree, active), [active]);
   const ActiveComponent = activeItem?.component ?? null;
