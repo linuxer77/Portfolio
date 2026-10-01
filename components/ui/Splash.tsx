@@ -9,6 +9,13 @@ const slashes = [
   { angle: -48, delay: 1.6, origin: "left center" },
 ];
 
+const logoFragments = [
+  { clipPath: "polygon(0 0, 100% 0, 50% 50%)", x: 12, y: -125, rotate: -18 },
+  { clipPath: "polygon(100% 0, 100% 100%, 50% 50%)", x: 135, y: 8, rotate: 26 },
+  { clipPath: "polygon(100% 100%, 0 100%, 50% 50%)", x: -6, y: 135, rotate: 18 },
+  { clipPath: "polygon(0 100%, 0 0, 50% 50%)", x: -130, y: -4, rotate: -30 },
+];
+
 export default function Splash() {
   const reduce = useReducedMotion();
   const fast = reduce ? 0.01 : undefined;
@@ -30,6 +37,16 @@ export default function Splash() {
         <motion.div className="target-intact java-intact" initial={{ opacity: 1 }} animate={{ opacity: [1, 1, 0] }} transition={{ duration: fast ?? 2.14, times: [0, 0.98, 0.99] }}>
           <Image src="/java-logo.png" alt="" fill priority sizes="170px" />
         </motion.div>
+        {logoFragments.map((fragment, index) => (
+          <motion.i
+            className="target-fragment"
+            key={fragment.clipPath}
+            style={{ clipPath: fragment.clipPath }}
+            initial={{ opacity: 0, x: 0, y: 0, rotate: 0 }}
+            animate={{ opacity: [0, 0, 1, 1], x: [0, 0, 0, fragment.x], y: [0, 0, 0, fragment.y], rotate: [0, 0, 0, fragment.rotate] }}
+            transition={{ duration: fast ?? 3, times: [0, 0.69, 0.7, 1], ease: "easeOut" }}
+          />
+        ))}
       </div>
 
       {slashes.map((slash, index) => (
