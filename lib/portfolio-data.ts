@@ -44,7 +44,7 @@ export const personalData = {
   linkedin: "https://www.linkedin.com/in/harshit-gupta-046b66278/",
   twitter: "https://x.com/linuxer771",
   resumePath: "/resume.pdf",
-  bio: "Backend engineer using Python and Go.",
+  bio: "Backend Developer",
 };
 
 export const experiences: Experience[] = [

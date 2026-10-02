@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   authors: [{ name: "Harshit Gupta" }],
   openGraph: {
     title: "Harshit Gupta — Backend Engineer",
-    description: "Backend engineer using Python and Go.",
+    description: "Backend Developer",
     type: "website",
     images: [{ url: "/icon.gif" }],
   },
