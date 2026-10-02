@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { ThemeConfig } from "@/lib/themes";
 
 interface LedCanvasBackgroundProps {
-  isActive: boolean;
+  theme: ThemeConfig;
 }
 
-export default function LedCanvasBackground({ isActive }: LedCanvasBackgroundProps) {
+export default function LedCanvasBackground({ theme }: LedCanvasBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
   useEffect(() => {
-    if (!isActive) return;
-
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -24,16 +25,6 @@ export default function LedCanvasBackground({ isActive }: LedCanvasBackgroundPro
     const CELL_MOBILE = 13;
     const LEVELS = 5;
     const HUE_STEPS = 16;
-    const BG = [7, 3, 15];
-    const PALETTE = [
-      [25, 232, 224],
-      [42, 70, 240],
-      [118, 44, 240],
-      [240, 28, 192],
-      [255, 47, 85],
-      [255, 138, 26],
-      [255, 220, 30],
-    ];
 
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
     const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -42,18 +33,14 @@ export default function LedCanvasBackground({ isActive }: LedCanvasBackgroundPro
       return t * t * (3 - 2 * t);
     };
 
-    function paletteAt(h: number) {
-      const p = clamp(h, 0, 0.9999) * (PALETTE.length - 1);
+    function paletteAt(h: number, pal: [number, number, number][]) {
+      const p = clamp(h, 0, 0.9999) * (pal.length - 1);
       const i = Math.floor(p);
       const f = p - i;
-      const a = PALETTE[i];
-      const b = PALETTE[i + 1];
+      const a = pal[i];
+      const b = pal[i + 1];
       return [lerp(a[0], b[0], f), lerp(a[1], b[1], f), lerp(a[2], b[2], f)];
     }
-
-    const BAKED = Array.from({ length: HUE_STEPS }, (_, i) =>
-      paletteAt(i / (HUE_STEPS - 1))
-    );
 
     let W = 0,
       H = 0,
@@ -93,6 +80,14 @@ export default function LedCanvasBackground({ isActive }: LedCanvasBackgroundPro
 
     function draw(time: number) {
       if (!ctx) return;
+      const currentTheme = themeRef.current;
+      const BG = currentTheme.bgRGB;
+      const PAL = currentTheme.palette;
+
+      const baked = Array.from({ length: HUE_STEPS }, (_, i) =>
+        paletteAt(i / (HUE_STEPS - 1), PAL)
+      );
+
       const t = time * SPEED;
       ctx.fillStyle = `rgb(${BG[0]},${BG[1]},${BG[2]})`;
       ctx.fillRect(0, 0, W, H);
@@ -114,7 +109,7 @@ export default function LedCanvasBackground({ isActive }: LedCanvasBackgroundPro
           if (d2 < mr * mr) m = Math.min(1, m + (1 - Math.sqrt(d2) / mr) * 0.75);
 
           const lvl = Math.round(m * (LEVELS - 1)) / (LEVELS - 1);
-          const c = BAKED[Math.round(h * (HUE_STEPS - 1))];
+          const c = baked[Math.round(h * (HUE_STEPS - 1))];
           const k = 0.1 + 0.9 * lvl;
           const r = BG[0] + (c[0] - BG[0]) * k;
           const g = BG[1] + (c[1] - BG[1]) * k;
@@ -125,8 +120,9 @@ export default function LedCanvasBackground({ isActive }: LedCanvasBackgroundPro
           ctx.arc(x, y, maxR * (0.72 + 0.28 * lvl), 0, 6.2832);
           ctx.fill();
 
+          // Specular glint on the brightest LEDs
           if (lvl > 0.9) {
-            ctx.fillStyle = "rgba(255,255,255,.28)";
+            ctx.fillStyle = "rgba(255,255,255,.32)";
             ctx.beginPath();
             ctx.arc(x - maxR * 0.28, y - maxR * 0.28, maxR * 0.28, 0, 6.2832);
             ctx.fill();
@@ -169,21 +165,17 @@ export default function LedCanvasBackground({ isActive }: LedCanvasBackgroundPro
       document.removeEventListener("mouseleave", handlePointerLeave);
       cancelAnimationFrame(animId);
     };
-  }, [isActive]);
+  }, []);
 
   return (
-    <div
-      className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-        isActive ? "opacity-100" : "opacity-0 pointer-events-none"
-      }`}
-    >
+    <div className="absolute inset-0">
       <canvas ref={canvasRef} className="w-full h-full block" />
-      {/* Balanced shadow vignette for high text legibility while keeping dots luminous */}
+      {/* Balanced shadow vignette for clean text readability while keeping LED dots luminous */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 85% 75% at 50% 45%, rgba(7,3,15,0.45) 0%, rgba(7,3,15,0.75) 55%, rgba(7,3,15,0.92) 100%)",
+            "radial-gradient(ellipse 85% 75% at 50% 45%, rgba(6,3,14,0.45) 0%, rgba(6,3,14,0.75) 55%, rgba(6,3,14,0.92) 100%)",
         }}
       />
     </div>

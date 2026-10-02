@@ -2,9 +2,6 @@
 
 import { useTheme } from "@/lib/theme-context";
 import LedCanvasBackground from "./LedCanvasBackground";
-import MountainCanvasBackground from "./MountainCanvasBackground";
-import FissureCanvasBackground from "./FissureCanvasBackground";
-import EmberCanvasBackground from "./EmberCanvasBackground";
 
 export default function BackgroundAmbience() {
   const { theme } = useTheme();
@@ -15,7 +12,7 @@ export default function BackgroundAmbience() {
       style={{ backgroundColor: theme.bgBase }}
       aria-hidden="true"
     >
-      {/* 1. Underlying Atmospheric Ambient Glow Blooms */}
+      {/* 1. Underlying Atmospheric Ambient Glow Blooms matching the active flavour */}
       <div className="absolute inset-0">
         {theme.blooms.map((bloom, index) => (
           <div
@@ -36,19 +33,10 @@ export default function BackgroundAmbience() {
         ))}
       </div>
 
-      {/* 2. Interactive Canvas Background 1: LED Dot Matrix (from Backgrounds/led-background(1).html) */}
-      <LedCanvasBackground isActive={theme.id === "led"} />
+      {/* 2. Interactive LED Dot Matrix Canvas (running from led-background(1).html with dynamic flavour palette) */}
+      <LedCanvasBackground theme={theme} />
 
-      {/* 3. Interactive Canvas Background 2: Neon Mountains (from Backgrounds/mountain-background(1).html) */}
-      <MountainCanvasBackground isActive={theme.id === "mountains"} />
-
-      {/* 4. Interactive Canvas Background 3: Neon Laser Fissure (rock with pulsed laser cracks) */}
-      <FissureCanvasBackground isActive={theme.id === "fissure"} />
-
-      {/* 5. Interactive Canvas Background 4: Golden Ember Sunset Cloud (towering mosaic cloud with embers) */}
-      <EmberCanvasBackground isActive={theme.id === "ember"} />
-
-      {/* 6. Center-Column Text Readability Shadow Mask */}
+      {/* 3. Center-Column Text Readability Shadow Mask */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{

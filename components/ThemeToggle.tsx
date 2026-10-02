@@ -77,13 +77,13 @@ export default function ThemeToggle() {
 
       {/* Dropdown Menu (Centered modal on mobile, anchored popover on desktop) */}
       {isOpen && (
-        <div className="fixed left-4 right-4 top-20 max-w-xs mx-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 p-2 rounded-2xl bg-[#08070d]/95 backdrop-blur-2xl border border-white/[0.15] shadow-2xl shadow-black/95 z-50 animate-in fade-in zoom-in-95 duration-150">
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/[0.08] mb-1">
+        <div className="fixed left-4 right-4 top-20 max-h-[75vh] overflow-y-auto max-w-xs mx-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 sm:max-h-[80vh] p-2 rounded-2xl bg-[#08070d]/95 backdrop-blur-2xl border border-white/[0.15] shadow-2xl shadow-black/95 z-50 animate-in fade-in zoom-in-95 duration-150 custom-scrollbar">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/[0.08] mb-1 sticky top-0 bg-[#08070d]/95 backdrop-blur-md z-10">
             <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
-              Select Theme & Vibe
+              Select LED Flavour
             </span>
             <span className="text-[10px] font-mono text-zinc-500">
-              Saved automatically
+              8 Flavours
             </span>
           </div>
 
