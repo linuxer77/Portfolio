@@ -12,19 +12,19 @@ interface ViewModeContextType {
 
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
 
-const STORAGE_KEY = "portfolio-view-variant";
+const STORAGE_KEY = "portfolio-view-variant-v2";
 
 export function ViewModeProvider({ children }: { children: React.ReactNode }) {
-  const [viewMode, setViewModeState] = useState<ViewMode>("flow");
+  const [viewMode, setViewModeState] = useState<ViewMode>("minimal");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as string | null;
-      if (stored === "minimal" || stored === "flow") {
-        setViewModeState(stored as ViewMode);
-      } else {
+      if (stored === "flow") {
         setViewModeState("flow");
+      } else {
+        setViewModeState("minimal");
       }
     } catch {
       // Storage blocked

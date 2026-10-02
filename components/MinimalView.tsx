@@ -187,9 +187,6 @@ export default function MinimalView() {
       <section id="intro" className="border-b border-dotted border-zinc-800 py-12 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="space-y-4 max-w-3xl">
-            <div className="text-[11px] text-zinc-400 uppercase tracking-widest">
-              SYSTEM PROFILE // {personalData.role.toUpperCase()}
-            </div>
             <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-white uppercase">
               {personalData.name}
             </h1>

@@ -7,8 +7,8 @@ export default function ViewModeSwitch() {
   const { viewMode, setViewMode } = useViewMode();
 
   const options: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
-    { id: "flow", label: "Flow", icon: <FaWaveSquare size={11} /> },
     { id: "minimal", label: "Minimal", icon: <FaMinus size={11} /> },
+    { id: "flow", label: "Flow", icon: <FaWaveSquare size={11} /> },
   ];
 
   return (
