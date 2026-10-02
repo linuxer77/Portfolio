@@ -48,8 +48,8 @@ export default function Navbar() {
               className="w-full h-full object-cover"
             />
           </div>
-          <span className="hidden sm:inline font-mono font-semibold text-xs tracking-wider text-zinc-200">
-            {personalData.name}
+          <span className="font-mono font-bold text-xs tracking-wider text-zinc-200">
+            0x6867
           </span>
         </Link>
 

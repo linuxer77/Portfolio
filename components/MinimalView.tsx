@@ -126,9 +126,9 @@ export default function MinimalView() {
           <div className="flex items-center gap-6 sm:gap-8 overflow-x-auto no-scrollbar">
             <button
               onClick={() => scrollTo("intro")}
-              className="text-xs sm:text-sm font-bold tracking-widest uppercase hover:text-zinc-300 transition-colors shrink-0 underline underline-offset-8 decoration-1 decoration-white"
+              className="text-xs sm:text-sm font-bold tracking-widest uppercase hover:text-zinc-300 transition-colors shrink-0 underline underline-offset-8 decoration-1 decoration-white font-mono"
             >
-              {personalData.name.toUpperCase()}
+              0x6867
             </button>
 
             <nav className="hidden md:flex items-center gap-6 text-xs text-zinc-400 tracking-wider uppercase">
@@ -490,9 +490,9 @@ export default function MinimalView() {
       {/* 6. Contact & Footer */}
       <footer id="contact" className="py-12 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-mono text-zinc-400">
-            <div>
-              &copy; {new Date().getFullYear()} {personalData.name.toUpperCase()} &bull; ALL RIGHTS RESERVED
+          <div className="flex flex-wrap items-center justify-between gap-6 text-xs font-mono text-zinc-400">
+            <div className="text-zinc-500 font-mono">
+              0x6867
             </div>
 
             <div className="flex items-center gap-6">
