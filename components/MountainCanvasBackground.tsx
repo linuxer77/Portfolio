@@ -342,23 +342,16 @@ export default function MountainCanvasBackground({
   return (
     <div
       className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-        isActive ? "opacity-65" : "opacity-0 pointer-events-none"
+        isActive ? "opacity-100" : "opacity-0 pointer-events-none"
       }`}
     >
       <canvas ref={canvasRef} className="w-full h-full block" />
-      {/* Deep shadows and vignette overlay ensuring high contrast on text */}
+      {/* Balanced shadow vignette for high text legibility while keeping neon peaks vibrant */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 90% 80% at 50% 45%, rgba(5,2,14,0.45) 0%, rgba(5,2,14,0.85) 65%, #05020e 100%)",
-        }}
-      />
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(to bottom, rgba(5,2,14,0.5) 0%, transparent 25%, rgba(5,2,14,0.75) 80%, #05020e 100%)",
+            "radial-gradient(ellipse 85% 75% at 50% 45%, rgba(7,3,15,0.48) 0%, rgba(7,3,15,0.78) 55%, rgba(7,3,15,0.94) 100%)",
         }}
       />
     </div>

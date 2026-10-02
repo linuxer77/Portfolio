@@ -174,23 +174,16 @@ export default function LedCanvasBackground({ isActive }: LedCanvasBackgroundPro
   return (
     <div
       className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-        isActive ? "opacity-75" : "opacity-0 pointer-events-none"
+        isActive ? "opacity-100" : "opacity-0 pointer-events-none"
       }`}
     >
       <canvas ref={canvasRef} className="w-full h-full block" />
-      {/* Deep shadow overlays so it emerges from the shadows without overpowering text */}
+      {/* Balanced shadow vignette for high text legibility while keeping dots luminous */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 90% 80% at 50% 45%, rgba(5,2,12,0.4) 0%, rgba(5,2,12,0.85) 65%, #05020c 100%)",
-        }}
-      />
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(to bottom, rgba(5,2,12,0.5) 0%, transparent 25%, rgba(5,2,12,0.75) 80%, #05020c 100%)",
+            "radial-gradient(ellipse 85% 75% at 50% 45%, rgba(7,3,15,0.45) 0%, rgba(7,3,15,0.75) 55%, rgba(7,3,15,0.92) 100%)",
         }}
       />
     </div>

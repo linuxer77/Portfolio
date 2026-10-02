@@ -52,7 +52,7 @@ export default function BackgroundAmbience() {
               key={item.id}
               className="absolute inset-0 transition-opacity duration-1000 ease-in-out"
               style={{
-                opacity: isActive ? item.imageOpacity : 0,
+                opacity: isActive ? (item.imageOpacity ?? 0.65) : 0,
               }}
             >
               <Image
@@ -63,25 +63,25 @@ export default function BackgroundAmbience() {
                 sizes="100vw"
                 className="object-cover object-center"
               />
+              {/* Soft single vignette for image contrast */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    "radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(2,2,4,0.7) 100%)",
+                }}
+              />
             </div>
           );
         })}
       </div>
 
-      {/* 4. Deep Shadows & Readability Mask Vignette */}
-      {/* Ensures the background stays in the shadows so portfolio typography remains sharp and legible */}
+      {/* 4. Center-Column Text Readability Shadow Mask */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 90% 80% at 50% 30%, rgba(2,2,4,0.55) 0%, rgba(2,2,4,0.85) 65%, #020204 100%)",
-        }}
-      />
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(to bottom, rgba(2,2,4,0.45) 0%, rgba(2,2,4,0.15) 25%, rgba(2,2,4,0.7) 80%, #020204 100%)",
+            "radial-gradient(ellipse 70% 85% at 50% 35%, rgba(4,2,8,0.52) 0%, rgba(4,2,8,0.2) 60%, transparent 100%)",
         }}
       />
     </div>

@@ -26,6 +26,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.7s ease;
+    text-shadow: 0 1px 12px rgba(0, 0, 0, 0.75);
   }
 
   ::selection {
