@@ -16,48 +16,52 @@ import { FaFilePdf } from "react-icons/fa6";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ==========================================
-// Easter Egg 1: 0x6867 Hex Scramble Decoder
+// Easter Egg 1: 0x6867 Scramble Effect
 // ==========================================
-function HexDecoder() {
-  const stages = ["0x6867", "[01101000 01100111]", "'h' 'g'", "HARSHIT GUPTA"];
-  const [stageIdx, setStageIdx] = useState(0);
-  const [display, setDisplay] = useState(stages[0]);
-  const [animating, setAnimating] = useState(false);
+function HexScrambler({ onScrollToIntro }: { onScrollToIntro: () => void }) {
+  const target = "0x6867";
+  const [display, setDisplay] = useState(target);
+  const animatingRef = useRef(false);
 
-  const handleNext = () => {
-    if (animating) return;
-    setAnimating(true);
-    const nextIdx = (stageIdx + 1) % stages.length;
-    setStageIdx(nextIdx);
-    const target = stages[nextIdx];
+  const triggerScramble = useCallback(() => {
+    if (animatingRef.current) return;
+    animatingRef.current = true;
+    let iteration = 0;
+    const chars = "0123456789abcdefx#";
 
-    let step = 0;
-    const chars = "0101abcdefx#$_[]'\"";
     const interval = setInterval(() => {
-      step++;
-      if (step < 7) {
-        setDisplay(
-          target
-            .split("")
-            .map((c) => (c === " " ? " " : chars[Math.floor(Math.random() * chars.length)]))
-            .join("")
-        );
-      } else {
-        setDisplay(target);
+      setDisplay(
+        target
+          .split("")
+          .map((char, index) => {
+            if (index < iteration) {
+              return target[index];
+            }
+            return chars[Math.floor(Math.random() * chars.length)];
+          })
+          .join("")
+      );
+
+      if (iteration >= target.length) {
         clearInterval(interval);
-        setAnimating(false);
+        setDisplay(target);
+        animatingRef.current = false;
       }
-    }, 40);
-  };
+
+      iteration += 1 / 2;
+    }, 28);
+  }, [target]);
 
   return (
     <button
-      onClick={handleNext}
-      title="Click to decode hex identifier (0x6867 ➔ binary ➔ ASCII ➔ name)"
-      className="group flex items-center gap-1.5 text-xs sm:text-sm font-bold tracking-widest uppercase hover:text-zinc-300 transition-colors shrink-0 underline underline-offset-8 decoration-1 decoration-white font-mono select-none"
+      onClick={() => {
+        triggerScramble();
+        onScrollToIntro();
+      }}
+      onMouseEnter={triggerScramble}
+      className="text-xs sm:text-sm font-bold tracking-widest uppercase hover:text-zinc-300 transition-colors shrink-0 underline underline-offset-8 decoration-1 decoration-white font-mono select-none"
     >
-      <span className="text-zinc-500 text-[10px] group-hover:text-cyan-400 transition-colors">$</span>
-      <span>{display}</span>
+      {display}
     </button>
   );
 }
@@ -488,7 +492,7 @@ export default function MinimalView() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Identity & Nav Links */}
           <div className="flex items-center gap-6 sm:gap-8 overflow-x-auto no-scrollbar">
-            <HexDecoder />
+            <HexScrambler onScrollToIntro={() => scrollTo("intro")} />
 
             <nav className="hidden md:flex items-center gap-6 text-xs text-zinc-400 tracking-wider uppercase">
               <button
