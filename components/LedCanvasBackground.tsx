@@ -170,12 +170,12 @@ export default function LedCanvasBackground({ theme }: LedCanvasBackgroundProps)
   return (
     <div className="absolute inset-0">
       <canvas ref={canvasRef} className="w-full h-full block" />
-      {/* Balanced shadow vignette for clean text readability while keeping LED dots luminous */}
+      {/* Balanced shadow vignette: keeps center vibrant for glass refraction while fading edges gracefully */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 85% 75% at 50% 45%, rgba(6,3,14,0.45) 0%, rgba(6,3,14,0.75) 55%, rgba(6,3,14,0.92) 100%)",
+            "radial-gradient(ellipse 90% 80% at 50% 45%, rgba(6,3,14,0.08) 0%, rgba(6,3,14,0.38) 65%, rgba(6,3,14,0.85) 100%)",
         }}
       />
     </div>

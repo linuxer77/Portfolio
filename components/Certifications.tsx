@@ -13,7 +13,7 @@ export default function Certifications() {
         {certifications.map((cert) => (
           <div
             key={cert.title}
-            className="p-6 sm:p-7 rounded-2xl bg-[#090812]/60 backdrop-blur-xl border border-white/[0.1] hover:border-white/[0.2] transition-all duration-300 shadow-xl shadow-black/40 space-y-2 group"
+            className="glass-card p-6 sm:p-8 space-y-2 group"
           >
             <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
               <div className="flex items-center gap-2">
@@ -46,7 +46,7 @@ export default function Certifications() {
         ))}
 
         {/* Education */}
-        <div className="p-6 sm:p-7 rounded-2xl bg-[#090812]/60 backdrop-blur-xl border border-white/[0.1] hover:border-white/[0.2] transition-all duration-300 shadow-xl shadow-black/40 space-y-2">
+        <div className="glass-card p-6 sm:p-8 space-y-2">
           <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
             <h3 className="text-lg font-bold text-white">
               {education.degree}

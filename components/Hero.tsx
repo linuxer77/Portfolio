@@ -63,7 +63,7 @@ export default function Hero() {
           <button
             onClick={copyEmail}
             type="button"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm bg-zinc-900 text-zinc-200 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800 transition-all duration-200"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm bg-white/[0.06] hover:bg-white/[0.12] text-zinc-200 border border-white/[0.14] backdrop-blur-xl transition-all duration-200"
           >
             {copied ? (
               <>
@@ -84,7 +84,7 @@ export default function Hero() {
               target="_blank"
               rel="noreferrer"
               aria-label="GitHub"
-              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all duration-200"
+              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] backdrop-blur-xl transition-all duration-200"
             >
               <FaGithub size={17} />
             </a>
@@ -93,7 +93,7 @@ export default function Hero() {
               target="_blank"
               rel="noreferrer"
               aria-label="LinkedIn"
-              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all duration-200"
+              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] backdrop-blur-xl transition-all duration-200"
             >
               <FaLinkedinIn size={17} />
             </a>
@@ -102,14 +102,14 @@ export default function Hero() {
               target="_blank"
               rel="noreferrer"
               aria-label="Twitter"
-              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all duration-200"
+              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] backdrop-blur-xl transition-all duration-200"
             >
               <FaXTwitter size={17} />
             </a>
             <a
               href={`mailto:${personalData.email}`}
               aria-label="Email"
-              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all duration-200"
+              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] backdrop-blur-xl transition-all duration-200"
             >
               <FaEnvelope size={17} />
             </a>

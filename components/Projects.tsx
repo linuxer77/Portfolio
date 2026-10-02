@@ -18,7 +18,7 @@ export default function Projects() {
         {projects.map((project) => (
           <article
             key={project.title}
-            className="group flex flex-col justify-between space-y-4 p-6 sm:p-7 rounded-2xl bg-[#090812]/60 backdrop-blur-xl border border-white/[0.1] hover:border-white/[0.2] transition-all duration-300 shadow-xl shadow-black/40"
+            className="glass-card p-6 sm:p-8 group flex flex-col justify-between space-y-4"
           >
             <div className="space-y-3.5">
               {/* Preview Image */}

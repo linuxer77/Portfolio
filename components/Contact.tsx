@@ -22,7 +22,7 @@ export default function Contact() {
 
   return (
     <section id="contact" className="py-10 sm:py-14">
-      <div className="p-7 sm:p-8 rounded-2xl bg-[#090812]/60 backdrop-blur-xl border border-white/[0.1] shadow-xl shadow-black/40 space-y-6">
+      <div className="glass-card p-7 sm:p-9 space-y-6">
         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
           Get In Touch
         </h2>

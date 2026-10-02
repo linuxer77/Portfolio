@@ -12,8 +12,11 @@ export default function BackgroundAmbience() {
       style={{ backgroundColor: theme.bgBase }}
       aria-hidden="true"
     >
-      {/* 1. Underlying Atmospheric Ambient Glow Blooms matching the active flavour */}
-      <div className="absolute inset-0">
+      {/* 1. Interactive LED Dot Matrix Canvas (running from led-background(1).html with dynamic flavour palette) */}
+      <LedCanvasBackground theme={theme} />
+
+      {/* 2. Atmospheric Ambient Glow Blooms with screen blend for rich luminous clouds behind glass */}
+      <div className="absolute inset-0 mix-blend-screen opacity-70 pointer-events-none">
         {theme.blooms.map((bloom, index) => (
           <div
             key={`${theme.id}-bloom-${index}`}
@@ -32,18 +35,6 @@ export default function BackgroundAmbience() {
           />
         ))}
       </div>
-
-      {/* 2. Interactive LED Dot Matrix Canvas (running from led-background(1).html with dynamic flavour palette) */}
-      <LedCanvasBackground theme={theme} />
-
-      {/* 3. Center-Column Text Readability Shadow Mask */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse 70% 85% at 50% 35%, rgba(4,2,8,0.48) 0%, rgba(4,2,8,0.18) 60%, transparent 100%)",
-        }}
-      />
     </div>
   );
 }
