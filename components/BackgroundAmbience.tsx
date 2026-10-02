@@ -1,12 +1,13 @@
 "use client";
 
-import Image from "next/image";
 import { useTheme } from "@/lib/theme-context";
 import LedCanvasBackground from "./LedCanvasBackground";
 import MountainCanvasBackground from "./MountainCanvasBackground";
+import FissureCanvasBackground from "./FissureCanvasBackground";
+import EmberCanvasBackground from "./EmberCanvasBackground";
 
 export default function BackgroundAmbience() {
-  const { theme, allThemes } = useTheme();
+  const { theme } = useTheme();
 
   return (
     <div
@@ -35,53 +36,24 @@ export default function BackgroundAmbience() {
         ))}
       </div>
 
-      {/* 2. Custom Interactive Canvas Backgrounds from Backgrounds/ */}
-      {/* LED Dot Matrix Canvas (running from Backgrounds/led-background(1).html) */}
+      {/* 2. Interactive Canvas Background 1: LED Dot Matrix (from Backgrounds/led-background(1).html) */}
       <LedCanvasBackground isActive={theme.id === "led"} />
 
-      {/* Neon Mountains Canvas (running from Backgrounds/mountain-background(1).html) */}
+      {/* 3. Interactive Canvas Background 2: Neon Mountains (from Backgrounds/mountain-background(1).html) */}
       <MountainCanvasBackground isActive={theme.id === "mountains"} />
 
-      {/* 3. Image Backgrounds (for image-based themes like Neon Fissure & Golden Ember) */}
-      <div className="absolute inset-0">
-        {allThemes.map((item) => {
-          if (item.bgType !== "image" || !item.bgImage) return null;
-          const isActive = item.id === theme.id;
-          return (
-            <div
-              key={item.id}
-              className="absolute inset-0 transition-opacity duration-1000 ease-in-out"
-              style={{
-                opacity: isActive ? (item.imageOpacity ?? 0.65) : 0,
-              }}
-            >
-              <Image
-                src={item.bgImage}
-                alt=""
-                fill
-                priority={isActive}
-                sizes="100vw"
-                className="object-cover object-center"
-              />
-              {/* Soft single vignette for image contrast */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background:
-                    "radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(2,2,4,0.7) 100%)",
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
+      {/* 4. Interactive Canvas Background 3: Neon Laser Fissure (rock with pulsed laser cracks) */}
+      <FissureCanvasBackground isActive={theme.id === "fissure"} />
 
-      {/* 4. Center-Column Text Readability Shadow Mask */}
+      {/* 5. Interactive Canvas Background 4: Golden Ember Sunset Cloud (towering mosaic cloud with embers) */}
+      <EmberCanvasBackground isActive={theme.id === "ember"} />
+
+      {/* 6. Center-Column Text Readability Shadow Mask */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 70% 85% at 50% 35%, rgba(4,2,8,0.52) 0%, rgba(4,2,8,0.2) 60%, transparent 100%)",
+            "radial-gradient(ellipse 70% 85% at 50% 35%, rgba(4,2,8,0.48) 0%, rgba(4,2,8,0.18) 60%, transparent 100%)",
         }}
       />
     </div>

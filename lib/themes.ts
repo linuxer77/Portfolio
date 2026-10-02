@@ -19,9 +19,7 @@ export interface ThemeConfig {
   icon: string;
   previewColors: [string, string, string];
   bgBase: string;
-  bgType: "canvas-led" | "canvas-mountain" | "image";
-  bgImage?: string;
-  imageOpacity?: number;
+  bgType: "canvas-led" | "canvas-mountain" | "canvas-fissure" | "canvas-ember";
   glowStart: string;
   glowMid: string;
   glowBright: string;
@@ -144,13 +142,11 @@ export const themes: Record<ThemeId, ThemeConfig> = {
   fissure: {
     id: "fissure",
     name: "Neon Fissure",
-    subtitle: "Laser fissures on obsidian",
+    subtitle: "Pulsing laser cracks on stone",
     icon: "⚡",
     previewColors: ["#00f0ff", "#ff0055", "#a855f7"],
     bgBase: "#020204",
-    bgType: "image",
-    bgImage: "/backgrounds/fissure.webp",
-    imageOpacity: 0.65,
+    bgType: "canvas-fissure",
     glowStart: "rgba(0, 240, 255, 0.2)",
     glowMid: "#00f0ff",
     glowBright: "#ffffff",
@@ -200,13 +196,11 @@ export const themes: Record<ThemeId, ThemeConfig> = {
   ember: {
     id: "ember",
     name: "Golden Ember",
-    subtitle: "Sunset flame & molten gold",
+    subtitle: "Sunset mosaic cloud & embers",
     icon: "🌅",
     previewColors: ["#ef4444", "#f59e0b", "#fbbf24"],
     bgBase: "#040302",
-    bgType: "image",
-    bgImage: "/backgrounds/ember.webp",
-    imageOpacity: 0.62,
+    bgType: "canvas-ember",
     glowStart: "rgba(239, 68, 68, 0.2)",
     glowMid: "#f59e0b",
     glowBright: "#fffbeb",
