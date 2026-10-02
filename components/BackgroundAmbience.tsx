@@ -15,12 +15,12 @@ export default function BackgroundAmbience() {
       {/* 1. Interactive LED Dot Matrix Canvas (running from led-background(1).html with dynamic flavour palette) */}
       <LedCanvasBackground theme={theme} />
 
-      {/* 2. Atmospheric Ambient Glow Blooms with screen blend for rich luminous clouds behind glass */}
-      <div className="absolute inset-0 mix-blend-screen opacity-70 pointer-events-none">
+      {/* 2. Atmospheric Ambient Glow Blooms (pure hardware-accelerated alpha blending, no mix-blend stall) */}
+      <div className="absolute inset-0 opacity-35 pointer-events-none">
         {theme.blooms.map((bloom, index) => (
           <div
             key={`${theme.id}-bloom-${index}`}
-            className="absolute rounded-full transition-all duration-1000 ease-out will-change-transform"
+            className="absolute rounded-full transition-all duration-1000 ease-out"
             style={{
               top: bloom.top,
               bottom: bloom.bottom,
@@ -35,6 +35,15 @@ export default function BackgroundAmbience() {
           />
         ))}
       </div>
+
+      {/* 3. Balanced ambient vignette for Hero text contrast and framing */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% 18%, rgba(6,3,14,0.5) 0%, rgba(6,3,14,0.15) 55%, rgba(6,3,14,0.75) 100%)",
+        }}
+      />
     </div>
   );
 }

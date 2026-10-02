@@ -23,11 +23,11 @@ export default function Hero() {
   };
 
   return (
-    <section id="about" className="pt-28 pb-10 sm:pt-36 sm:pb-14">
-      <div className="space-y-6">
+    <section id="about" className="pt-24 pb-8 sm:pt-32 sm:pb-12">
+      <div className="glass-card p-7 sm:p-10 space-y-6">
         {/* Animated PFP Avatar */}
         <div className="relative inline-block">
-          <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden ring-1 ring-zinc-700 shadow-xl shadow-black/80">
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden ring-1 ring-white/20 shadow-xl shadow-black/80">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icon.gif"
@@ -38,11 +38,11 @@ export default function Hero() {
         </div>
 
         {/* Title and Intro */}
-        <div className="space-y-2">
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white">
+        <div className="space-y-2.5">
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
             {personalData.name}
           </h1>
-          <p className="text-base sm:text-lg text-zinc-300 max-w-xl leading-relaxed">
+          <p className="text-base sm:text-lg text-zinc-100 font-medium max-w-xl leading-relaxed drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]">
             {personalData.bio}
           </p>
         </div>

@@ -14,22 +14,23 @@
 }
 
 @layer components {
-  /* Ultra-smooth frosted glass card matching reference design */
+  /* Ultra-smooth frosted glass card: optimized blur(20px) + GPU layer acceleration */
   .glass-card {
     background: linear-gradient(
       135deg,
       rgba(255, 255, 255, 0.08) 0%,
       rgba(255, 255, 255, 0.02) 100%
-    ), rgba(9, 8, 20, 0.52);
-    backdrop-filter: blur(40px) saturate(160%);
-    -webkit-backdrop-filter: blur(40px) saturate(160%);
+    ), rgba(9, 8, 20, 0.58);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transform: translateZ(0);
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 1.5rem;
     box-shadow: 
       inset 0 1px 1px 0 rgba(255, 255, 255, 0.22),
       inset 0 0 20px 0 rgba(255, 255, 255, 0.02),
       0 20px 50px -10px rgba(0, 0, 0, 0.65);
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
   }
 
   .glass-card:hover {
@@ -43,12 +44,13 @@
   /* Frosted pill badge / button */
   .glass-pill {
     background: rgba(255, 255, 255, 0.07);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transform: translateZ(0);
     border: 1px solid rgba(255, 255, 255, 0.18);
     box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.16);
     border-radius: 9999px;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
   }
 
   .glass-pill:hover {
