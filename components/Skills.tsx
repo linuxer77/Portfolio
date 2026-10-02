@@ -8,7 +8,7 @@ export default function Skills() {
         Tech Stack
       </h2>
 
-      <div className="p-6 sm:p-7 rounded-2xl bg-[#090812]/80 backdrop-blur-md border border-white/[0.09] shadow-xl shadow-black/40 space-y-4">
+      <div className="p-6 sm:p-7 rounded-2xl bg-[#090812]/60 backdrop-blur-xl border border-white/[0.1] shadow-xl shadow-black/40 space-y-4">
         {skillCategories.map((category, idx) => (
           <div key={category.title}>
             <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-6 py-2">

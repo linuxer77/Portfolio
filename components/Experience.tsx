@@ -12,7 +12,7 @@ export default function Experience() {
         {experiences.map((exp) => (
           <div
             key={exp.company}
-            className="p-6 sm:p-7 rounded-2xl bg-[#090812]/80 backdrop-blur-md border border-white/[0.09] hover:border-white/[0.2] transition-all duration-300 shadow-xl shadow-black/40 space-y-3.5 group"
+            className="p-6 sm:p-7 rounded-2xl bg-[#090812]/60 backdrop-blur-xl border border-white/[0.1] hover:border-white/[0.2] transition-all duration-300 shadow-xl shadow-black/40 space-y-3.5 group"
           >
             {/* Header: Company & Date */}
             <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
