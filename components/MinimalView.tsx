@@ -10,14 +10,13 @@ import {
   education,
   personalData,
 } from "@/lib/portfolio-data";
-import ViewModeSwitch from "@/components/ViewModeSwitch";
-import { useViewMode } from "@/lib/view-mode-context";
+// Flow mode components preserved for future activation:
+// import ViewModeSwitch from "@/components/ViewModeSwitch";
+// import { useViewMode } from "@/lib/view-mode-context";
 import { FaFilePdf } from "react-icons/fa6";
 import { motion, AnimatePresence } from "framer-motion";
 import ToastyPopup from "@/components/arcade/ToastyPopup";
-import ContraMode from "@/components/arcade/ContraMode";
-import HadoukenEffect from "@/components/arcade/HadoukenEffect";
-import MkFatalityModal from "@/components/arcade/MkFatalityModal";
+import WasmArcadeModal, { ArcadeGame } from "@/components/arcade/WasmArcadeModal";
 
 // ==========================================
 // Easter Egg 1: 0x6867 Scramble Effect
@@ -210,11 +209,9 @@ interface LogEntry {
 interface TerminalDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onSwitchFlow: () => void;
+  onSwitchFlow?: () => void;
   onTriggerToasty: () => void;
-  onTriggerFatality: () => void;
-  onTriggerHadouken: () => void;
-  onTriggerContra: () => void;
+  onLaunchGame: (game: ArcadeGame) => void;
 }
 
 function TerminalDrawer({
@@ -222,9 +219,7 @@ function TerminalDrawer({
   onClose,
   onSwitchFlow,
   onTriggerToasty,
-  onTriggerFatality,
-  onTriggerHadouken,
-  onTriggerContra,
+  onLaunchGame,
 }: TerminalDrawerProps) {
   const [inputVal, setInputVal] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -279,11 +274,11 @@ function TerminalDrawer({
   sudo <cmd>       Execute with elevated permissions
   exit             Close this terminal drawer
 
-EASTER EGGS:
-  toasty           Dan Forden UMK3 pop-out
-  mk / fatality    Mortal Kombat 3 Fatality Arena
-  hadouken         Street Fighter Hadouken energy wave
-  contra           30 Lives Overclock Mode`,
+AUTHENTIC ARCADE (WASM):
+  toasty           Dan Forden authentic voice & photo pop-out
+  mk / umk3        Play Ultimate Mortal Kombat 3 in WebAssembly
+  contra           Play Contra (NES) in WebAssembly (30 Lives)
+  sf2 / hadouken   Play Street Fighter II in WebAssembly`,
         });
         break;
 
@@ -343,25 +338,27 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
 
       case "toasty":
         onTriggerToasty();
-        newLogs.push({ type: "out", text: "TOASTY! [Dan Forden UMK3 pop-out activated]" });
+        newLogs.push({ type: "out", text: "TOASTY! [Dan Forden real voice clip activated]" });
         break;
 
       case "mk":
+      case "umk3":
       case "fatality":
       case "abacabb":
-        onTriggerFatality();
-        newLogs.push({ type: "out", text: "FINISH HIM! Launching Mortal Kombat 3 Kombat Arena..." });
+        onLaunchGame("umk3");
+        newLogs.push({ type: "out", text: "FINISH HIM! Booting Ultimate Mortal Kombat 3 in WebAssembly..." });
         break;
 
+      case "sf2":
       case "hadouken":
-        onTriggerHadouken();
-        newLogs.push({ type: "out", text: "HADOUKEN! 波動拳 surging across viewport..." });
+        onLaunchGame("sf2");
+        newLogs.push({ type: "out", text: "HADOUKEN! Booting Street Fighter II in WebAssembly..." });
         break;
 
       case "contra":
       case "konami":
-        onTriggerContra();
-        newLogs.push({ type: "out", text: "30 LIVES GRANTED // CONTRA OVERCLOCK ACTIVE" });
+        onLaunchGame("contra");
+        newLogs.push({ type: "out", text: "30 LIVES GRANTED // Booting Contra (NES) in WebAssembly..." });
         break;
 
       case "whoami":
@@ -415,8 +412,11 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
         break;
 
       case "flow":
-        onSwitchFlow();
-        newLogs.push({ type: "out", text: "Switching viewport mode to FLOW..." });
+        // onSwitchFlow?.();
+        newLogs.push({
+          type: "out",
+          text: "Notice: Flow mode is currently deactivated. Portfolio operates in minimal brutalist mode.",
+        });
         break;
 
       case "clear":
@@ -544,16 +544,13 @@ const SECTIONS = ["intro", "experience", "projects", "stack", "contact"];
 export default function MinimalView() {
   const [activeSection, setActiveSection] = useState("experience");
   const [copied, setCopied] = useState(false);
-  const [showHud, setShowHud] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [showEasterEggHint, setShowEasterEggHint] = useState(true);
   const [toastyOpen, setToastyOpen] = useState(false);
-  const [contraActive, setContraActive] = useState(false);
-  const [mkOpen, setMkOpen] = useState(false);
-  const [hadoukenActive, setHadoukenActive] = useState(false);
+  const [activeArcadeGame, setActiveArcadeGame] = useState<ArcadeGame | null>(null);
   const keyHistoryRef = useRef<string[]>([]);
-  const { setViewMode, cycleViewMode } = useViewMode();
+  // const { setViewMode } = useViewMode();
 
   const showToast = useCallback((msg: string) => {
     setToastMsg(msg);
@@ -576,11 +573,11 @@ export default function MinimalView() {
   }, []);
 
   // ==========================================
-  // Easter Egg 2: Vim Navigation & Hotkeys
+  // Easter Egg Sequence Detection & Terminal Listener
   // ==========================================
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger hotkeys if user is focused inside an input/textarea
+      // Don't trigger if user is focused inside an input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
         return;
@@ -609,16 +606,16 @@ export default function MinimalView() {
         last10.every((k, i) => k.toLowerCase() === konami[i])
       ) {
         e.preventDefault();
-        setContraActive(true);
-        showToast("★ 30 LIVES GRANTED // CONTRA MODE ACTIVATED ★");
+        setActiveArcadeGame("contra");
+        showToast("★ 30 LIVES GRANTED // BOOTING CONTRA IN WEBASSEMBLY ★");
         keyHistoryRef.current = [];
         return;
       }
 
-      // 2. Mortal Kombat Fatality ("mk", "fatality", "abacabb")
+      // 2. Mortal Kombat ("mk", "fatality", "abacabb")
       if (seqStr.endsWith("mk") || seqStr.endsWith("fatality") || seqStr.endsWith("abacabb")) {
         e.preventDefault();
-        setMkOpen(true);
+        setActiveArcadeGame("umk3");
         keyHistoryRef.current = [];
         return;
       }
@@ -631,37 +628,16 @@ export default function MinimalView() {
         return;
       }
 
-      // 4. Street Fighter Hadouken ("hadouken")
-      if (seqStr.endsWith("hadouken")) {
+      // 4. Street Fighter ("hadouken", "sf2")
+      if (seqStr.endsWith("hadouken") || seqStr.endsWith("sf2")) {
         e.preventDefault();
-        setHadoukenActive(true);
+        setActiveArcadeGame("sf2");
         keyHistoryRef.current = [];
         return;
       }
 
-      if (e.key === "j") {
-        e.preventDefault();
-        const currentIdx = SECTIONS.indexOf(activeSection);
-        const nextIdx = Math.min(SECTIONS.length - 1, (currentIdx === -1 ? 0 : currentIdx) + 1);
-        scrollTo(SECTIONS[nextIdx]);
-      } else if (e.key === "k") {
-        e.preventDefault();
-        const currentIdx = SECTIONS.indexOf(activeSection);
-        const prevIdx = Math.max(0, (currentIdx === -1 ? 0 : currentIdx) - 1);
-        scrollTo(SECTIONS[prevIdx]);
-      } else if (e.key === "f") {
-        e.preventDefault();
-        cycleViewMode();
-      } else if (e.key === "c") {
-        e.preventDefault();
-        copyEmail();
-      } else if (e.key === "r") {
-        e.preventDefault();
-        window.open(personalData.resumePath, "_blank");
-      } else if (e.key === "?") {
-        e.preventDefault();
-        setShowHud((prev) => !prev);
-      } else if (e.key === "~" || e.key === "`") {
+      // 5. Developer Terminal Drawer toggle (~ or `)
+      if (e.key === "~" || e.key === "`") {
         e.preventDefault();
         setShowTerminal((prev) => !prev);
       }
@@ -669,7 +645,7 @@ export default function MinimalView() {
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [activeSection, cycleViewMode, copyEmail, scrollTo, showToast]);
+  }, [showToast]);
 
   return (
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black relative">
@@ -716,9 +692,9 @@ export default function MinimalView() {
             </nav>
           </div>
 
-          {/* Minimal View Controls: ViewModeSwitch + Resume */}
+          {/* Minimal View Controls: ViewModeSwitch (commented out) + Resume */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <ViewModeSwitch />
+            {/* <ViewModeSwitch /> */}
             <a
               href={personalData.resumePath}
               target="_blank"
@@ -740,7 +716,7 @@ export default function MinimalView() {
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
               <span className="text-zinc-400 font-bold uppercase shrink-0">EASTER EGGS DETECTED:</span>
               <span className="text-zinc-400 shrink-0">
-                Try codes (<span className="text-amber-400">↑↑↓↓←→←→BA</span>, &apos;<span className="text-amber-400">toasty</span>&apos;, &apos;<span className="text-amber-400">mk</span>&apos;, &apos;<span className="text-amber-400">hadouken</span>&apos;), 3x click glyphs, or launch terminal (<span className="text-cyan-400">~</span>)
+                Play authentic games in WebAssembly (<span className="text-amber-400">↑↑↓↓←→←→BA</span> for Contra, &apos;<span className="text-amber-400">mk</span>&apos; for Mortal Kombat 3, &apos;<span className="text-amber-400">sf2</span>&apos; for Street Fighter II), 3x click glyphs for &apos;<span className="text-amber-400">toasty</span>&apos;, or launch terminal (<span className="text-cyan-400">~</span>)
               </span>
             </div>
             <button
@@ -1092,45 +1068,15 @@ export default function MinimalView() {
         </div>
       </footer>
 
-      {/* Floating Bottom Hotkeys Cheat-Sheet HUD */}
-      <AnimatePresence>
-        {showHud && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-full bg-zinc-950/95 border border-dotted border-zinc-700 backdrop-blur-md text-[11px] font-mono text-zinc-300 flex items-center gap-3 shadow-2xl select-none"
-          >
-            <span><kbd className="px-1 py-0.5 rounded bg-zinc-800 text-white font-bold">j</kbd>/<kbd className="px-1 py-0.5 rounded bg-zinc-800 text-white font-bold">k</kbd> nav</span>
-            <span className="text-zinc-700">|</span>
-            <span><kbd className="px-1 py-0.5 rounded bg-zinc-800 text-white font-bold">f</kbd> flow</span>
-            <span className="text-zinc-700">|</span>
-            <span><kbd className="px-1 py-0.5 rounded bg-zinc-800 text-white font-bold">c</kbd> email</span>
-            <span className="text-zinc-700">|</span>
-            <span><kbd className="px-1 py-0.5 rounded bg-zinc-800 text-white font-bold">r</kbd> resume</span>
-            <span className="text-zinc-700">|</span>
-            <span><kbd className="px-1 py-0.5 rounded bg-zinc-800 text-white font-bold">~</kbd> bash</span>
-            <span className="text-zinc-700">|</span>
-            <button onClick={() => setShowHud(false)} className="text-zinc-500 hover:text-white font-bold">✕</button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Trigger Buttons in corners for Discoverability */}
-      <div className="fixed bottom-3 right-3 z-30 flex items-center gap-2">
+      {/* Terminal Drawer Trigger Button */}
+      <div className="fixed bottom-3 right-3 z-30">
         <button
           onClick={() => setShowTerminal((prev) => !prev)}
-          className="px-2.5 py-1 rounded bg-black/80 border border-dotted border-zinc-800 hover:border-cyan-700 hover:text-cyan-300 text-[10px] font-mono text-zinc-400 transition-colors shadow-lg"
+          className="px-2.5 py-1 rounded bg-black/80 border border-dotted border-zinc-800 hover:border-cyan-700 hover:text-cyan-300 text-[10px] font-mono text-zinc-400 transition-colors shadow-lg flex items-center gap-1.5"
           title="Open terminal console (~)"
         >
-          &gt;_ bash
-        </button>
-        <button
-          onClick={() => setShowHud((prev) => !prev)}
-          className="px-2.5 py-1 rounded bg-black/80 border border-dotted border-zinc-800 hover:border-zinc-600 hover:text-zinc-200 text-[10px] font-mono text-zinc-400 transition-colors shadow-lg"
-          title="Toggle Vim hotkeys cheatsheet (?)"
-        >
-          ? hotkeys
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+          <span>&gt;_ bash</span>
         </button>
       </div>
 
@@ -1154,26 +1100,22 @@ export default function MinimalView() {
           <TerminalDrawer
             isOpen={showTerminal}
             onClose={() => setShowTerminal(false)}
-            onSwitchFlow={() => setViewMode("flow")}
+            // onSwitchFlow={() => setViewMode("flow")}
             onTriggerToasty={() => setToastyOpen(true)}
-            onTriggerFatality={() => setMkOpen(true)}
-            onTriggerHadouken={() => setHadoukenActive(true)}
-            onTriggerContra={() => setContraActive(true)}
+            onLaunchGame={(g) => setActiveArcadeGame(g)}
           />
         )}
       </AnimatePresence>
 
-      {/* Easter Egg: Dan Forden UMK3 Toasty */}
+      {/* Easter Egg: Dan Forden UMK3 Toasty (Authentic Photo & Real Audio) */}
       <ToastyPopup isOpen={toastyOpen} onClose={() => setToastyOpen(false)} />
 
-      {/* Easter Egg: Mortal Kombat Fatality Arena */}
-      <MkFatalityModal isOpen={mkOpen} onClose={() => setMkOpen(false)} />
-
-      {/* Easter Egg: Street Fighter Hadouken Fireball */}
-      <HadoukenEffect isActive={hadoukenActive} onComplete={() => setHadoukenActive(false)} />
-
-      {/* Easter Egg: Contra 30 Lives Overclock Mode */}
-      <ContraMode isActive={contraActive} onExit={() => setContraActive(false)} />
+      {/* Authentic WebAssembly Retro Arcade Modal (UMK3, Contra, Street Fighter II) */}
+      <WasmArcadeModal
+        isOpen={Boolean(activeArcadeGame)}
+        game={activeArcadeGame}
+        onClose={() => setActiveArcadeGame(null)}
+      />
     </div>
   );
 }
