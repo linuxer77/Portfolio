@@ -80,7 +80,7 @@ export default function Navbar() {
             target="_blank"
             rel="noreferrer"
             aria-label="LinkedIn"
-            className="p-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-800/60 transition-colors"
+            className="hidden sm:flex p-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-800/60 transition-colors"
           >
             <FaLinkedinIn size={15} />
           </a>

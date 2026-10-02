@@ -1,49 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useTheme } from "@/lib/theme-context";
 
 export default function BackgroundAmbience() {
-  const { theme } = useTheme();
-  const [pos, setPos] = useState({ x: 50, y: 50 });
-  const [isHovered, setIsHovered] = useState(false);
-
-  useEffect(() => {
-    let animationFrameId: number;
-
-    const handlePointerMove = (e: PointerEvent) => {
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = requestAnimationFrame(() => {
-        const x = (e.clientX / window.innerWidth) * 100;
-        const y = (e.clientY / window.innerHeight) * 100;
-        setPos({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
-        setIsHovered(true);
-      });
-    };
-
-    const handlePointerLeave = () => {
-      setIsHovered(false);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove, { passive: true });
-    document.addEventListener("mouseleave", handlePointerLeave);
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      window.removeEventListener("pointermove", handlePointerMove);
-      document.removeEventListener("mouseleave", handlePointerLeave);
-    };
-  }, []);
+  const { theme, allThemes } = useTheme();
 
   return (
     <div
       className="fixed inset-0 pointer-events-none z-0 overflow-hidden transition-colors duration-700"
       style={{ backgroundColor: theme.bgBase }}
+      aria-hidden="true"
     >
-      {/* Dynamic Ambient Theme Blooms (Smoothly fading between themes) */}
+      {/* 1. Underlying Atmospheric Ambient Glow Blooms */}
       <div className="absolute inset-0">
         {theme.blooms.map((bloom, index) => (
           <div
-            key={`${theme.id}-${index}`}
+            key={`${theme.id}-bloom-${index}`}
             className="absolute rounded-full transition-all duration-1000 ease-out will-change-transform"
             style={{
               top: bloom.top,
@@ -60,12 +33,45 @@ export default function BackgroundAmbience() {
         ))}
       </div>
 
-      {/* Subtle Interactive Cursor Ambient Light (tinted to active theme accent) */}
+      {/* 2. Artistic Image Layers (Smooth crossfade between themes) */}
+      <div className="absolute inset-0">
+        {allThemes.map((item) => {
+          const isActive = item.id === theme.id;
+          return (
+            <div
+              key={item.id}
+              className="absolute inset-0 transition-opacity duration-1000 ease-in-out"
+              style={{
+                opacity: isActive ? item.imageOpacity : 0,
+              }}
+            >
+              <Image
+                src={item.bgImage}
+                alt=""
+                fill
+                priority={isActive}
+                sizes="100vw"
+                className="object-cover object-center"
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 3. Artistic Readability Mask & Vignette Overlay */}
+      {/* Ensures typography remains crisp pure white with 100% contrast, while image art shines through cleanly */}
       <div
-        className="absolute inset-0 transition-opacity duration-300"
+        className="absolute inset-0"
         style={{
-          opacity: isHovered ? 1 : 0,
-          background: `radial-gradient(circle 380px at ${pos.x}% ${pos.y}%, var(--theme-glow-shadow, rgba(0,240,255,0.18)), transparent 75%)`,
+          background:
+            "radial-gradient(ellipse 90% 80% at 50% 30%, rgba(2,2,4,0.55) 0%, rgba(2,2,4,0.85) 65%, #020204 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to bottom, rgba(2,2,4,0.45) 0%, rgba(2,2,4,0.2) 25%, rgba(2,2,4,0.7) 80%, #020204 100%)",
         }}
       />
     </div>
