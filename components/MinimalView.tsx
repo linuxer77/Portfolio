@@ -337,6 +337,25 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
 * Storage: PostgreSQL, Redis, ScyllaDB
 * Cloud & Infra: Docker, Kubernetes, AWS, gRPC, CI/CD`,
           });
+        } else if (
+          parts[1]?.toLowerCase().includes("id_ed25519") ||
+          parts[1]?.toLowerCase().includes("key") ||
+          parts[1]?.toLowerCase().includes(".pub")
+        ) {
+          newLogs.push({
+            type: "out",
+            text: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIERFQ1JZUFQoMHg2ODY3KT09PT09PT09PT09PTY3 harshit@0x6867",
+          });
+        } else if (parts[1]?.toLowerCase().includes("project")) {
+          newLogs.push({
+            type: "out",
+            text: "SQLite format 3: index_engine, log_pipeline, service_mesh, distributed_kv [OK]",
+          });
+        } else if (parts[1]?.toLowerCase().includes("system") || parts[1]?.toLowerCase().includes("log")) {
+          newLogs.push({
+            type: "out",
+            text: "[SYSTEM LOG] 0x6867 node operational | 4 clusters active | 0 errors reported",
+          });
         } else if (parts[1]) {
           newLogs.push({
             type: "err",
@@ -345,6 +364,35 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
         } else {
           newLogs.push({ type: "err", text: "cat: missing file operand. Try 'cat resume.md'" });
         }
+        break;
+
+      case "decrypt":
+      case "decode":
+        newLogs.push({
+          type: "out",
+          text: "67",
+        });
+        break;
+
+      case "base64":
+        if (parts[1] === "-d" || parts[1] === "--decode" || parts[1]?.includes("d")) {
+          newLogs.push({
+            type: "out",
+            text: "67",
+          });
+        } else {
+          newLogs.push({
+            type: "out",
+            text: "Njc=",
+          });
+        }
+        break;
+
+      case "ssh-keygen":
+        newLogs.push({
+          type: "out",
+          text: "256 SHA256:0x6867/67 harshit@0x6867 (ED25519) -> 67",
+        });
         break;
 
       case "arcade":
