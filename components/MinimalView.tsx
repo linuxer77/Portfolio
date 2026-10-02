@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import HadoukenWave from "@/components/arcade/HadoukenWave";
 import ContraRun from "@/components/arcade/ContraRun";
 import ToastyPopup from "@/components/arcade/ToastyPopup";
+import MarioRun from "@/components/arcade/MarioRun";
 
 // ==========================================
 // Easter Egg 1: 0x6867 Scramble Effect
@@ -81,33 +82,48 @@ function InteractiveGlyph({
   onFastClick?: () => void;
 }) {
   const [spinCount, setSpinCount] = useState(0);
-  const clickTimestampsRef = useRef<number[]>([]);
+  const clickCountRef = useRef(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Trigger visual spin
     setSpinCount((c) => c + 1);
-    const now = Date.now();
-    clickTimestampsRef.current = [
-      ...clickTimestampsRef.current.filter((t) => now - t < 1800),
-      now,
-    ];
-    if (clickTimestampsRef.current.length >= 3) {
+
+    clickCountRef.current += 1;
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    // Reset after 2.5s if 3 clicks not reached
+    timerRef.current = setTimeout(() => {
+      clickCountRef.current = 0;
+    }, 2500);
+
+    if (clickCountRef.current >= 3) {
+      clickCountRef.current = 0;
+      if (timerRef.current) clearTimeout(timerRef.current);
       onFastClick?.();
-      clickTimestampsRef.current = [];
     }
   };
 
   return (
-    <motion.div
+    <button
+      type="button"
       onClick={handleClick}
-      whileHover={{ scale: 1.18, rotate: 45 }}
-      whileTap={{ scale: 0.9 }}
-      animate={{ rotate: spinCount * 360 }}
-      transition={{ type: "spring", stiffness: 220, damping: 16 }}
-      className="cursor-pointer text-zinc-400 hover:text-white transition-colors p-2 inline-block rounded-lg hover:bg-white/[0.05]"
-      title="Interactive Vector Glyph (hover to tilt, click to spin)"
+      className="cursor-pointer text-zinc-400 hover:text-white transition-colors p-2.5 inline-flex items-center justify-center rounded-lg hover:bg-white/[0.05] select-none border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-zinc-600"
+      title="Interactive Vector Glyph (3x rapid clicks for easter egg)"
     >
-      {children}
-    </motion.div>
+      <motion.div
+        whileHover={{ scale: 1.2, rotate: 30 }}
+        whileTap={{ scale: 0.9 }}
+        animate={{ rotate: spinCount * 360 }}
+        transition={{ type: "spring", stiffness: 220, damping: 16 }}
+        className="pointer-events-none select-none"
+      >
+        {children}
+      </motion.div>
+    </button>
   );
 }
 
@@ -212,6 +228,7 @@ interface TerminalDrawerProps {
   onClose: () => void;
   onTriggerHadouken: () => void;
   onTriggerContra: () => void;
+  onTriggerMario: () => void;
   onTriggerToasty?: () => void;
 }
 
@@ -220,6 +237,7 @@ function TerminalDrawer({
   onClose,
   onTriggerHadouken,
   onTriggerContra,
+  onTriggerMario,
   onTriggerToasty,
 }: TerminalDrawerProps) {
   const [inputVal, setInputVal] = useState("");
@@ -337,8 +355,15 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
           type: "out",
           text: `ARCADE:
   contra
+  mario
   sf2`,
         });
+        break;
+
+      case "mario":
+      case "smb":
+        onTriggerMario();
+        newLogs.push({ type: "out", text: "SUPER MARIO BROS" });
         break;
 
       case "sf2":
@@ -530,6 +555,7 @@ export default function MinimalView() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [hadoukenActive, setHadoukenActive] = useState(false);
   const [contraActive, setContraActive] = useState(false);
+  const [marioActive, setMarioActive] = useState(false);
   const [toastyOpen, setToastyOpen] = useState(false);
   const keyHistoryRef = useRef<string[]>([]);
   // const { setViewMode } = useViewMode();
@@ -537,6 +563,13 @@ export default function MinimalView() {
   const showToast = useCallback((msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 2200);
+  }, []);
+
+  const triggerToasty = useCallback(() => {
+    setToastyOpen(false);
+    setTimeout(() => {
+      setToastyOpen(true);
+    }, 20);
   }, []);
 
   const copyEmail = useCallback(() => {
@@ -598,15 +631,23 @@ export default function MinimalView() {
         return;
       }
 
-      // 3. Secret Toasty ("toasty") - let user discover by typing
-      if (seqStr.endsWith("toasty")) {
+      // 3. Super Mario Bros ("mario", "smb")
+      if (seqStr.endsWith("mario") || seqStr.endsWith("smb")) {
         e.preventDefault();
-        setToastyOpen(true);
+        setMarioActive(true);
         keyHistoryRef.current = [];
         return;
       }
 
-      // 4. Developer Terminal Drawer toggle (~ or `)
+      // 4. Secret Toasty ("toasty") - let user discover by typing
+      if (seqStr.endsWith("toasty")) {
+        e.preventDefault();
+        triggerToasty();
+        keyHistoryRef.current = [];
+        return;
+      }
+
+      // 5. Developer Terminal Drawer toggle (~ or `)
       if (e.key === "~" || e.key === "`") {
         e.preventDefault();
         setShowTerminal((prev) => !prev);
@@ -615,7 +656,7 @@ export default function MinimalView() {
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [showToast]);
+  }, [showToast, triggerToasty]);
 
   return (
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black relative">
@@ -815,7 +856,7 @@ export default function MinimalView() {
                 </div>
 
                 <div className="pt-2">
-                  {renderGlyph(idx, () => setToastyOpen(true))}
+                  {renderGlyph(idx, triggerToasty)}
                 </div>
               </div>
             </div>
@@ -924,7 +965,7 @@ export default function MinimalView() {
                 </div>
 
                 <div className="pt-2">
-                  {renderGlyph(idx + 4, () => setToastyOpen(true))}
+                  {renderGlyph(idx + 4, triggerToasty)}
                 </div>
               </div>
             </div>
@@ -1070,7 +1111,8 @@ export default function MinimalView() {
             onClose={() => setShowTerminal(false)}
             onTriggerHadouken={() => setHadoukenActive(true)}
             onTriggerContra={() => setContraActive(true)}
-            onTriggerToasty={() => setToastyOpen(true)}
+            onTriggerMario={() => setMarioActive(true)}
+            onTriggerToasty={triggerToasty}
           />
         )}
       </AnimatePresence>
@@ -1083,6 +1125,9 @@ export default function MinimalView() {
 
       {/* Easter Egg 2: Authentic Contra Bill Rizer Sprint (Shortened ↑ ↑ ↓ ↓ Cheat Code) */}
       <ContraRun isActive={contraActive} onComplete={() => setContraActive(false)} />
+
+      {/* Easter Egg 3: Authentic Super Mario Bros (1985 NES) Power-up Run */}
+      <MarioRun isActive={marioActive} onComplete={() => setMarioActive(false)} />
     </div>
   );
 }

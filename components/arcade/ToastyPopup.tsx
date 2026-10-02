@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ToastyPopupProps {
@@ -9,28 +9,40 @@ interface ToastyPopupProps {
 }
 
 export default function ToastyPopup({ isOpen, onClose }: ToastyPopupProps) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!isOpen) return;
 
     // Play authentic Dan Forden TOASTY! voice clip
     try {
       const audio = new Audio("/arcade/toasty.mp3");
-      audio.volume = 0.85;
-      audio.play().catch(() => {});
+      audio.volume = 1.0;
+      audio.play().catch((err) => {
+        console.warn("Toasty audio playback prevented:", err);
+      });
     } catch {
       // Audio autoplay policy fallback
     }
 
     const timer = setTimeout(() => {
-      onClose();
-    }, 1400);
+      onCloseRef.current();
+    }, 1500);
+
     return () => clearTimeout(timer);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden select-none">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 pointer-events-none z-[100] overflow-hidden select-none"
+        >
           {/* Subtle Orange Heat Edge Flash */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -45,13 +57,13 @@ export default function ToastyPopup({ isOpen, onClose }: ToastyPopupProps) {
             animate={{ x: 0, y: 0, rotate: -4 }}
             exit={{ x: 180, y: 160, rotate: 20 }}
             transition={{ type: "spring", stiffness: 350, damping: 20 }}
-            className="absolute bottom-0 right-4 flex items-end gap-2"
+            className="absolute bottom-2 right-4 flex items-end gap-2"
           >
             {/* Retro 8-bit Speech Bubble */}
             <motion.div
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.12, type: "spring", stiffness: 400 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 400 }}
               className="mb-20 px-3 py-1 bg-white text-black border-2 border-black font-mono font-black text-sm tracking-wider shadow-[4px_4px_0px_#ea580c] relative"
             >
               <span>TOASTY!</span>
@@ -68,7 +80,7 @@ export default function ToastyPopup({ isOpen, onClose }: ToastyPopupProps) {
               />
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );
