@@ -547,6 +547,7 @@ export default function MinimalView() {
   const [showHud, setShowHud] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [showEasterEggHint, setShowEasterEggHint] = useState(true);
   const [toastyOpen, setToastyOpen] = useState(false);
   const [contraActive, setContraActive] = useState(false);
   const [mkOpen, setMkOpen] = useState(false);
@@ -730,6 +731,28 @@ export default function MinimalView() {
           </div>
         </div>
       </header>
+
+      {/* Subtle Easter Egg Hint Micro-Bar */}
+      {showEasterEggHint && (
+        <div className="border-b border-dotted border-zinc-800 bg-zinc-950/90 px-4 sm:px-6 lg:px-8 py-1.5 text-[10px] sm:text-[11px] text-zinc-500 font-mono tracking-wider">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+              <span className="text-zinc-400 font-bold uppercase shrink-0">EASTER EGGS DETECTED:</span>
+              <span className="text-zinc-400 shrink-0">
+                Try codes (<span className="text-amber-400">↑↑↓↓←→←→BA</span>, &apos;<span className="text-amber-400">toasty</span>&apos;, &apos;<span className="text-amber-400">mk</span>&apos;, &apos;<span className="text-amber-400">hadouken</span>&apos;), 3x click glyphs, or launch terminal (<span className="text-cyan-400">~</span>)
+              </span>
+            </div>
+            <button
+              onClick={() => setShowEasterEggHint(false)}
+              className="text-zinc-500 hover:text-zinc-300 text-xs px-1 shrink-0"
+              title="Dismiss hint"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 2. Hero Intro Banner */}
       <section id="intro" className="border-b border-dotted border-zinc-800 py-12 sm:py-16">
