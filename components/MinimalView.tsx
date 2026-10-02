@@ -15,9 +15,6 @@ import {
 // import { useViewMode } from "@/lib/view-mode-context";
 import { FaFilePdf } from "react-icons/fa6";
 import { motion, AnimatePresence } from "framer-motion";
-import ToastyPopup from "@/components/arcade/ToastyPopup";
-import MkFatality from "@/components/arcade/MkFatality";
-import ScorpionSpear from "@/components/arcade/ScorpionSpear";
 import HadoukenWave from "@/components/arcade/HadoukenWave";
 import ContraRun from "@/components/arcade/ContraRun";
 
@@ -106,7 +103,7 @@ function InteractiveGlyph({
       animate={{ rotate: spinCount * 360 }}
       transition={{ type: "spring", stiffness: 220, damping: 16 }}
       className="cursor-pointer text-zinc-400 hover:text-white transition-colors p-2 inline-block rounded-lg hover:bg-white/[0.05]"
-      title="Interactive Vector Glyph (hover to tilt, click to spin, 3x click for surprise)"
+      title="Interactive Vector Glyph (hover to tilt, click to spin)"
     >
       {children}
     </motion.div>
@@ -212,9 +209,6 @@ interface LogEntry {
 interface TerminalDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onTriggerToasty: () => void;
-  onTriggerFatality: () => void;
-  onTriggerSpear: () => void;
   onTriggerHadouken: () => void;
   onTriggerContra: () => void;
 }
@@ -222,9 +216,6 @@ interface TerminalDrawerProps {
 function TerminalDrawer({
   isOpen,
   onClose,
-  onTriggerToasty,
-  onTriggerFatality,
-  onTriggerSpear,
   onTriggerHadouken,
   onTriggerContra,
 }: TerminalDrawerProps) {
@@ -280,12 +271,8 @@ function TerminalDrawer({
   exit
 
 ARCADE:
-  arcade
-  mk
-  spear
   contra
-  sf2
-  toasty`,
+  sf2`,
         });
         break;
 
@@ -346,31 +333,9 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
         newLogs.push({
           type: "out",
           text: `ARCADE:
-  mk
-  spear
   contra
-  sf2
-  toasty`,
+  sf2`,
         });
-        break;
-
-      case "toasty":
-        onTriggerToasty();
-        newLogs.push({ type: "out", text: "TOASTY!" });
-        break;
-
-      case "mk":
-      case "umk3":
-      case "fatality":
-      case "abacabb":
-        onTriggerFatality();
-        newLogs.push({ type: "out", text: "FINISH HIM!" });
-        break;
-
-      case "spear":
-      case "getoverhere":
-        onTriggerSpear();
-        newLogs.push({ type: "out", text: "GET OVER HERE!" });
         break;
 
       case "sf2":
@@ -382,7 +347,7 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
       case "contra":
       case "konami":
         onTriggerContra();
-        newLogs.push({ type: "out", text: "1P REST 30" });
+        newLogs.push({ type: "out", text: "CONTRA" });
         break;
 
       case "whoami":
@@ -555,9 +520,6 @@ export default function MinimalView() {
   const [copied, setCopied] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [toastyOpen, setToastyOpen] = useState(false);
-  const [mkFatalityActive, setMkFatalityActive] = useState(false);
-  const [scorpionSpearActive, setScorpionSpearActive] = useState(false);
   const [hadoukenActive, setHadoukenActive] = useState(false);
   const [contraActive, setContraActive] = useState(false);
   const keyHistoryRef = useRef<string[]>([]);
@@ -609,43 +571,17 @@ export default function MinimalView() {
       ) {
         e.preventDefault();
         setContraActive(true);
-        showToast("★ UP UP DOWN DOWN // CONTRA 30 LIVES ACTIVE ★");
         keyHistoryRef.current = [];
         return;
       }
       if (seqStr.endsWith("contra")) {
         e.preventDefault();
         setContraActive(true);
-        showToast("★ CONTRA 30 LIVES SPRINT ACTIVE ★");
         keyHistoryRef.current = [];
         return;
       }
 
-      // 2. Mortal Kombat Scorpion Hellfire Fatality ("mk", "fatality", "abacabb")
-      if (seqStr.endsWith("mk") || seqStr.endsWith("fatality") || seqStr.endsWith("abacabb")) {
-        e.preventDefault();
-        setMkFatalityActive(true);
-        keyHistoryRef.current = [];
-        return;
-      }
-
-      // 3. Scorpion Harpoon Spear ("spear", "getoverhere")
-      if (seqStr.endsWith("spear") || seqStr.endsWith("getoverhere")) {
-        e.preventDefault();
-        setScorpionSpearActive(true);
-        keyHistoryRef.current = [];
-        return;
-      }
-
-      // 4. TOASTY ("toasty")
-      if (seqStr.endsWith("toasty")) {
-        e.preventDefault();
-        setToastyOpen(true);
-        keyHistoryRef.current = [];
-        return;
-      }
-
-      // 5. Street Fighter ("hadouken", "sf2")
+      // 2. Street Fighter ("hadouken", "sf2")
       if (seqStr.endsWith("hadouken") || seqStr.endsWith("sf2")) {
         e.preventDefault();
         setHadoukenActive(true);
@@ -653,7 +589,7 @@ export default function MinimalView() {
         return;
       }
 
-      // 6. Developer Terminal Drawer toggle (~ or `)
+      // 3. Developer Terminal Drawer toggle (~ or `)
       if (e.key === "~" || e.key === "`") {
         e.preventDefault();
         setShowTerminal((prev) => !prev);
@@ -783,6 +719,10 @@ export default function MinimalView() {
       {/* 3. Experiences: 3-Column Rows with Dotted Lines */}
       <section id="experience">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="pt-10 pb-4 border-b border-dotted border-zinc-800 text-xs text-zinc-400 uppercase tracking-widest">
+            EXPERIENCE
+          </div>
+
           {experiences.map((exp, idx) => (
             <div
               key={exp.company}
@@ -858,7 +798,7 @@ export default function MinimalView() {
                 </div>
 
                 <div className="pt-2">
-                  {renderGlyph(idx, () => setToastyOpen(true))}
+                  {renderGlyph(idx)}
                 </div>
               </div>
             </div>
@@ -967,7 +907,7 @@ export default function MinimalView() {
                 </div>
 
                 <div className="pt-2">
-                  {renderGlyph(idx + 4, () => setToastyOpen(true))}
+                  {renderGlyph(idx + 4)}
                 </div>
               </div>
             </div>
@@ -1111,28 +1051,16 @@ export default function MinimalView() {
           <TerminalDrawer
             isOpen={showTerminal}
             onClose={() => setShowTerminal(false)}
-            onTriggerToasty={() => setToastyOpen(true)}
-            onTriggerFatality={() => setMkFatalityActive(true)}
-            onTriggerSpear={() => setScorpionSpearActive(true)}
             onTriggerHadouken={() => setHadoukenActive(true)}
             onTriggerContra={() => setContraActive(true)}
           />
         )}
       </AnimatePresence>
 
-      {/* Easter Egg 1: Dan Forden UMK3 Toasty (Authentic Photo & Real Audio) */}
-      <ToastyPopup isOpen={toastyOpen} onClose={() => setToastyOpen(false)} />
-
-      {/* Easter Egg 2: Authentic Mortal Kombat Scorpion Flame Fatality (100% Transparent Overlay) */}
-      <MkFatality isActive={mkFatalityActive} onComplete={() => setMkFatalityActive(false)} />
-
-      {/* Easter Egg 3: Authentic Scorpion 'GET OVER HERE!' Spear & Uppercut (100% Transparent Overlay) */}
-      <ScorpionSpear isActive={scorpionSpearActive} onComplete={() => setScorpionSpearActive(false)} />
-
-      {/* Easter Egg 4: Authentic Street Fighter II Hadouken Wave (Real CPS2 Ryu & Fireball) */}
+      {/* Easter Egg 1: Authentic Street Fighter II Hadouken Wave */}
       <HadoukenWave isActive={hadoukenActive} onComplete={() => setHadoukenActive(false)} />
 
-      {/* Easter Egg 5: Authentic Contra 30 Lives Bill Rizer Sprint (Shortened ↑ ↑ ↓ ↓ Cheat Code) */}
+      {/* Easter Egg 2: Authentic Contra Bill Rizer Sprint (Shortened ↑ ↑ ↓ ↓ Cheat Code) */}
       <ContraRun isActive={contraActive} onComplete={() => setContraActive(false)} />
     </div>
   );
