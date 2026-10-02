@@ -38,22 +38,25 @@ export default function LedCanvasBackground({ theme }: LedCanvasBackgroundProps)
       const i = Math.floor(p);
       const f = p - i;
       const a = pal[i];
-      const b = pal[i + 1];
+      const b = pal[i + 1] || pal[i];
       return [lerp(a[0], b[0], f), lerp(a[1], b[1], f), lerp(a[2], b[2], f)];
     }
 
-    // Pre-bake palette RGB strings to completely eliminate GC and string allocations
     let cachedThemeId = "";
     let colorTable: string[][] = [];
     let bgStyle = "";
+    const TRANSITION_DURATION = 650;
+    let transitionStartTime = 0;
+    let isTransitioning = false;
+    let prevBG: [number, number, number] = theme.bgRGB;
+    let targetBG: [number, number, number] = theme.bgRGB;
+    let prevPAL: [number, number, number][] = theme.palette;
+    let targetPAL: [number, number, number][] = theme.palette;
+    let currentBG: [number, number, number] = [...theme.bgRGB];
+    let currentPAL: [number, number, number][] = theme.palette.map((c) => [...c]);
 
-    function updateColorTable(currentTheme: ThemeConfig) {
-      if (cachedThemeId === currentTheme.id && colorTable.length > 0) return;
-      cachedThemeId = currentTheme.id;
-      const BG = currentTheme.bgRGB;
-      const PAL = currentTheme.palette;
-      bgStyle = `rgb(${BG[0]},${BG[1]},${BG[2]})`;
-
+    function bakeColorTable(BG: [number, number, number], PAL: [number, number, number][]) {
+      bgStyle = `rgb(${BG[0] | 0},${BG[1] | 0},${BG[2] | 0})`;
       const baked = Array.from({ length: HUE_STEPS }, (_, i) =>
         paletteAt(i / (HUE_STEPS - 1), PAL)
       );
@@ -70,6 +73,55 @@ export default function LedCanvasBackground({ theme }: LedCanvasBackgroundProps)
           const b = Math.round(BG[2] + (c[2] - BG[2]) * k);
           colorTable[lvlIdx][hIdx] = `rgb(${r},${g},${b})`;
         }
+      }
+    }
+
+    function checkThemeChange(nextTheme: ThemeConfig) {
+      if (cachedThemeId === nextTheme.id) return;
+
+      if (cachedThemeId !== "") {
+        // Start smooth transition
+        prevBG = [...currentBG];
+        prevPAL = currentPAL.map((c) => [...c]);
+        targetBG = [...nextTheme.bgRGB];
+        targetPAL = nextTheme.palette.map((c) => [...c]);
+        transitionStartTime = performance.now();
+        isTransitioning = true;
+      } else {
+        // First load
+        currentBG = [...nextTheme.bgRGB];
+        currentPAL = nextTheme.palette.map((c) => [...c]);
+        bakeColorTable(currentBG, currentPAL);
+      }
+      cachedThemeId = nextTheme.id;
+    }
+
+    function updateTransition() {
+      if (!isTransitioning) return;
+      const elapsed = performance.now() - transitionStartTime;
+      const progress = Math.min(1, elapsed / TRANSITION_DURATION);
+      // Smooth cosine easing
+      const ease = 0.5 - 0.5 * Math.cos(progress * Math.PI);
+
+      currentBG = [
+        lerp(prevBG[0], targetBG[0], ease),
+        lerp(prevBG[1], targetBG[1], ease),
+        lerp(prevBG[2], targetBG[2], ease),
+      ];
+
+      currentPAL = targetPAL.map((targetColor, idx) => {
+        const prevColor = prevPAL[idx] || prevPAL[0] || targetColor;
+        return [
+          lerp(prevColor[0], targetColor[0], ease),
+          lerp(prevColor[1], targetColor[1], ease),
+          lerp(prevColor[2], targetColor[2], ease),
+        ];
+      });
+
+      bakeColorTable(currentBG, currentPAL);
+
+      if (progress >= 1) {
+        isTransitioning = false;
       }
     }
 
@@ -99,7 +151,8 @@ export default function LedCanvasBackground({ theme }: LedCanvasBackgroundProps)
     function draw(time: number) {
       if (!ctx) return;
       const currentTheme = themeRef.current;
-      updateColorTable(currentTheme);
+      checkThemeChange(currentTheme);
+      updateTransition();
 
       const t = time * SPEED;
       ctx.fillStyle = bgStyle;
@@ -172,8 +225,8 @@ export default function LedCanvasBackground({ theme }: LedCanvasBackgroundProps)
     };
 
     function loop(now: number) {
-      // Throttle during active fast scrolling to prioritize smooth 60fps page scroll
-      const minInterval = isScrolling ? 66 : 35;
+      // Throttle during active fast scrolling to prioritize smooth 60fps page scroll; use 16ms during theme transitions
+      const minInterval = isScrolling ? 66 : isTransitioning ? 16 : 33;
       if (now - last > minInterval) {
         draw(now / 1000 + 8);
         last = now;
@@ -208,6 +261,7 @@ export default function LedCanvasBackground({ theme }: LedCanvasBackgroundProps)
       if (scrollTimeout) clearTimeout(scrollTimeout);
       cancelAnimationFrame(animId);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

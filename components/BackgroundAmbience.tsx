@@ -16,8 +16,8 @@ export default function BackgroundAmbience() {
       <div className="absolute inset-0">
         {theme.blooms.map((bloom, index) => (
           <div
-            key={`${theme.id}-bloom-${index}`}
-            className="absolute rounded-full transition-all duration-1000 ease-out will-change-transform"
+            key={`bloom-${index}`}
+            className="absolute rounded-full transition-all duration-700 ease-in-out will-change-transform"
             style={{
               top: bloom.top,
               bottom: bloom.bottom,

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-context";
+import { ViewModeProvider } from "@/lib/view-mode-context";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -67,7 +68,9 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans min-h-screen bg-black text-slate-200 antialiased">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <ViewModeProvider>{children}</ViewModeProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

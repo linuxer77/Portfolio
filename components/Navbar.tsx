@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { personalData } from "@/lib/portfolio-data";
-import { FaFilePdf, FaGithub, FaLinkedinIn } from "react-icons/fa6";
+import { FaFilePdf } from "react-icons/fa6";
 import ThemeToggle from "@/components/ThemeToggle";
+import ViewModeSwitch from "@/components/ViewModeSwitch";
 
 const navLinks = [
   { label: "About", href: "#about" },
@@ -26,16 +27,17 @@ export default function Navbar() {
   }, []);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-4 py-4 transition-all duration-300">
+    <header className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 py-4 transition-all duration-300">
       <div
-        className={`max-w-4xl mx-auto flex items-center justify-between px-4 sm:px-6 py-2.5 rounded-full transition-all duration-300 ${scrolled
-          ? "bg-[#0c0a14]/85 backdrop-blur-md border border-white/[0.14] shadow-2xl shadow-black/80"
-          : "bg-[#0c0a14]/60 backdrop-blur-md border border-white/[0.1]"
-          }`}
+        className={`max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 py-2.5 rounded-full transition-all duration-300 ${
+          scrolled
+            ? "bg-[#0c0a14]/85 backdrop-blur-md border border-white/[0.14] shadow-2xl shadow-black/80"
+            : "bg-[#0c0a14]/60 backdrop-blur-md border border-white/[0.1]"
+        }`}
       >
         <Link
           href="#about"
-          className="flex items-center gap-2.5 text-sm font-semibold tracking-tight text-white hover:text-zinc-300 transition-colors"
+          className="flex items-center gap-2.5 text-sm font-semibold tracking-tight text-white hover:text-zinc-300 transition-colors shrink-0"
         >
           {/* Animated GIF Logo */}
           <div className="relative w-8 h-8 rounded-full overflow-hidden ring-1 ring-white/20 shadow-md shadow-black">
@@ -46,9 +48,12 @@ export default function Navbar() {
               className="w-full h-full object-cover"
             />
           </div>
+          <span className="hidden sm:inline font-mono font-semibold text-xs tracking-wider text-zinc-200">
+            {personalData.name}
+          </span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden md:flex items-center gap-1.5 lg:gap-2">
           {navLinks.map((link) => (
             <Link
               key={link.label}
@@ -60,31 +65,14 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <ViewModeSwitch />
           <ThemeToggle />
-          <a
-            href={personalData.github}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="GitHub"
-            className="p-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-800/60 transition-colors"
-          >
-            <FaGithub size={15} />
-          </a>
-          <a
-            href={personalData.linkedin}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="LinkedIn"
-            className="hidden sm:flex p-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-800/60 transition-colors"
-          >
-            <FaLinkedinIn size={15} />
-          </a>
           <a
             href={personalData.resumePath}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white hover:bg-zinc-200 text-black rounded-full transition-all duration-200 font-semibold"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white hover:bg-zinc-200 text-black rounded-full transition-all duration-200 font-semibold shadow-sm"
           >
             <FaFilePdf size={12} />
             <span>Resume</span>
