@@ -12,15 +12,12 @@ export default function BackgroundAmbience() {
       style={{ backgroundColor: theme.bgBase }}
       aria-hidden="true"
     >
-      {/* 1. Interactive LED Dot Matrix Canvas (running from led-background(1).html with dynamic flavour palette) */}
-      <LedCanvasBackground theme={theme} />
-
-      {/* 2. Atmospheric Ambient Glow Blooms (pure hardware-accelerated alpha blending, no mix-blend stall) */}
-      <div className="absolute inset-0 opacity-35 pointer-events-none">
+      {/* 1. Underlying Atmospheric Ambient Glow Blooms matching the active flavour */}
+      <div className="absolute inset-0">
         {theme.blooms.map((bloom, index) => (
           <div
             key={`${theme.id}-bloom-${index}`}
-            className="absolute rounded-full transition-all duration-1000 ease-out"
+            className="absolute rounded-full transition-all duration-1000 ease-out will-change-transform"
             style={{
               top: bloom.top,
               bottom: bloom.bottom,
@@ -36,12 +33,15 @@ export default function BackgroundAmbience() {
         ))}
       </div>
 
-      {/* 3. Balanced ambient vignette for Hero text contrast and framing */}
+      {/* 2. Interactive LED Dot Matrix Canvas (running from led-background(1).html with dynamic flavour palette) */}
+      <LedCanvasBackground theme={theme} />
+
+      {/* 3. Center-Column Text Readability Shadow Mask */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 80% 60% at 50% 18%, rgba(6,3,14,0.5) 0%, rgba(6,3,14,0.15) 55%, rgba(6,3,14,0.75) 100%)",
+            "radial-gradient(ellipse 70% 85% at 50% 35%, rgba(4,2,8,0.48) 0%, rgba(4,2,8,0.18) 60%, transparent 100%)",
         }}
       />
     </div>

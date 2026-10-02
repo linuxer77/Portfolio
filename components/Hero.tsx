@@ -23,11 +23,11 @@ export default function Hero() {
   };
 
   return (
-    <section id="about" className="pt-24 pb-8 sm:pt-32 sm:pb-12">
-      <div className="glass-card p-7 sm:p-10 space-y-6">
+    <section id="about" className="pt-28 pb-10 sm:pt-36 sm:pb-14">
+      <div className="space-y-6">
         {/* Animated PFP Avatar */}
         <div className="relative inline-block">
-          <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden ring-1 ring-white/20 shadow-xl shadow-black/80">
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden ring-1 ring-zinc-700 shadow-xl shadow-black/80">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icon.gif"
@@ -38,11 +38,11 @@ export default function Hero() {
         </div>
 
         {/* Title and Intro */}
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
             {personalData.name}
           </h1>
-          <p className="text-base sm:text-lg text-zinc-100 font-medium max-w-xl leading-relaxed drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]">
+          <p className="text-base sm:text-lg text-zinc-300 max-w-xl leading-relaxed">
             {personalData.bio}
           </p>
         </div>
@@ -63,7 +63,7 @@ export default function Hero() {
           <button
             onClick={copyEmail}
             type="button"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm bg-white/[0.06] hover:bg-white/[0.12] text-zinc-200 border border-white/[0.14] backdrop-blur-xl transition-all duration-200"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm bg-zinc-900 text-zinc-200 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800 transition-all duration-200"
           >
             {copied ? (
               <>
@@ -84,7 +84,7 @@ export default function Hero() {
               target="_blank"
               rel="noreferrer"
               aria-label="GitHub"
-              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] backdrop-blur-xl transition-all duration-200"
+              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all duration-200"
             >
               <FaGithub size={17} />
             </a>
@@ -93,7 +93,7 @@ export default function Hero() {
               target="_blank"
               rel="noreferrer"
               aria-label="LinkedIn"
-              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] backdrop-blur-xl transition-all duration-200"
+              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all duration-200"
             >
               <FaLinkedinIn size={17} />
             </a>
@@ -102,14 +102,14 @@ export default function Hero() {
               target="_blank"
               rel="noreferrer"
               aria-label="Twitter"
-              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] backdrop-blur-xl transition-all duration-200"
+              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all duration-200"
             >
               <FaXTwitter size={17} />
             </a>
             <a
               href={`mailto:${personalData.email}`}
               aria-label="Email"
-              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] backdrop-blur-xl transition-all duration-200"
+              className="p-2.5 text-zinc-400 hover:text-white rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all duration-200"
             >
               <FaEnvelope size={17} />
             </a>
