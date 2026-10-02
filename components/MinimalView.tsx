@@ -14,6 +14,10 @@ import ViewModeSwitch from "@/components/ViewModeSwitch";
 import { useViewMode } from "@/lib/view-mode-context";
 import { FaFilePdf } from "react-icons/fa6";
 import { motion, AnimatePresence } from "framer-motion";
+import ToastyPopup from "@/components/arcade/ToastyPopup";
+import ContraMode from "@/components/arcade/ContraMode";
+import HadoukenEffect from "@/components/arcade/HadoukenEffect";
+import MkFatalityModal from "@/components/arcade/MkFatalityModal";
 
 // ==========================================
 // Easter Egg 1: 0x6867 Scramble Effect
@@ -69,18 +73,38 @@ function HexScrambler({ onScrollToIntro }: { onScrollToIntro: () => void }) {
 // ==========================================
 // Easter Egg 3: Interactive 3D Wireframe Glyphs
 // ==========================================
-function InteractiveGlyph({ children }: { children: React.ReactNode }) {
+function InteractiveGlyph({
+  children,
+  onFastClick,
+}: {
+  children: React.ReactNode;
+  onFastClick?: () => void;
+}) {
   const [spinCount, setSpinCount] = useState(0);
+  const clickTimestampsRef = useRef<number[]>([]);
+
+  const handleClick = () => {
+    setSpinCount((c) => c + 1);
+    const now = Date.now();
+    clickTimestampsRef.current = [
+      ...clickTimestampsRef.current.filter((t) => now - t < 1800),
+      now,
+    ];
+    if (clickTimestampsRef.current.length >= 3) {
+      onFastClick?.();
+      clickTimestampsRef.current = [];
+    }
+  };
 
   return (
     <motion.div
-      onClick={() => setSpinCount((c) => c + 1)}
+      onClick={handleClick}
       whileHover={{ scale: 1.18, rotate: 45 }}
       whileTap={{ scale: 0.9 }}
       animate={{ rotate: spinCount * 360 }}
       transition={{ type: "spring", stiffness: 220, damping: 16 }}
       className="cursor-pointer text-zinc-400 hover:text-white transition-colors p-2 inline-block rounded-lg hover:bg-white/[0.05]"
-      title="Interactive Vector Glyph (hover to tilt, click to spin)"
+      title="Interactive Vector Glyph (hover to tilt, click to spin, 3x click for surprise)"
     >
       {children}
     </motion.div>
@@ -159,14 +183,21 @@ function GlyphOrbits() {
   );
 }
 
-const glyphs = [
-  <InteractiveGlyph key="g1"><GlyphAsterisk /></InteractiveGlyph>,
-  <InteractiveGlyph key="g2"><GlyphWheel /></InteractiveGlyph>,
-  <InteractiveGlyph key="g3"><GlyphDiamond /></InteractiveGlyph>,
-  <InteractiveGlyph key="g4"><GlyphCube /></InteractiveGlyph>,
-  <InteractiveGlyph key="g5"><GlyphHexAperture /></InteractiveGlyph>,
-  <InteractiveGlyph key="g6"><GlyphOrbits /></InteractiveGlyph>,
-];
+function renderGlyph(index: number, onFastClick?: () => void) {
+  const list = [
+    <GlyphAsterisk key="g1" />,
+    <GlyphWheel key="g2" />,
+    <GlyphDiamond key="g3" />,
+    <GlyphCube key="g4" />,
+    <GlyphHexAperture key="g5" />,
+    <GlyphOrbits key="g6" />,
+  ];
+  return (
+    <InteractiveGlyph onFastClick={onFastClick}>
+      {list[index % list.length]}
+    </InteractiveGlyph>
+  );
+}
 
 // ==========================================
 // Easter Egg 4: Embedded Linux Bash Terminal
@@ -176,15 +207,25 @@ interface LogEntry {
   text: string;
 }
 
+interface TerminalDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSwitchFlow: () => void;
+  onTriggerToasty: () => void;
+  onTriggerFatality: () => void;
+  onTriggerHadouken: () => void;
+  onTriggerContra: () => void;
+}
+
 function TerminalDrawer({
   isOpen,
   onClose,
   onSwitchFlow,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onSwitchFlow: () => void;
-}) {
+  onTriggerToasty,
+  onTriggerFatality,
+  onTriggerHadouken,
+  onTriggerContra,
+}: TerminalDrawerProps) {
   const [inputVal, setInputVal] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [historyIdx, setHistoryIdx] = useState<number>(-1);
@@ -224,6 +265,9 @@ function TerminalDrawer({
         newLogs.push({
           type: "out",
           text: `AVAILABLE COMMANDS:
+  neofetch         Display Linux system architecture
+  cat resume.md    Print curriculum vitae in terminal
+  ls               List files in active directory
   whoami / bio     Print developer profile
   exp / work       List professional work history
   projects         List high-throughput systems
@@ -233,8 +277,91 @@ function TerminalDrawer({
   flow             Switch runtime view to animated Flow mode
   clear            Clear terminal buffer
   sudo <cmd>       Execute with elevated permissions
-  exit             Close this terminal drawer`,
+  exit             Close this terminal drawer
+
+EASTER EGGS:
+  toasty           Dan Forden UMK3 pop-out
+  mk / fatality    Mortal Kombat 3 Fatality Arena
+  hadouken         Street Fighter Hadouken energy wave
+  contra           30 Lives Overclock Mode`,
         });
+        break;
+
+      case "neofetch":
+      case "fastfetch":
+        newLogs.push({
+          type: "out",
+          text: `       /\\         harshit@0x6867-arch
+      /  \\        -------------------
+     /\\   \\       OS: Arch Linux x86_64
+    /      \\      Host: Distributed Baremetal Node
+   /   ,,   \\     Kernel: 6.9.1-zen-0x6867
+  /   |  |  -\\    Shell: bash 5.2.26
+ /_-''    ''-_\\   Packages: 1337 (pacman)
+                  Languages: Go, Rust, Python, TypeScript, C/C++
+                  Infrastructure: Kafka, Redis, Docker, Kubernetes, gRPC
+                  Storage: PostgreSQL, MongoDB, ClickHouse
+                  Editor: Neovim / Helix`,
+        });
+        break;
+
+      case "ls":
+        newLogs.push({
+          type: "out",
+          text: "resume.md  projects.db  system.log  id_ed25519.pub",
+        });
+        break;
+
+      case "cat":
+        if (parts[1]?.toLowerCase().includes("resume")) {
+          newLogs.push({
+            type: "out",
+            text: `# HARSHIT GUPTA — SENIOR BACKEND ENGINEER
+Email: ${personalData.email} | GitHub: ${personalData.github}
+
+## EXPERIENCE
+* Neovista Technologies — Software Engineer (Backend)
+* Asama AI — Backend Engineer
+* Playto.so — Backend Engineer Intern
+* Maximize — Backend Developer Intern
+
+## CORE STACK
+* Languages: Go, Rust, Python, TypeScript
+* Distributed Architecture, Microservices, Event-Driven (Kafka, RabbitMQ)
+* Storage: PostgreSQL, Redis, ScyllaDB
+* Cloud & Infra: Docker, Kubernetes, AWS, gRPC, CI/CD`,
+          });
+        } else if (parts[1]) {
+          newLogs.push({
+            type: "err",
+            text: `cat: ${parts[1]}: Permission denied or no such file. Try 'cat resume.md'`,
+          });
+        } else {
+          newLogs.push({ type: "err", text: "cat: missing file operand. Try 'cat resume.md'" });
+        }
+        break;
+
+      case "toasty":
+        onTriggerToasty();
+        newLogs.push({ type: "out", text: "TOASTY! [Dan Forden UMK3 pop-out activated]" });
+        break;
+
+      case "mk":
+      case "fatality":
+      case "abacabb":
+        onTriggerFatality();
+        newLogs.push({ type: "out", text: "FINISH HIM! Launching Mortal Kombat 3 Kombat Arena..." });
+        break;
+
+      case "hadouken":
+        onTriggerHadouken();
+        newLogs.push({ type: "out", text: "HADOUKEN! 波動拳 surging across viewport..." });
+        break;
+
+      case "contra":
+      case "konami":
+        onTriggerContra();
+        newLogs.push({ type: "out", text: "30 LIVES GRANTED // CONTRA OVERCLOCK ACTIVE" });
         break;
 
       case "whoami":
@@ -420,19 +547,24 @@ export default function MinimalView() {
   const [showHud, setShowHud] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastyOpen, setToastyOpen] = useState(false);
+  const [contraActive, setContraActive] = useState(false);
+  const [mkOpen, setMkOpen] = useState(false);
+  const [hadoukenActive, setHadoukenActive] = useState(false);
+  const keyHistoryRef = useRef<string[]>([]);
   const { setViewMode, cycleViewMode } = useViewMode();
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 2200);
-  };
+  }, []);
 
   const copyEmail = useCallback(() => {
     navigator.clipboard.writeText(personalData.email);
     setCopied(true);
     showToast("EMAIL COPIED [harshitgit23@gmail.com]");
     setTimeout(() => setCopied(false), 2000);
-  }, []);
+  }, [showToast]);
 
   const scrollTo = useCallback((id: string) => {
     setActiveSection(id);
@@ -450,6 +582,59 @@ export default function MinimalView() {
       // Don't trigger hotkeys if user is focused inside an input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
+      // Record key sequence for multi-character easter eggs
+      keyHistoryRef.current = [...keyHistoryRef.current.slice(-15), e.key];
+      const seqStr = keyHistoryRef.current.map((k) => k.toLowerCase()).join("");
+
+      // 1. Konami Code (ArrowUp ArrowUp ArrowDown ArrowDown ArrowLeft ArrowRight ArrowLeft ArrowRight B A)
+      const last10 = keyHistoryRef.current.slice(-10);
+      const konami = [
+        "arrowup",
+        "arrowup",
+        "arrowdown",
+        "arrowdown",
+        "arrowleft",
+        "arrowright",
+        "arrowleft",
+        "arrowright",
+        "b",
+        "a",
+      ];
+      if (
+        last10.length === 10 &&
+        last10.every((k, i) => k.toLowerCase() === konami[i])
+      ) {
+        e.preventDefault();
+        setContraActive(true);
+        showToast("★ 30 LIVES GRANTED // CONTRA MODE ACTIVATED ★");
+        keyHistoryRef.current = [];
+        return;
+      }
+
+      // 2. Mortal Kombat Fatality ("mk", "fatality", "abacabb")
+      if (seqStr.endsWith("mk") || seqStr.endsWith("fatality") || seqStr.endsWith("abacabb")) {
+        e.preventDefault();
+        setMkOpen(true);
+        keyHistoryRef.current = [];
+        return;
+      }
+
+      // 3. TOASTY ("toasty")
+      if (seqStr.endsWith("toasty")) {
+        e.preventDefault();
+        setToastyOpen(true);
+        keyHistoryRef.current = [];
+        return;
+      }
+
+      // 4. Street Fighter Hadouken ("hadouken")
+      if (seqStr.endsWith("hadouken")) {
+        e.preventDefault();
+        setHadoukenActive(true);
+        keyHistoryRef.current = [];
         return;
       }
 
@@ -483,7 +668,7 @@ export default function MinimalView() {
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [activeSection, cycleViewMode, copyEmail, scrollTo]);
+  }, [activeSection, cycleViewMode, copyEmail, scrollTo, showToast]);
 
   return (
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black relative">
@@ -663,7 +848,7 @@ export default function MinimalView() {
                 </div>
 
                 <div className="pt-2">
-                  {glyphs[idx % glyphs.length]}
+                  {renderGlyph(idx, () => setToastyOpen(true))}
                 </div>
               </div>
             </div>
@@ -772,7 +957,7 @@ export default function MinimalView() {
                 </div>
 
                 <div className="pt-2">
-                  {glyphs[(idx + 4) % glyphs.length]}
+                  {renderGlyph(idx + 4, () => setToastyOpen(true))}
                 </div>
               </div>
             </div>
@@ -947,9 +1132,25 @@ export default function MinimalView() {
             isOpen={showTerminal}
             onClose={() => setShowTerminal(false)}
             onSwitchFlow={() => setViewMode("flow")}
+            onTriggerToasty={() => setToastyOpen(true)}
+            onTriggerFatality={() => setMkOpen(true)}
+            onTriggerHadouken={() => setHadoukenActive(true)}
+            onTriggerContra={() => setContraActive(true)}
           />
         )}
       </AnimatePresence>
+
+      {/* Easter Egg: Dan Forden UMK3 Toasty */}
+      <ToastyPopup isOpen={toastyOpen} onClose={() => setToastyOpen(false)} />
+
+      {/* Easter Egg: Mortal Kombat Fatality Arena */}
+      <MkFatalityModal isOpen={mkOpen} onClose={() => setMkOpen(false)} />
+
+      {/* Easter Egg: Street Fighter Hadouken Fireball */}
+      <HadoukenEffect isActive={hadoukenActive} onComplete={() => setHadoukenActive(false)} />
+
+      {/* Easter Egg: Contra 30 Lives Overclock Mode */}
+      <ContraMode isActive={contraActive} onExit={() => setContraActive(false)} />
     </div>
   );
 }
