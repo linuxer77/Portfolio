@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { personalData } from "@/lib/portfolio-data";
 import { FaFilePdf, FaGithub, FaLinkedinIn } from "react-icons/fa6";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const navLinks = [
   { label: "About", href: "#about" },
@@ -64,6 +65,7 @@ export default function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <a
             href={personalData.github}
             target="_blank"

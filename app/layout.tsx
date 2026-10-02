@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/lib/theme-context";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -54,9 +55,19 @@ export default function RootLayout({
       <head>
         <link rel="icon" type="image/gif" href="/favicon.gif" />
         <link rel="shortcut icon" type="image/gif" href="/favicon.gif" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var t = localStorage.getItem('portfolio-theme') || 'fissure';
+                document.documentElement.setAttribute('data-theme', t);
+              } catch (e) {}
+            `,
+          }}
+        />
       </head>
-      <body className="font-sans min-h-screen bg-[#090b10] text-slate-200 antialiased selection:bg-purple-500/25 selection:text-purple-300">
-        {children}
+      <body className="font-sans min-h-screen bg-black text-slate-200 antialiased">
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

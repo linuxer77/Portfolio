@@ -1,5 +1,6 @@
 import { experiences } from "@/lib/portfolio-data";
 import { FaArrowUpRightFromSquare } from "react-icons/fa6";
+import GlowDivider from "@/components/GlowDivider";
 
 export default function Experience() {
   return (
@@ -8,14 +9,9 @@ export default function Experience() {
         Work History
       </h2>
 
-      <div className="space-y-10">
+      <div className="space-y-8">
         {experiences.map((exp, index) => (
-          <div
-            key={exp.company}
-            className={`space-y-3 ${
-              index !== experiences.length - 1 ? "pb-10 border-b border-white/[0.08]" : ""
-            }`}
-          >
+          <div key={exp.company} className="space-y-3.5">
             {/* Header: Company & Date */}
             <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
               <div className="flex items-center gap-2">
@@ -58,10 +54,18 @@ export default function Experience() {
               <span className="text-zinc-500 font-semibold">Stack:</span>
               {exp.skills.map((skill, sIdx) => (
                 <span key={skill} className="text-zinc-300">
-                  {skill}{sIdx < exp.skills.length - 1 && <span className="text-zinc-600 ml-2">/</span>}
+                  {skill}
+                  {sIdx < exp.skills.length - 1 && (
+                    <span className="text-zinc-600 ml-2">/</span>
+                  )}
                 </span>
               ))}
             </div>
+
+            {/* Glowing line under each work history entry */}
+            {index !== experiences.length - 1 && (
+              <GlowDivider className="pt-4" />
+            )}
           </div>
         ))}
       </div>

@@ -10,6 +10,7 @@ import {
   FaXTwitter,
   FaPaperPlane,
 } from "react-icons/fa6";
+import GlowDivider from "@/components/GlowDivider";
 
 export default function Contact() {
   const [copied, setCopied] = useState(false);
@@ -59,7 +60,9 @@ export default function Contact() {
           </button>
         </div>
 
-        <div className="flex items-center gap-4 pt-2 text-zinc-400">
+        <GlowDivider intensity="subtle" className="py-1" />
+
+        <div className="flex items-center gap-4 pt-1 text-zinc-400">
           <span className="text-xs font-mono text-zinc-500">Links:</span>
           <a
             href={personalData.github}

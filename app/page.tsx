@@ -6,15 +6,15 @@ import Skills from "@/components/Skills";
 import Certifications from "@/components/Certifications";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
-import PixelBackground from "@/components/PixelBackground";
+import BackgroundAmbience from "@/components/BackgroundAmbience";
 
 export default function HomePage() {
   return (
-    <div className="relative min-h-screen bg-[#090714] text-slate-100 overflow-x-hidden selection:bg-pink-500/25 selection:text-amber-200">
-      {/* Interactive Zoomable Retro Pixel Background */}
-      <PixelBackground />
+    <div className="relative min-h-screen bg-black text-slate-100 overflow-x-hidden selection:bg-white/20 selection:text-white">
+      {/* Theme-Driven Ambient Glows on Deep Black (No Pixel Grid) */}
+      <BackgroundAmbience />
 
-      {/* Floating Navigation */}
+      {/* Floating Navigation with Theme Switcher */}
       <Navbar />
 
       {/* Main Content Area */}

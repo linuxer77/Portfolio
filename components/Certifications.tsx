@@ -1,5 +1,6 @@
 import { certifications, education } from "@/lib/portfolio-data";
 import { FaArrowUpRightFromSquare } from "react-icons/fa6";
+import GlowDivider from "@/components/GlowDivider";
 
 export default function Certifications() {
   return (
@@ -8,13 +9,10 @@ export default function Certifications() {
         Certifications & Education
       </h2>
 
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Certifications */}
         {certifications.map((cert) => (
-          <div
-            key={cert.title}
-            className="pb-8 border-b border-white/[0.08] space-y-2"
-          >
+          <div key={cert.title} className="space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold text-white">
@@ -42,6 +40,8 @@ export default function Certifications() {
             <p className="text-sm text-zinc-400 leading-relaxed">
               {cert.description}
             </p>
+
+            <GlowDivider className="pt-4" />
           </div>
         ))}
 

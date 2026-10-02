@@ -2,52 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --theme-bg: #020204;
+  --theme-glow-start: rgba(0, 240, 255, 0.15);
+  --theme-glow-mid: #00f0ff;
+  --theme-glow-bright: #ffffff;
+  --theme-glow-end: rgba(168, 85, 247, 0.15);
+  --theme-glow-shadow: rgba(0, 240, 255, 0.55);
+  --theme-accent: #00f0ff;
+  --theme-accent-hover: #38bdf8;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
+    background-color: #000000;
   }
 
   body {
-    background-color: #090714;
+    background-color: var(--theme-bg, #020204);
     color: #e2e8f0;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.7s ease;
   }
 
   ::selection {
-    background-color: rgba(232, 67, 147, 0.35);
-    color: #fed7aa;
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
   }
 }
 
-/* Chunky Mosaic LED Pixel Beads directly matching the reference image scale (~18px cell) */
-.bg-mosaic-beads {
-  background-image: 
-    radial-gradient(circle 6.5px at center, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 75%, transparent 82%);
-  background-size: 18px 18px;
-}
-
-/* Gutter mesh dividing the beads */
-.bg-mosaic-gutters {
-  background-image:
-    linear-gradient(to right, rgba(0, 0, 0, 0.45) 1.5px, transparent 1.5px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.45) 1.5px, transparent 1.5px);
-  background-size: 18px 18px;
-  pointer-events: none;
-}
-
-/* Custom scrollbar with mosaic purple/magenta accent */
+/* Custom minimal scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: #090714;
+  background: #000000;
 }
 ::-webkit-scrollbar-thumb {
-  background: #231c38;
+  background: #222228;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3c2a63;
+  background: #444450;
 }

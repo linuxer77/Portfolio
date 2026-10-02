@@ -4,6 +4,7 @@ import {
   FaGithub,
   FaArrowUpRightFromSquare,
 } from "react-icons/fa6";
+import GlowDivider from "@/components/GlowDivider";
 
 export default function Projects() {
   return (
@@ -90,6 +91,8 @@ export default function Projects() {
           </article>
         ))}
       </div>
+
+      <GlowDivider className="pt-12" />
     </section>
   );
 }
