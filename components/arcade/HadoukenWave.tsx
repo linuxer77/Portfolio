@@ -136,9 +136,6 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
               unoptimized
             />
           </div>
-          <span className="text-[11px] font-black tracking-widest text-cyan-400 bg-black/90 px-2.5 py-0.5 rounded border border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.6)] uppercase mt-1">
-            RYU // HADOUKEN (波動拳)
-          </span>
         </motion.div>
 
         {/* Authentic Hadouken Energy Ball */}
@@ -179,9 +176,6 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
               <h2 className="text-7xl sm:text-9xl font-black italic tracking-widest text-amber-400 drop-shadow-[0_0_40px_rgba(245,158,11,1)] [text-shadow:4px_4px_0_#b91c1c,-4px_-4px_0_#b91c1c]">
                 K.O.!
               </h2>
-              <p className="text-sm font-black text-cyan-300 tracking-widest uppercase mt-2 bg-black/80 px-4 py-1 rounded inline-block border border-cyan-400 shadow-xl">
-                CAPCOM 1993 // PERFECT VICTORY
-              </p>
             </motion.div>
           </div>
         )}

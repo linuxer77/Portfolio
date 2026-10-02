@@ -173,10 +173,6 @@ export default function MkFatality({ isActive, onComplete }: MkFatalityProps) {
               </div>
             )}
           </div>
-
-          <span className="text-[11px] font-black tracking-widest text-yellow-400 bg-black/90 px-2.5 py-0.5 rounded border border-yellow-500 shadow-[0_0_12px_rgba(234,179,8,0.6)] uppercase mt-1">
-            SCORPION // HELLFIRE
-          </span>
         </motion.div>
 
         {/* 3. Infernal Hellfire Torrent streaming from Scorpion to Sub-Zero */}
@@ -276,10 +272,6 @@ export default function MkFatality({ isActive, onComplete }: MkFatalityProps) {
               </motion.div>
             )}
           </div>
-
-          <span className="text-[11px] font-black tracking-widest text-cyan-400 bg-black/90 px-2.5 py-0.5 rounded border border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.6)] uppercase mt-1">
-            {stage === "burn_skeleton" || stage === "victory" ? "INCINERATED // ASHES" : "SUB-ZERO // DIZZY"}
-          </span>
         </motion.div>
 
         {/* 5. Dan Forden "TOASTY!" Pop-out from bottom right */}
@@ -320,14 +312,9 @@ export default function MkFatality({ isActive, onComplete }: MkFatalityProps) {
               <h2 className="text-6xl sm:text-9xl font-black italic tracking-widest text-red-600 drop-shadow-[0_0_50px_rgba(220,38,38,1)] [text-shadow:5px_5px_0_#450a0a,-5px_-5px_0_#450a0a]">
                 FATALITY!
               </h2>
-              <div className="mt-3 space-y-1">
-                <p className="text-lg sm:text-2xl font-black text-yellow-400 tracking-widest uppercase bg-black/90 px-6 py-1.5 rounded inline-block border border-yellow-500 shadow-2xl">
-                  SCORPION WINS // FLAWLESS VICTORY
-                </p>
-                <p className="text-[11px] font-mono text-zinc-400 tracking-widest uppercase">
-                  MIDWAY 1995 // HELLFIRE INCINERATION
-                </p>
-              </div>
+              <p className="mt-2 text-xl sm:text-3xl font-black text-yellow-400 tracking-widest uppercase drop-shadow-[0_0_20px_rgba(234,179,8,1)] [text-shadow:2px_2px_0_#000]">
+                SCORPION WINS
+              </p>
             </motion.div>
           </div>
         )}

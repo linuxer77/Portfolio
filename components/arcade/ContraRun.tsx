@@ -120,31 +120,25 @@ export default function ContraRun({ isActive, onComplete }: ContraRunProps) {
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 pointer-events-none select-none overflow-hidden font-mono">
-        {/* Authentic 8-bit Contra HUD Badge (Top Left, Transparent) */}
+        {/* Authentic 8-bit Contra HUD (Top Left, Transparent) */}
         <motion.div
           initial={{ y: -40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -40, opacity: 0 }}
-          className="absolute top-20 left-4 sm:left-8 z-40 flex items-center gap-3 bg-black/80 px-3.5 py-1.5 rounded border border-red-500/80 shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+          className="absolute top-20 left-4 sm:left-8 z-40 flex items-center gap-2"
         >
-          <div className="flex items-center gap-2">
-            <div className="relative w-4 h-7 filter drop-shadow-[0_0_6px_rgba(239,68,68,1)]">
-              <Image
-                src="/arcade/contra/lives_medal.png"
-                alt="Lives Medal"
-                fill
-                className="object-contain"
-                style={{ imageRendering: "pixelated" }}
-                unoptimized
-              />
-            </div>
-            <span className="text-xs sm:text-sm font-black text-red-400 tracking-wider">
-              1P REST <span className="text-white text-base">30</span>
-            </span>
+          <div className="relative w-4 h-7 filter drop-shadow-[0_0_6px_rgba(239,68,68,1)]">
+            <Image
+              src="/arcade/contra/lives_medal.png"
+              alt="Lives Medal"
+              fill
+              className="object-contain"
+              style={{ imageRendering: "pixelated" }}
+              unoptimized
+            />
           </div>
-          <span className="text-zinc-600">|</span>
-          <span className="text-[11px] font-bold text-amber-300 tracking-widest hidden sm:inline">
-            SPREAD GUN (S) ACTIVE // JUNGLE RUN
+          <span className="text-xs sm:text-sm font-black text-red-500 tracking-wider [text-shadow:1px_1px_0_#000]">
+            1P REST <span className="text-white text-base">30</span>
           </span>
         </motion.div>
 
@@ -200,13 +194,6 @@ export default function ContraRun({ isActive, onComplete }: ContraRunProps) {
             <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-red-500 border-2 border-amber-300 shadow-[0_0_14px_rgba(239,68,68,1)]" />
           </motion.div>
         ))}
-
-        {/* Floating Iconic Banner Stamp in Center */}
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 text-center pointer-events-none z-20 opacity-80">
-          <p className="text-xs sm:text-sm font-black tracking-widest text-red-500 uppercase bg-black/70 px-4 py-1 rounded border border-red-500/40 shadow-lg">
-            CONTRA (KONAMI 1987) // BILL RIZER 30 LIVES SPRINT
-          </p>
-        </div>
       </div>
     </AnimatePresence>
   );

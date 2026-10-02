@@ -212,7 +212,6 @@ interface LogEntry {
 interface TerminalDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onSwitchFlow?: () => void;
   onTriggerToasty: () => void;
   onTriggerFatality: () => void;
   onTriggerSpear: () => void;
@@ -223,7 +222,6 @@ interface TerminalDrawerProps {
 function TerminalDrawer({
   isOpen,
   onClose,
-  onSwitchFlow,
   onTriggerToasty,
   onTriggerFatality,
   onTriggerSpear,
@@ -235,7 +233,7 @@ function TerminalDrawer({
   const [historyIdx, setHistoryIdx] = useState<number>(-1);
   const [logs, setLogs] = useState<LogEntry[]>([
     { type: "out", text: "Welcome to 0x6867 shell v1.0.0 (x86_64-linux)" },
-    { type: "out", text: "Type 'help' for routines or 'games' to see authentic retro games." },
+    { type: "out", text: "Type 'help' for routines or 'arcade' to see authentic retro games." },
   ]);
   const logContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -269,27 +267,25 @@ function TerminalDrawer({
         newLogs.push({
           type: "out",
           text: `AVAILABLE COMMANDS:
-  neofetch         Display Linux system architecture
-  cat resume.md    Print curriculum vitae in terminal
-  ls               List files in active directory
-  whoami / bio     Print developer profile
-  exp / work       List professional work history
-  projects         List high-throughput systems
-  skills           Display language & backend stack
-  contact / email  Output contact coordinates
-  resume           Open official curriculum vitae
-  flow             Switch runtime view to animated Flow mode
-  clear            Clear terminal buffer
-  sudo <cmd>       Execute with elevated permissions
-  exit             Close this terminal drawer
+  neofetch
+  cat resume.md
+  ls
+  whoami
+  exp
+  projects
+  skills
+  contact
+  resume
+  clear
+  exit
 
-AUTHENTIC RETRO ARCADE:
-  games            List all authentic retro arcade easter eggs
-  mk / fatality    Scorpion Hellfire Fatality (Skull flame incineration)
-  spear            Scorpion "GET OVER HERE!" Harpoon Spear & Uppercut
-  contra           Contra 30 Lives Bill Rizer Sprint (or press ↑ ↑ ↓ ↓)
-  sf2 / hadouken   Street Fighter II Hadouken (Authentic CPS2 Ryu)
-  toasty           Dan Forden authentic voice & photo pop-out`,
+ARCADE:
+  arcade
+  mk
+  spear
+  contra
+  sf2
+  toasty`,
         });
         break;
 
@@ -303,11 +299,7 @@ AUTHENTIC RETRO ARCADE:
     /      \\      Host: Distributed Baremetal Node
    /   ,,   \\     Kernel: 6.9.1-zen-0x6867
   /   |  |  -\\    Shell: bash 5.2.26
- /_-''    ''-_\\   Packages: 1337 (pacman)
-                  Languages: Go, Rust, Python, TypeScript, C/C++
-                  Infrastructure: Kafka, Redis, Docker, Kubernetes, gRPC
-                  Storage: PostgreSQL, MongoDB, ClickHouse
-                  Editor: Neovim / Helix`,
+ /_-''    ''-_\\   Uptime: 24h`,
         });
         break;
 
@@ -347,24 +339,24 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
         }
         break;
 
-      case "games":
       case "arcade":
+      case "retro":
+      case "secrets":
+      case "games":
         newLogs.push({
           type: "out",
-          text: `AUTHENTIC RETRO ARCADE EASTER EGGS (100% TRANSPARENT OVERLAY):
-  * mk / fatality    Mortal Kombat Scorpion Flame Fatality (unmasks & incinerates opponent)
-  * spear / getoverhere Scorpion "GET OVER HERE!" Harpoon Spear & Uppercut
-  * sf2 / hadouken   Street Fighter II Hadouken (Authentic CPS2 Ryu & Fireball)
-  * contra           Contra 30 Lives Bill Rizer Sprint (or press ↑ ↑ ↓ ↓ on keyboard)
-  * toasty           Dan Forden "TOASTY!" voice & digitized arcade photo
-
-Type any command above or use global typing / shortcuts directly on the page!`,
+          text: `ARCADE:
+  mk
+  spear
+  contra
+  sf2
+  toasty`,
         });
         break;
 
       case "toasty":
         onTriggerToasty();
-        newLogs.push({ type: "out", text: "TOASTY! [Dan Forden real voice clip activated]" });
+        newLogs.push({ type: "out", text: "TOASTY!" });
         break;
 
       case "mk":
@@ -372,25 +364,25 @@ Type any command above or use global typing / shortcuts directly on the page!`,
       case "fatality":
       case "abacabb":
         onTriggerFatality();
-        newLogs.push({ type: "out", text: "FINISH HIM! Scorpion Hellfire Fatality unleashed..." });
+        newLogs.push({ type: "out", text: "FINISH HIM!" });
         break;
 
       case "spear":
       case "getoverhere":
         onTriggerSpear();
-        newLogs.push({ type: "out", text: "GET OVER HERE! Scorpion whips harpoon spear..." });
+        newLogs.push({ type: "out", text: "GET OVER HERE!" });
         break;
 
       case "sf2":
       case "hadouken":
         onTriggerHadouken();
-        newLogs.push({ type: "out", text: "HADOUKEN! Ryu unleashed across viewport..." });
+        newLogs.push({ type: "out", text: "HADOUKEN!" });
         break;
 
       case "contra":
       case "konami":
         onTriggerContra();
-        newLogs.push({ type: "out", text: "★ UP UP DOWN DOWN // Bill Rizer sprints across viewport! ★" });
+        newLogs.push({ type: "out", text: "1P REST 30" });
         break;
 
       case "whoami":
@@ -443,24 +435,9 @@ Type any command above or use global typing / shortcuts directly on the page!`,
         newLogs.push({ type: "out", text: "Opening résumé in external viewport..." });
         break;
 
-      case "flow":
-        // onSwitchFlow?.();
-        newLogs.push({
-          type: "out",
-          text: "Notice: Flow mode is currently deactivated. Portfolio operates in minimal brutalist mode.",
-        });
-        break;
-
       case "clear":
         setLogs([]);
         return;
-
-      case "sudo":
-        newLogs.push({
-          type: "err",
-          text: "User linuxer77 is not in the sudoers file. This incident will be reported.",
-        });
-        break;
 
       case "exit":
       case "quit":
@@ -795,7 +772,7 @@ export default function MinimalView() {
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/80 animate-pulse" />
                 <span>
-                  type <code className="text-cyan-400 font-bold group-hover:underline">&apos;games&apos;</code> in the terminal to see the games
+                  type <code className="text-cyan-400 font-bold group-hover:underline">&apos;arcade&apos;</code> in the terminal
                 </span>
               </button>
             </div>

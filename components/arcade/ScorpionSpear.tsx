@@ -119,10 +119,6 @@ export default function ScorpionSpear({ isActive, onComplete }: ScorpionSpearPro
               />
             </motion.div>
           </div>
-
-          <span className="text-[11px] font-black tracking-widest text-yellow-400 bg-black/90 px-2.5 py-0.5 rounded border border-yellow-500 shadow-[0_0_12px_rgba(234,179,8,0.6)] uppercase mt-1">
-            SCORPION // HARPOON SPEAR
-          </span>
         </motion.div>
 
         {/* 2. Kunai Spear & Steel Chain */}
@@ -207,10 +203,6 @@ export default function ScorpionSpear({ isActive, onComplete }: ScorpionSpearPro
                 <div className="absolute top-1/3 left-4 w-12 h-12 bg-red-600/70 rounded-full blur-xs animate-ping" />
               )}
             </div>
-
-            <span className="text-[11px] font-black tracking-widest text-cyan-400 bg-black/90 px-2.5 py-0.5 rounded border border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.6)] uppercase mt-1">
-              {stage === "uppercut" ? "CRITICAL HIT // AIRBORNE" : "SUB-ZERO // TARGET"}
-            </span>
           </motion.div>
         )}
 
@@ -245,9 +237,6 @@ export default function ScorpionSpear({ isActive, onComplete }: ScorpionSpearPro
               <h2 className="text-5xl sm:text-8xl font-black italic tracking-widest text-amber-400 drop-shadow-[0_0_40px_rgba(245,158,11,1)] [text-shadow:4px_4px_0_#991b1b,-4px_-4px_0_#991b1b]">
                 GET OVER HERE!
               </h2>
-              <p className="text-sm sm:text-base font-black text-yellow-300 tracking-widest uppercase mt-2 bg-black/90 px-4 py-1 rounded inline-block border border-yellow-500 shadow-xl">
-                SCORPION // HARPOON SPEAR &amp; BRUTAL UPPERCUT
-              </p>
             </motion.div>
           </div>
         )}
