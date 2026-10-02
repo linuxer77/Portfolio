@@ -17,6 +17,7 @@ import { FaFilePdf } from "react-icons/fa6";
 import { motion, AnimatePresence } from "framer-motion";
 import HadoukenWave from "@/components/arcade/HadoukenWave";
 import ContraRun from "@/components/arcade/ContraRun";
+import ToastyPopup from "@/components/arcade/ToastyPopup";
 
 // ==========================================
 // Easter Egg 1: 0x6867 Scramble Effect
@@ -211,6 +212,7 @@ interface TerminalDrawerProps {
   onClose: () => void;
   onTriggerHadouken: () => void;
   onTriggerContra: () => void;
+  onTriggerToasty?: () => void;
 }
 
 function TerminalDrawer({
@@ -218,6 +220,7 @@ function TerminalDrawer({
   onClose,
   onTriggerHadouken,
   onTriggerContra,
+  onTriggerToasty,
 }: TerminalDrawerProps) {
   const [inputVal, setInputVal] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -348,6 +351,11 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
       case "konami":
         onTriggerContra();
         newLogs.push({ type: "out", text: "CONTRA" });
+        break;
+
+      case "toasty":
+        onTriggerToasty?.();
+        newLogs.push({ type: "out", text: "TOASTY!" });
         break;
 
       case "whoami":
@@ -522,6 +530,7 @@ export default function MinimalView() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [hadoukenActive, setHadoukenActive] = useState(false);
   const [contraActive, setContraActive] = useState(false);
+  const [toastyOpen, setToastyOpen] = useState(false);
   const keyHistoryRef = useRef<string[]>([]);
   // const { setViewMode } = useViewMode();
 
@@ -589,7 +598,15 @@ export default function MinimalView() {
         return;
       }
 
-      // 3. Developer Terminal Drawer toggle (~ or `)
+      // 3. Secret Toasty ("toasty") - let user discover by typing
+      if (seqStr.endsWith("toasty")) {
+        e.preventDefault();
+        setToastyOpen(true);
+        keyHistoryRef.current = [];
+        return;
+      }
+
+      // 4. Developer Terminal Drawer toggle (~ or `)
       if (e.key === "~" || e.key === "`") {
         e.preventDefault();
         setShowTerminal((prev) => !prev);
@@ -798,7 +815,7 @@ export default function MinimalView() {
                 </div>
 
                 <div className="pt-2">
-                  {renderGlyph(idx)}
+                  {renderGlyph(idx, () => setToastyOpen(true))}
                 </div>
               </div>
             </div>
@@ -907,7 +924,7 @@ export default function MinimalView() {
                 </div>
 
                 <div className="pt-2">
-                  {renderGlyph(idx + 4)}
+                  {renderGlyph(idx + 4, () => setToastyOpen(true))}
                 </div>
               </div>
             </div>
@@ -1053,9 +1070,13 @@ export default function MinimalView() {
             onClose={() => setShowTerminal(false)}
             onTriggerHadouken={() => setHadoukenActive(true)}
             onTriggerContra={() => setContraActive(true)}
+            onTriggerToasty={() => setToastyOpen(true)}
           />
         )}
       </AnimatePresence>
+
+      {/* Secret Easter Egg: Dan Forden Toasty (Unlisted discovery) */}
+      <ToastyPopup isOpen={toastyOpen} onClose={() => setToastyOpen(false)} />
 
       {/* Easter Egg 1: Authentic Street Fighter II Hadouken Wave */}
       <HadoukenWave isActive={hadoukenActive} onComplete={() => setHadoukenActive(false)} />

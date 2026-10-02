@@ -12,7 +12,6 @@ interface HadoukenWaveProps {
 export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps) {
   const [frameIdx, setFrameIdx] = useState(0);
   const [fireballX, setFireballX] = useState<number | null>(null);
-  const [isKO, setIsKO] = useState(false);
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
 
   const playAudio = useCallback((path: string, volume = 0.85) => {
@@ -39,7 +38,6 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
       stopAllAudio();
       setFrameIdx(0);
       setFireballX(null);
-      setIsKO(false);
       return;
     }
 
@@ -57,34 +55,30 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
       setFireballX(0);
     }, 600);
 
-    // 3. Fireball travels across screen
+    // 3. Fireball travels across screen and flies off
     let currentX = 0;
-    let animId: number;
+    let animFrame: number;
 
     const launchTimer = setTimeout(() => {
       const startTime = performance.now();
-      const speed = window.innerWidth / 900; // takes ~900ms to cross
+      const speed = window.innerWidth / 850; // smooth travel across screen
 
       const step = (now: number) => {
         const elapsed = now - startTime;
         currentX = elapsed * speed;
         setFireballX(currentX);
 
-        if (currentX < window.innerWidth - 60) {
-          animId = requestAnimationFrame(step);
+        if (currentX < window.innerWidth + 80) {
+          animFrame = requestAnimationFrame(step);
         } else {
-          // Hit the edge! Trigger K.O.!
-          setIsKO(true);
-          playAudio("/arcade/sf2/ko.mp3", 0.95);
-
-          // Complete and dismiss after impact
+          // Fireball flew off-screen, complete cleanly
           setTimeout(() => {
             onComplete();
-          }, 1400);
+          }, 250);
         }
       };
 
-      animId = requestAnimationFrame(step);
+      animFrame = requestAnimationFrame(step);
     }, 650);
 
     return () => {
@@ -92,7 +86,7 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
       clearTimeout(t2);
       clearTimeout(t3);
       clearTimeout(launchTimer);
-      cancelAnimationFrame(animId);
+      cancelAnimationFrame(animFrame);
       stopAllAudio();
     };
   }, [isActive, onComplete, playAudio, stopAllAudio]);
@@ -109,16 +103,6 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 pointer-events-none select-none overflow-hidden font-mono">
-        {/* Screen Flash on Fireball Release / Impact */}
-        {isKO && (
-          <motion.div
-            initial={{ opacity: 0.6 }}
-            animate={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
-            className="absolute inset-0 bg-cyan-400 mix-blend-screen"
-          />
-        )}
-
         {/* Authentic CPS2 Ryu on Left Side */}
         <motion.div
           initial={{ x: -180, opacity: 0 }}
@@ -139,7 +123,7 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
         </motion.div>
 
         {/* Authentic Hadouken Energy Ball */}
-        {fireballX !== null && !isKO && (
+        {fireballX !== null && (
           <motion.div
             style={{
               left: `${180 + fireballX}px`,
@@ -162,22 +146,6 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
               />
             </div>
           </motion.div>
-        )}
-
-        {/* Dramatic K.O. Impact Stamp */}
-        {isKO && (
-          <div className="absolute inset-0 flex items-center justify-center z-50">
-            <motion.div
-              initial={{ scale: 3.5, rotate: -15, opacity: 0 }}
-              animate={{ scale: 1, rotate: 0, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 380, damping: 18 }}
-              className="text-center"
-            >
-              <h2 className="text-7xl sm:text-9xl font-black italic tracking-widest text-amber-400 drop-shadow-[0_0_40px_rgba(245,158,11,1)] [text-shadow:4px_4px_0_#b91c1c,-4px_-4px_0_#b91c1c]">
-                K.O.!
-              </h2>
-            </motion.div>
-          </div>
         )}
       </div>
     </AnimatePresence>
