@@ -10,7 +10,6 @@ import {
   FaXTwitter,
   FaPaperPlane,
 } from "react-icons/fa6";
-import GlowDivider from "@/components/GlowDivider";
 
 export default function Contact() {
   const [copied, setCopied] = useState(false);
@@ -23,7 +22,7 @@ export default function Contact() {
 
   return (
     <section id="contact" className="py-10 sm:py-14">
-      <div className="space-y-6">
+      <div className="p-7 sm:p-8 rounded-2xl bg-[#090812]/80 backdrop-blur-md border border-white/[0.09] shadow-xl shadow-black/40 space-y-6">
         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
           Get In Touch
         </h2>
@@ -60,9 +59,7 @@ export default function Contact() {
           </button>
         </div>
 
-        <GlowDivider intensity="subtle" className="py-1" />
-
-        <div className="flex items-center gap-4 pt-1 text-zinc-400">
+        <div className="flex items-center gap-4 pt-2 text-zinc-400 border-t border-white/[0.06]">
           <span className="text-xs font-mono text-zinc-500">Links:</span>
           <a
             href={personalData.github}

@@ -1,6 +1,5 @@
 import { certifications, education } from "@/lib/portfolio-data";
 import { FaArrowUpRightFromSquare } from "react-icons/fa6";
-import GlowDivider from "@/components/GlowDivider";
 
 export default function Certifications() {
   return (
@@ -12,10 +11,13 @@ export default function Certifications() {
       <div className="space-y-6">
         {/* Certifications */}
         {certifications.map((cert) => (
-          <div key={cert.title} className="space-y-2">
+          <div
+            key={cert.title}
+            className="p-6 sm:p-7 rounded-2xl bg-[#090812]/80 backdrop-blur-md border border-white/[0.09] hover:border-white/[0.2] transition-all duration-300 shadow-xl shadow-black/40 space-y-2 group"
+          >
             <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-white">
+                <h3 className="text-lg font-bold text-white group-hover:text-zinc-100 transition-colors">
                   {cert.title}
                 </h3>
                 <a
@@ -40,13 +42,11 @@ export default function Certifications() {
             <p className="text-sm text-zinc-400 leading-relaxed">
               {cert.description}
             </p>
-
-            <GlowDivider className="pt-4" />
           </div>
         ))}
 
         {/* Education */}
-        <div className="space-y-2">
+        <div className="p-6 sm:p-7 rounded-2xl bg-[#090812]/80 backdrop-blur-md border border-white/[0.09] hover:border-white/[0.2] transition-all duration-300 shadow-xl shadow-black/40 space-y-2">
           <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
             <h3 className="text-lg font-bold text-white">
               {education.degree}

@@ -76,6 +76,7 @@ export const experiences: Experience[] = [
     company: "Asama AI",
     role: "Backend Developer Intern",
     period: "Aug 2026 — Sep 2026",
+    link: "https://asama.ai/",
     description: [
       "Designed and deployed automated GitHub Actions CI/CD release pipelines targeting Debian (DEB), Red Hat (RPM), and Docker distribution formats.",
       "Modularized packaging workflows for the Host Agent and OpenTelemetry Collector daemon.",
@@ -87,6 +88,7 @@ export const experiences: Experience[] = [
     company: "NuVista Technologies",
     role: "Backend Developer (Contract)",
     period: "Sep 2025 — Dec 2025",
+    link: "https://www.neovistatech.com/",
     description: [
       "Developed performant RESTful APIs using Django REST framework and PostgreSQL, supporting seamless relational data access.",
       "Deployed and maintained server-side applications on AWS Elastic Beanstalk using Gunicorn WSGI and NGINX reverse proxying.",

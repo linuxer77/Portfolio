@@ -29,8 +29,8 @@ export default function Navbar() {
     <header className="fixed top-0 left-0 right-0 z-50 px-4 py-4 transition-all duration-300">
       <div
         className={`max-w-4xl mx-auto flex items-center justify-between px-4 sm:px-6 py-2.5 rounded-full transition-all duration-300 ${scrolled
-            ? "bg-[#0c0a14]/90 backdrop-blur-md border border-white/[0.1] shadow-2xl shadow-black/80"
-            : "bg-[#0c0a14]/70 backdrop-blur-sm border border-white/[0.08]"
+          ? "bg-[#0c0a14]/90 backdrop-blur-md border border-white/[0.1] shadow-2xl shadow-black/80"
+          : "bg-[#0c0a14]/70 backdrop-blur-sm border border-white/[0.08]"
           }`}
       >
         <Link
@@ -87,7 +87,7 @@ export default function Navbar() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white hover:bg-zinc-200 text-black rounded-full transition-all duration-200 font-semibold"
           >
             <FaFilePdf size={12} />
-            <span>Résumé</span>
+            <span>Resume</span>
           </a>
         </div>
       </div>

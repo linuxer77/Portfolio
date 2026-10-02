@@ -1,6 +1,5 @@
 import { experiences } from "@/lib/portfolio-data";
 import { FaArrowUpRightFromSquare } from "react-icons/fa6";
-import GlowDivider from "@/components/GlowDivider";
 
 export default function Experience() {
   return (
@@ -9,13 +8,16 @@ export default function Experience() {
         Work History
       </h2>
 
-      <div className="space-y-8">
-        {experiences.map((exp, index) => (
-          <div key={exp.company} className="space-y-3.5">
+      <div className="space-y-6">
+        {experiences.map((exp) => (
+          <div
+            key={exp.company}
+            className="p-6 sm:p-7 rounded-2xl bg-[#090812]/80 backdrop-blur-md border border-white/[0.09] hover:border-white/[0.2] transition-all duration-300 shadow-xl shadow-black/40 space-y-3.5 group"
+          >
             {/* Header: Company & Date */}
             <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-white">
+                <h3 className="text-lg font-bold text-white group-hover:text-zinc-100 transition-colors">
                   {exp.company}
                 </h3>
                 {exp.link && (
@@ -50,7 +52,7 @@ export default function Experience() {
             </ul>
 
             {/* Clean inline tech stack */}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-2 text-xs font-mono text-zinc-400">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-2.5 text-xs font-mono text-zinc-400 border-t border-white/[0.06]">
               <span className="text-zinc-500 font-semibold">Stack:</span>
               {exp.skills.map((skill, sIdx) => (
                 <span key={skill} className="text-zinc-300">
@@ -61,11 +63,6 @@ export default function Experience() {
                 </span>
               ))}
             </div>
-
-            {/* Glowing line under each work history entry */}
-            {index !== experiences.length - 1 && (
-              <GlowDivider className="pt-4" />
-            )}
           </div>
         ))}
       </div>
