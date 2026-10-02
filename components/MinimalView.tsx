@@ -16,7 +16,9 @@ import {
 import { FaFilePdf } from "react-icons/fa6";
 import { motion, AnimatePresence } from "framer-motion";
 import ToastyPopup from "@/components/arcade/ToastyPopup";
-import WasmArcadeModal, { ArcadeGame } from "@/components/arcade/WasmArcadeModal";
+import MkFatalityArena from "@/components/arcade/MkFatalityArena";
+import HadoukenWave from "@/components/arcade/HadoukenWave";
+import ContraOverclock from "@/components/arcade/ContraOverclock";
 
 // ==========================================
 // Easter Egg 1: 0x6867 Scramble Effect
@@ -211,7 +213,9 @@ interface TerminalDrawerProps {
   onClose: () => void;
   onSwitchFlow?: () => void;
   onTriggerToasty: () => void;
-  onLaunchGame: (game: ArcadeGame) => void;
+  onTriggerFatality: () => void;
+  onTriggerHadouken: () => void;
+  onTriggerContra: () => void;
 }
 
 function TerminalDrawer({
@@ -219,14 +223,16 @@ function TerminalDrawer({
   onClose,
   onSwitchFlow,
   onTriggerToasty,
-  onLaunchGame,
+  onTriggerFatality,
+  onTriggerHadouken,
+  onTriggerContra,
 }: TerminalDrawerProps) {
   const [inputVal, setInputVal] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [historyIdx, setHistoryIdx] = useState<number>(-1);
   const [logs, setLogs] = useState<LogEntry[]>([
     { type: "out", text: "Welcome to 0x6867 shell v1.0.0 (x86_64-linux)" },
-    { type: "out", text: "Type 'help' to inspect available routines or 'exit' to close." },
+    { type: "out", text: "Type 'help' for routines or 'games' to see authentic retro games." },
   ]);
   const logContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -275,10 +281,11 @@ function TerminalDrawer({
   exit             Close this terminal drawer
 
 AUTHENTIC ARCADE (WASM):
-  toasty           Dan Forden authentic voice & photo pop-out
+  games            List all authentic retro WebAssembly games
   mk / umk3        Play Ultimate Mortal Kombat 3 in WebAssembly
   contra           Play Contra (NES) in WebAssembly (30 Lives)
-  sf2 / hadouken   Play Street Fighter II in WebAssembly`,
+  sf2 / hadouken   Play Street Fighter II in WebAssembly
+  toasty           Dan Forden authentic voice & photo pop-out`,
         });
         break;
 
@@ -336,6 +343,20 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
         }
         break;
 
+      case "games":
+      case "arcade":
+        newLogs.push({
+          type: "out",
+          text: `AUTHENTIC RETRO ARCADE EASTER EGGS:
+  * mk / fatality    Mortal Kombat Fatality Arena (Digitized Scorpion vs Sub-Zero)
+  * sf2 / hadouken   Street Fighter II Hadouken (Authentic CPS2 Ryu & Fireball)
+  * contra / konami  Contra 30 Lives Overclock (NES Bill Rizer & Spread Gun)
+  * toasty           Dan Forden "TOASTY!" voice & digitized arcade photo
+
+Type any command above or use global typing / shortcuts to trigger them!`,
+        });
+        break;
+
       case "toasty":
         onTriggerToasty();
         newLogs.push({ type: "out", text: "TOASTY! [Dan Forden real voice clip activated]" });
@@ -345,20 +366,20 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
       case "umk3":
       case "fatality":
       case "abacabb":
-        onLaunchGame("umk3");
-        newLogs.push({ type: "out", text: "FINISH HIM! Booting Ultimate Mortal Kombat 3 in WebAssembly..." });
+        onTriggerFatality();
+        newLogs.push({ type: "out", text: "FINISH HIM! Summoning Mortal Kombat Fatality Arena..." });
         break;
 
       case "sf2":
       case "hadouken":
-        onLaunchGame("sf2");
-        newLogs.push({ type: "out", text: "HADOUKEN! Booting Street Fighter II in WebAssembly..." });
+        onTriggerHadouken();
+        newLogs.push({ type: "out", text: "HADOUKEN! Ryu unleashed across viewport..." });
         break;
 
       case "contra":
       case "konami":
-        onLaunchGame("contra");
-        newLogs.push({ type: "out", text: "30 LIVES GRANTED // Booting Contra (NES) in WebAssembly..." });
+        onTriggerContra();
+        newLogs.push({ type: "out", text: "30 LIVES GRANTED // Contra NES Overclock activated!" });
         break;
 
       case "whoami":
@@ -546,9 +567,10 @@ export default function MinimalView() {
   const [copied, setCopied] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [showEasterEggHint, setShowEasterEggHint] = useState(true);
   const [toastyOpen, setToastyOpen] = useState(false);
-  const [activeArcadeGame, setActiveArcadeGame] = useState<ArcadeGame | null>(null);
+  const [mkOpen, setMkOpen] = useState(false);
+  const [hadoukenActive, setHadoukenActive] = useState(false);
+  const [contraActive, setContraActive] = useState(false);
   const keyHistoryRef = useRef<string[]>([]);
   // const { setViewMode } = useViewMode();
 
@@ -606,8 +628,8 @@ export default function MinimalView() {
         last10.every((k, i) => k.toLowerCase() === konami[i])
       ) {
         e.preventDefault();
-        setActiveArcadeGame("contra");
-        showToast("★ 30 LIVES GRANTED // BOOTING CONTRA IN WEBASSEMBLY ★");
+        setContraActive(true);
+        showToast("★ 30 LIVES GRANTED // CONTRA OVERCLOCK ACTIVE ★");
         keyHistoryRef.current = [];
         return;
       }
@@ -615,7 +637,7 @@ export default function MinimalView() {
       // 2. Mortal Kombat ("mk", "fatality", "abacabb")
       if (seqStr.endsWith("mk") || seqStr.endsWith("fatality") || seqStr.endsWith("abacabb")) {
         e.preventDefault();
-        setActiveArcadeGame("umk3");
+        setMkOpen(true);
         keyHistoryRef.current = [];
         return;
       }
@@ -631,7 +653,7 @@ export default function MinimalView() {
       // 4. Street Fighter ("hadouken", "sf2")
       if (seqStr.endsWith("hadouken") || seqStr.endsWith("sf2")) {
         e.preventDefault();
-        setActiveArcadeGame("sf2");
+        setHadoukenActive(true);
         keyHistoryRef.current = [];
         return;
       }
@@ -708,62 +730,56 @@ export default function MinimalView() {
         </div>
       </header>
 
-      {/* Subtle Easter Egg Hint Micro-Bar */}
-      {showEasterEggHint && (
-        <div className="border-b border-dotted border-zinc-800 bg-zinc-950/90 px-4 sm:px-6 lg:px-8 py-1.5 text-[10px] sm:text-[11px] text-zinc-500 font-mono tracking-wider">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
-              <span className="text-zinc-400 font-bold uppercase shrink-0">EASTER EGGS DETECTED:</span>
-              <span className="text-zinc-400 shrink-0">
-                Play authentic games in WebAssembly (<span className="text-amber-400">↑↑↓↓←→←→BA</span> for Contra, &apos;<span className="text-amber-400">mk</span>&apos; for Mortal Kombat 3, &apos;<span className="text-amber-400">sf2</span>&apos; for Street Fighter II), 3x click glyphs for &apos;<span className="text-amber-400">toasty</span>&apos;, or launch terminal (<span className="text-cyan-400">~</span>)
-              </span>
-            </div>
-            <button
-              onClick={() => setShowEasterEggHint(false)}
-              className="text-zinc-500 hover:text-zinc-300 text-xs px-1 shrink-0"
-              title="Dismiss hint"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* 2. Hero Intro Banner */}
       <section id="intro" className="border-b border-dotted border-zinc-800 py-12 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="space-y-4 max-w-3xl">
-            <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-white uppercase">
-              {personalData.name}
-            </h1>
-            <p className="text-sm sm:text-base text-zinc-300 leading-relaxed max-w-2xl font-mono">
-              {personalData.bio}
-            </p>
-            <div className="flex flex-wrap items-center gap-4 pt-2 text-xs">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+            <div className="space-y-4 max-w-2xl">
+              <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-white uppercase">
+                {personalData.name}
+              </h1>
+              <p className="text-sm sm:text-base text-zinc-300 leading-relaxed max-w-2xl font-mono">
+                {personalData.bio}
+              </p>
+              <div className="flex flex-wrap items-center gap-4 pt-2 text-xs">
+                <button
+                  onClick={copyEmail}
+                  type="button"
+                  className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
+                >
+                  {copied ? "EMAIL COPIED" : `COPY: ${personalData.email}`}
+                </button>
+                <a
+                  href={personalData.github}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
+                >
+                  GITHUB ↗
+                </a>
+                <a
+                  href={personalData.linkedin}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
+                >
+                  LINKEDIN ↗
+                </a>
+              </div>
+            </div>
+
+            {/* Right-side quadrant: games terminal hint */}
+            <div className="pt-2 md:pt-0 shrink-0">
               <button
-                onClick={copyEmail}
-                type="button"
-                className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
+                onClick={() => setShowTerminal(true)}
+                className="group inline-flex items-center gap-2 font-mono text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                title="Open bash terminal (~)"
               >
-                {copied ? "EMAIL COPIED" : `COPY: ${personalData.email}`}
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/80 animate-pulse" />
+                <span>
+                  type <code className="text-cyan-400 font-bold group-hover:underline">&apos;games&apos;</code> in the terminal to see the games
+                </span>
               </button>
-              <a
-                href={personalData.github}
-                target="_blank"
-                rel="noreferrer"
-                className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
-              >
-                GITHUB ↗
-              </a>
-              <a
-                href={personalData.linkedin}
-                target="_blank"
-                rel="noreferrer"
-                className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
-              >
-                LINKEDIN ↗
-              </a>
             </div>
           </div>
         </div>
@@ -1100,22 +1116,25 @@ export default function MinimalView() {
           <TerminalDrawer
             isOpen={showTerminal}
             onClose={() => setShowTerminal(false)}
-            // onSwitchFlow={() => setViewMode("flow")}
             onTriggerToasty={() => setToastyOpen(true)}
-            onLaunchGame={(g) => setActiveArcadeGame(g)}
+            onTriggerFatality={() => setMkOpen(true)}
+            onTriggerHadouken={() => setHadoukenActive(true)}
+            onTriggerContra={() => setContraActive(true)}
           />
         )}
       </AnimatePresence>
 
-      {/* Easter Egg: Dan Forden UMK3 Toasty (Authentic Photo & Real Audio) */}
+      {/* Easter Egg 1: Dan Forden UMK3 Toasty (Authentic Photo & Real Audio) */}
       <ToastyPopup isOpen={toastyOpen} onClose={() => setToastyOpen(false)} />
 
-      {/* Authentic WebAssembly Retro Arcade Modal (UMK3, Contra, Street Fighter II) */}
-      <WasmArcadeModal
-        isOpen={Boolean(activeArcadeGame)}
-        game={activeArcadeGame}
-        onClose={() => setActiveArcadeGame(null)}
-      />
+      {/* Easter Egg 2: Authentic Mortal Kombat Fatality Arena (3 Random Digitized Fatalities) */}
+      <MkFatalityArena isOpen={mkOpen} onClose={() => setMkOpen(false)} />
+
+      {/* Easter Egg 3: Authentic Street Fighter II Hadouken Wave (Real CPS2 Ryu & Fireball) */}
+      <HadoukenWave isActive={hadoukenActive} onComplete={() => setHadoukenActive(false)} />
+
+      {/* Easter Egg 4: Authentic Contra 30 Lives Overclock (Real NES Sprites & 1UP Chime) */}
+      <ContraOverclock isActive={contraActive} onExit={() => setContraActive(false)} />
     </div>
   );
 }
