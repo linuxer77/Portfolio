@@ -1,9 +1,47 @@
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Harshit Gupta | Portfolio",
-  description: "Portfolio of Harshit Gupta",
+  metadataBase: new URL("https://harshit.dev"),
+  title: "Harshit Gupta — Backend Engineer",
+  description:
+    "Portfolio of Harshit Gupta, a Backend Engineer using Python and Go.",
+  icons: {
+    icon: "/favicon.gif",
+    shortcut: "/favicon.gif",
+    apple: "/icon.gif",
+  },
+  keywords: [
+    "Harshit Gupta",
+    "Backend Engineer",
+    "Backend Developer",
+    "Golang",
+    "Python",
+    "PostgreSQL",
+    "Docker",
+    "AWS",
+    "API Security",
+  ],
+  authors: [{ name: "Harshit Gupta" }],
+  openGraph: {
+    title: "Harshit Gupta — Backend Engineer",
+    description: "Backend engineer using Python and Go.",
+    type: "website",
+    images: [{ url: "/icon.gif" }],
+  },
 };
 
 export default function RootLayout({
@@ -12,20 +50,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} dark`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@600;700;800;900&family=Press+Start+2P&display=swap"
-          rel="stylesheet"
-        />
+        <link rel="icon" type="image/gif" href="/favicon.gif" />
+        <link rel="shortcut icon" type="image/gif" href="/favicon.gif" />
       </head>
-      <body>{children}</body>
+      <body className="font-sans min-h-screen bg-[#090b10] text-slate-200 antialiased selection:bg-purple-500/25 selection:text-purple-300">
+        {children}
+      </body>
     </html>
   );
 }
