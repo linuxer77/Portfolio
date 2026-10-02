@@ -59,7 +59,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                var t = localStorage.getItem('portfolio-theme') || 'fissure';
+                var t = localStorage.getItem('portfolio-theme') || 'led';
                 document.documentElement.setAttribute('data-theme', t);
               } catch (e) {}
             `,

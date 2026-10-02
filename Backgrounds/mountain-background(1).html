@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Mountains Background</title>
+<style>
+  :root { --bg: #07030f; }
+  html { background: var(--bg); }
+  /* body is its own stacking context so the canvas (z-index -2) is never covered */
+  body { margin: 0; min-height: 100%; position: relative; z-index: 0; background: transparent; }
+  html, body { height: 100%; }
+
+  /* ── The background: keep <canvas id="bg"> + .bg-vignette ─────
+     They sit behind everything, so your portfolio content goes on top. */
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -2; display: block; }
+  .bg-vignette {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(5,2,14,.8) 100%);
+  }
+
+  /* ── Demo content (delete this block + the <main> below) ───── */
+  main {
+    min-height: 100%; display: grid; place-items: center; padding: 2rem;
+    font-family: "Space Grotesk", system-ui, sans-serif; color: #fff; text-align: center;
+  }
+  main h1 {
+    font-size: clamp(2.6rem, 8vw, 6rem); margin: 0; font-weight: 700; letter-spacing: -.03em;
+    text-shadow: 0 4px 40px rgba(20,8,60,.85);
+  }
+  main p { margin: .75rem 0 0; font-size: clamp(1rem, 2vw, 1.25rem); text-shadow: 0 2px 20px rgba(20,8,60,.9); }
+</style>
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="bg-vignette" aria-hidden="true"></div>
+
+<main>
+  <div>
+    <h1>Your Name</h1>
+    <p>Designer &amp; developer</p>
+  </div>
+</main>
+
+<script>
+(() => {
+  const canvas = document.getElementById('bg');
+  const ctx = canvas.getContext('2d');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ── Tweak these ─────────────────────────────────────────────
+  const DRIFT = 0.004;    // how fast mountains slide sideways (0 = still)
+  const PARALLAX = 1;     // mouse parallax strength (0 = off)
+  const BIRDS = 8;
+  const STRIPES = ['#4a6cf0', '#6a58ee', '#a55cf0', '#ff4fc0', '#ff6aa0', '#ff9a7a', '#ffc46a', '#ffe36a'];
+
+  let W, H, dpr, pines = [], birds = [];
+  const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+
+  // seeded random so the landscape is the same every load
+  const rng = s => () => (s = (s * 16807) % 2147483647, (s - 1) / 2147483646);
+
+  // ridged noise: sharp mountain crests, value 0..1
+  function makeRidge(seed) {
+    const r = rng(seed), f = [], p = [], a = [];
+    for (let k = 0; k < 5; k++) {
+      f.push(1.2 * Math.pow(1.95, k) * (0.85 + r() * 0.3));
+      p.push(r() * 6.283);
+      a.push(Math.pow(0.5, k));
+    }
+    const tot = a.reduce((s, v) => s + v, 0);
+    return x => {
+      let s = 0;
+      for (let k = 0; k < 5; k++) s += a[k] * (1 - Math.abs(Math.sin(x * f[k] + p[k])));
+      return s / tot;
+    };
+  }
+  const R_PINK = makeRidge(11), R_MID = makeRidge(23), R_FAR = makeRidge(37), R_NEAR = makeRidge(51);
+
+  // soft cloud sprite
+  const fog = document.createElement('canvas');
+  fog.width = fog.height = 256;
+  (() => {
+    const g = fog.getContext('2d'), gr = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    gr.addColorStop(0, 'rgba(255,255,255,.9)');
+    gr.addColorStop(.5, 'rgba(255,255,255,.35)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  })();
+  const fogA = Array.from({ length: 5 }, (_, i) => ({ x: i * 0.4, y: 0.86, s: 0.8 + (i % 3) * 0.25, sp: 0.006 + i * 0.002, a: .5 }));
+  const fogB = Array.from({ length: 6 }, (_, i) => ({ x: i * 0.33 + .1, y: 0.98, s: 1 + (i % 3) * 0.3, sp: 0.01 + i * 0.002, a: .75 }));
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const r = rng(7);
+    pines = [];
+    const n = Math.ceil(W / 13);
+    for (let i = 0; i < n; i++) pines.push({ x: (i / n) * W + r() * 10, h: H * (0.035 + r() * 0.05), w: 9 + r() * 8 });
+    birds = Array.from({ length: BIRDS }, () => ({
+      x: r() * 1.4, y: 0.12 + r() * 0.5, sp: 0.012 + r() * 0.02,
+      s: 4 + r() * 5, ph: r() * 6.28, c: r() > .5 ? '#ff9a5a' : '#ff5fa8'
+    }));
+    if (reduceMotion) draw(8);
+  }
+
+  function ridge(fn, base, amp, off, top, bot, rim) {
+    const step = 6, pts = [];
+    for (let x = 0; x <= W + step; x += step) {
+      pts.push([x, base * H - amp * H * fn((x / W + off) * 6.283)]);
+    }
+    const g = ctx.createLinearGradient(0, (base - amp) * H, 0, base * H);
+    g.addColorStop(0, top); g.addColorStop(1, bot);
+    const fill = new Path2D(), line = new Path2D();
+    fill.moveTo(0, H); line.moveTo(pts[0][0], pts[0][1]);
+    pts.forEach(([x, y]) => { fill.lineTo(x, y); line.lineTo(x, y); });
+    fill.lineTo(W + step, H); fill.closePath();
+    ctx.fillStyle = g; ctx.fill(fill);
+    ctx.strokeStyle = rim; ctx.lineWidth = 2; ctx.stroke(line);
+  }
+
+  function stripes(t) {
+    const sh = H * 0.034, T = sh * STRIPES.length, L = Math.hypot(W, H);
+    ctx.save();
+    ctx.translate(W * 0.5, H * 0.62 + Math.sin(t * 0.25) * H * 0.03);
+    ctx.rotate(-0.4);
+    STRIPES.forEach((c, i) => {
+      ctx.globalAlpha = 0.86 + 0.14 * Math.sin(t * 0.8 + i * 0.7);
+      ctx.fillStyle = c;
+      ctx.fillRect(-L, -T / 2 + i * sh, 2 * L, sh + 1);
+    });
+    ctx.restore();
+  }
+
+  function drawFog(list, t) {
+    list.forEach(f => {
+      const x = ((f.x + t * f.sp) % 2 - 0.5) * W, w = W * 0.75 * f.s, h = w * 0.3;
+      ctx.globalAlpha = f.a;
+      ctx.drawImage(fog, x - w / 2, f.y * H - h / 2, w, h);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPines() {
+    ctx.fillStyle = '#13113a';
+    pines.forEach(p => {
+      const by = H + 4;
+      for (let k = 0; k < 3; k++) {
+        const w = p.w * (1 - k * 0.28), top = by - p.h * (0.5 + k * 0.28), bot = by - p.h * (k * 0.28) * 0.5 - p.h * 0.1 * (k === 0 ? 0 : 1) ;
+        ctx.beginPath();
+        ctx.moveTo(p.x, top - p.h * 0.45);
+        ctx.lineTo(p.x + w, top + p.h * 0.25);
+        ctx.lineTo(p.x - w, top + p.h * 0.25);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.fillRect(p.x - 1, by - p.h * 0.3, 2, p.h * 0.3);
+    });
+  }
+
+  function drawBirds(t) {
+    ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    birds.forEach(b => {
+      const x = ((b.x + t * b.sp) % 1.4 - 0.2) * W;
+      const y = b.y * H + Math.sin(t * 0.7 + b.ph) * 12 - mouse.y * 14;
+      const flap = Math.sin(t * 7 + b.ph) * b.s * 0.7;
+      ctx.strokeStyle = b.c;
+      ctx.beginPath();
+      ctx.moveTo(x - b.s, y - flap); ctx.lineTo(x, y); ctx.lineTo(x + b.s, y - flap);
+      ctx.stroke();
+    });
+  }
+
+  function draw(t) {
+    mouse.x += (mouse.tx - mouse.x) * 0.04;
+    mouse.y += (mouse.ty - mouse.y) * 0.04;
+    const mx = mouse.x * 0.05 * PARALLAX;
+
+    // sky
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#fbe4f4'); sky.addColorStop(.28, '#f2a9dc');
+    sky.addColorStop(.5, '#9a5be8'); sky.addColorStop(.75, '#4a3fc4'); sky.addColorStop(1, '#1a1760');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+    // glowing haze behind the peaks
+    const gx = W * 0.6, gy = H * 0.26;
+    const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, H * 0.55);
+    glow.addColorStop(0, `rgba(255,240,250,${0.55 + 0.1 * Math.sin(t * 0.6)})`);
+    glow.addColorStop(1, 'rgba(255,240,250,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+
+    ridge(R_PINK, 0.62, 0.50, t * DRIFT * 0.6 + mx * 0.6, '#ff4f9f', '#7b3fd6', 'rgba(255,200,230,.9)');
+    ridge(R_MID,  0.76, 0.30, t * DRIFT * 0.9 + mx * 1.0, '#9a52e6', '#3f35b8', 'rgba(255,170,235,.55)');
+
+    stripes(t);
+
+    ridge(R_FAR,  0.92, 0.32, t * DRIFT * 1.2 + mx * 1.6, '#6b6fe0', '#3a3fa8', 'rgba(210,214,255,.8)');
+    drawFog(fogA, t);
+    ridge(R_NEAR, 1.03, 0.28, t * DRIFT * 1.6 + mx * 2.4, '#4c52c4', '#1e1f6e', 'rgba(160,168,255,.8)');
+    drawPines();
+    drawFog(fogB, t);
+    drawBirds(t);
+  }
+
+  function loop(now) { draw(now / 1000 + 8); requestAnimationFrame(loop); }
+
+  addEventListener('resize', resize);
+  addEventListener('pointermove', e => { mouse.tx = e.clientX / innerWidth - 0.5; mouse.ty = e.clientY / innerHeight - 0.5; });
+  resize();
+  if (!reduceMotion) requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

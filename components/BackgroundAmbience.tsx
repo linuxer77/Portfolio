@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { useTheme } from "@/lib/theme-context";
+import LedCanvasBackground from "./LedCanvasBackground";
+import MountainCanvasBackground from "./MountainCanvasBackground";
 
 export default function BackgroundAmbience() {
   const { theme, allThemes } = useTheme();
@@ -33,9 +35,17 @@ export default function BackgroundAmbience() {
         ))}
       </div>
 
-      {/* 2. Artistic Image Layers (Smooth crossfade between themes) */}
+      {/* 2. Custom Interactive Canvas Backgrounds from Backgrounds/ */}
+      {/* LED Dot Matrix Canvas (running from Backgrounds/led-background(1).html) */}
+      <LedCanvasBackground isActive={theme.id === "led"} />
+
+      {/* Neon Mountains Canvas (running from Backgrounds/mountain-background(1).html) */}
+      <MountainCanvasBackground isActive={theme.id === "mountains"} />
+
+      {/* 3. Image Backgrounds (for image-based themes like Neon Fissure & Golden Ember) */}
       <div className="absolute inset-0">
         {allThemes.map((item) => {
+          if (item.bgType !== "image" || !item.bgImage) return null;
           const isActive = item.id === theme.id;
           return (
             <div
@@ -58,20 +68,20 @@ export default function BackgroundAmbience() {
         })}
       </div>
 
-      {/* 3. Artistic Readability Mask & Vignette Overlay */}
-      {/* Ensures typography remains crisp pure white with 100% contrast, while image art shines through cleanly */}
+      {/* 4. Deep Shadows & Readability Mask Vignette */}
+      {/* Ensures the background stays in the shadows so portfolio typography remains sharp and legible */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{
           background:
             "radial-gradient(ellipse 90% 80% at 50% 30%, rgba(2,2,4,0.55) 0%, rgba(2,2,4,0.85) 65%, #020204 100%)",
         }}
       />
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(2,2,4,0.45) 0%, rgba(2,2,4,0.2) 25%, rgba(2,2,4,0.7) 80%, #020204 100%)",
+            "linear-gradient(to bottom, rgba(2,2,4,0.45) 0%, rgba(2,2,4,0.15) 25%, rgba(2,2,4,0.7) 80%, #020204 100%)",
         }}
       />
     </div>

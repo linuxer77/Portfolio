@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LED Dot Background</title>
+<style>
+  :root { --bg: #07030f; }
+  html { background: var(--bg); }
+  /* body is its own stacking context so the canvas (z-index -2) always
+     paints ABOVE html's background and never gets covered by it */
+  body { margin: 0; min-height: 100%; position: relative; z-index: 0; background: transparent; }
+  html, body { height: 100%; }
+
+  /* ── The background ──────────────────────────────────────────
+     Keep <canvas id="bg"> and the .bg-vignette div. They sit behind
+     everything (z-index: -1), so your portfolio content goes on top. */
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -2; display: block; }
+  .bg-vignette {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(5,2,12,.75) 100%);
+  }
+
+  /* ── Demo content (delete this block + the <main> below) ───── */
+  main {
+    min-height: 100%; display: grid; place-items: center; padding: 2rem;
+    font-family: "Space Grotesk", system-ui, sans-serif; color: #fff; text-align: center;
+  }
+  main h1 {
+    font-size: clamp(2.6rem, 8vw, 6rem); margin: 0; font-weight: 700; letter-spacing: -.03em;
+    text-shadow: 0 4px 40px rgba(7,3,15,.8);
+  }
+  main p { margin: .75rem 0 0; opacity: .8; font-size: clamp(1rem, 2vw, 1.25rem); text-shadow: 0 2px 20px rgba(7,3,15,.9); }
+</style>
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="bg-vignette" aria-hidden="true"></div>
+
+<main>
+  <div>
+    <h1>Your Name</h1>
+    <p>Designer &amp; developer</p>
+  </div>
+</main>
+
+<script>
+(() => {
+  const canvas = document.getElementById('bg');
+  const ctx = canvas.getContext('2d');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ── Tweak these ─────────────────────────────────────────────
+  const SPEED = 0.35;      // flow speed (lower = calmer)
+  const CELL_DESKTOP = 16; // dot spacing in px
+  const CELL_MOBILE = 13;
+  const LEVELS = 5;        // brightness steps (pixel-art banding)
+  const HUE_STEPS = 16;    // colour steps
+  const BG = [7, 3, 15];
+  // palette runs cool → warm (cyan, blue, violet, magenta, red, orange, yellow)
+  const PALETTE = [
+    [25, 232, 224], [42, 70, 240], [118, 44, 240], [240, 28, 192],
+    [255, 47, 85], [255, 138, 26], [255, 220, 30]
+  ];
+
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+  function paletteAt(h) {
+    const p = clamp(h, 0, 0.9999) * (PALETTE.length - 1);
+    const i = Math.floor(p), f = p - i;
+    const a = PALETTE[i], b = PALETTE[i + 1];
+    return [lerp(a[0], b[0], f), lerp(a[1], b[1], f), lerp(a[2], b[2], f)];
+  }
+  // pre-baked quantised colours
+  const BAKED = Array.from({ length: HUE_STEPS }, (_, i) => paletteAt(i / (HUE_STEPS - 1)));
+
+  let W, H, dpr, cell, cols, rows, aspect;
+  const mouse = { x: -9999, y: -9999 };
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cell = W < 700 ? CELL_MOBILE : CELL_DESKTOP;
+    cols = Math.ceil(W / cell) + 1;
+    rows = Math.ceil(H / cell) + 1;
+    aspect = W / H;
+    if (reduceMotion) draw(8);
+  }
+
+  // Two warped sine fields: one makes the blob shapes, one picks the colour.
+  function sample(nx, ny, t) {
+    const wx = nx + 0.35 * Math.sin(ny * 5 + t * 0.6) + 0.2 * Math.sin(ny * 11 - t * 0.4);
+    const wy = ny + 0.25 * Math.sin(nx * 4 + t * 0.5);
+    const a = (Math.sin(wx * 5 + Math.sin(wy * 3 + t * 0.3) * 1.5)
+             + Math.sin(wy * 4 + wx * 2 - t * 0.2) * 0.6
+             + Math.sin(wx * 9 - wy * 6 + t * 0.35) * 0.3) / 1.9;
+    let h = 0.5 + 0.5 * Math.sin(wy * 3.2 + wx * 1.5 + t * 0.15);
+    h = clamp(0.5 * (1 - ny) + 0.5 * h + 0.08 * Math.sin(wx * 7), 0, 1); // warm up top, cool below
+    return [a, h];
+  }
+
+  function draw(time) {
+    const t = time * SPEED;
+    ctx.fillStyle = `rgb(${BG[0]},${BG[1]},${BG[2]})`;
+    ctx.fillRect(0, 0, W, H);
+
+    const maxR = cell * 0.43;
+    const mr = 160; // mouse glow radius
+
+    for (let j = 0; j < rows; j++) {
+      const y = j * cell + cell / 2;
+      const ny = y / H;
+      for (let i = 0; i < cols; i++) {
+        const x = i * cell + cell / 2;
+        const [a, h] = sample((x / W) * aspect, ny, t);
+
+        let m = smooth(-0.15, 0.4, a);
+        const dx = x - mouse.x, dy = y - mouse.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < mr * mr) m = Math.min(1, m + (1 - Math.sqrt(d2) / mr) * 0.75);
+
+        const lvl = Math.round(m * (LEVELS - 1)) / (LEVELS - 1); // posterise
+        const c = BAKED[Math.round(h * (HUE_STEPS - 1))];
+        const k = 0.1 + 0.9 * lvl;
+        const r = BG[0] + (c[0] - BG[0]) * k;
+        const g = BG[1] + (c[1] - BG[1]) * k;
+        const b = BG[2] + (c[2] - BG[2]) * k;
+
+        ctx.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`;
+        ctx.beginPath();
+        ctx.arc(x, y, maxR * (0.72 + 0.28 * lvl), 0, 6.2832);
+        ctx.fill();
+
+        // little specular glint on the brightest LEDs
+        if (lvl > 0.9) {
+          ctx.fillStyle = 'rgba(255,255,255,.28)';
+          ctx.beginPath();
+          ctx.arc(x - maxR * 0.28, y - maxR * 0.28, maxR * 0.28, 0, 6.2832);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
+  // ~30fps cap keeps it light on laptops and phones
+  let last = 0;
+  function loop(now) {
+    if (now - last > 33) { draw(now / 1000 + 8); last = now; }
+    requestAnimationFrame(loop);
+  }
+
+  addEventListener('resize', resize);
+  addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+  addEventListener('pointerleave', () => { mouse.x = mouse.y = -9999; });
+  resize();
+  if (!reduceMotion) requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
