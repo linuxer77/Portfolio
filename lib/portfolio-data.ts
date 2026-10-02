@@ -6,6 +6,8 @@ export interface Experience {
   description: string[];
   skills: string[];
   link?: string;
+  image?: string;
+  logo?: string;
 }
 
 export interface Project {
@@ -51,6 +53,8 @@ export const experiences: Experience[] = [
     role: "Backend Developer Intern",
     period: "Apr 2026 — Aug 2026",
     link: "https://maximize.money",
+    image: "/companies/maximize-bw.png",
+    logo: "/companies/maximize-logo.png",
     description: [
       "Patched critical TOCTOU race conditions and unauthenticated booking exploits, preventing credit-line drain and unauthorized transactions.",
       "Identified and mitigated BOLA/IDOR vulnerabilities, protecting sensitive customer PII and partner gift card credentials (Amazon & Domino's).",
@@ -64,6 +68,8 @@ export const experiences: Experience[] = [
     role: "Software Engineer Intern (Backend & Payments)",
     period: "Apr 2026 — Aug 2026",
     link: "https://playto.so",
+    image: "/companies/playto-bw.png",
+    logo: "/companies/playto-logo.png",
     description: [
       "Engineered backend services for an international payment processing system handling 10,000+ active users across multiple geographies.",
       "Implemented financial ledger logic handling multi-currency payouts, automatic refunds, chargebacks, settlements, and negative balance protections.",
@@ -77,6 +83,8 @@ export const experiences: Experience[] = [
     role: "Backend Developer Intern",
     period: "Aug 2026 — Sep 2026",
     link: "https://asama.ai/",
+    image: "/companies/asama-bw.png",
+    logo: "/companies/asama-logo.png",
     description: [
       "Designed and deployed automated GitHub Actions CI/CD release pipelines targeting Debian (DEB), Red Hat (RPM), and Docker distribution formats.",
       "Modularized packaging workflows for the Host Agent and OpenTelemetry Collector daemon.",
@@ -89,6 +97,8 @@ export const experiences: Experience[] = [
     role: "Backend Developer (Contract)",
     period: "Sep 2025 — Dec 2025",
     link: "https://www.neovistatech.com/",
+    image: "/companies/neovista-bw.png",
+    logo: "/companies/neovista-logo.png",
     description: [
       "Developed performant RESTful APIs using Django REST framework and PostgreSQL, supporting seamless relational data access.",
       "Deployed and maintained server-side applications on AWS Elastic Beanstalk using Gunicorn WSGI and NGINX reverse proxying.",

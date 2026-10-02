@@ -9,7 +9,6 @@ import Certifications from "@/components/Certifications";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import BackgroundAmbience from "@/components/BackgroundAmbience";
-import StaticView from "@/components/StaticView";
 import MinimalView from "@/components/MinimalView";
 import { useViewMode } from "@/lib/view-mode-context";
 import { AnimatePresence, motion } from "framer-motion";
@@ -19,17 +18,7 @@ export default function HomePage() {
 
   return (
     <AnimatePresence mode="wait">
-      {viewMode === "static" ? (
-        <motion.div
-          key="static"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-        >
-          <StaticView />
-        </motion.div>
-      ) : viewMode === "minimal" ? (
+      {viewMode === "minimal" ? (
         <motion.div
           key="minimal"
           initial={{ opacity: 0 }}

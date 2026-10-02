@@ -16,7 +16,17 @@ export default function Experience() {
           >
             {/* Header: Company & Date */}
             <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
+                {exp.logo && (
+                  <div className="relative w-7 h-7 rounded-lg overflow-hidden border border-white/10 bg-black/60 shrink-0 flex items-center justify-center shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={exp.logo}
+                      alt={exp.company}
+                      className="w-full h-full object-contain p-0.5 grayscale contrast-125"
+                    />
+                  </div>
+                )}
                 <h3 className="text-lg font-bold text-white group-hover:text-zinc-100 transition-colors">
                   {exp.company}
                 </h3>

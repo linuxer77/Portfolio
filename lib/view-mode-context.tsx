@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-export type ViewMode = "flow" | "static" | "minimal";
+export type ViewMode = "flow" | "minimal";
 
 interface ViewModeContextType {
   viewMode: ViewMode;
@@ -21,9 +21,9 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as string | null;
-      if (stored === "static" || stored === "minimal" || stored === "flow") {
+      if (stored === "minimal" || stored === "flow") {
         setViewModeState(stored as ViewMode);
-      } else if (stored === "dynamic") {
+      } else {
         setViewModeState("flow");
       }
     } catch {
@@ -42,10 +42,7 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const cycleViewMode = () => {
-    const sequence: ViewMode[] = ["flow", "static", "minimal"];
-    const idx = sequence.indexOf(viewMode);
-    const next = sequence[(idx + 1) % sequence.length];
-    setViewMode(next);
+    setViewMode(viewMode === "flow" ? "minimal" : "flow");
   };
 
   return (

@@ -11,7 +11,6 @@ import {
   personalData,
 } from "@/lib/portfolio-data";
 import ViewModeSwitch from "@/components/ViewModeSwitch";
-import ThemeToggle from "@/components/ThemeToggle";
 import { FaFilePdf, FaCopy, FaCheck } from "react-icons/fa6";
 
 // Wireframe Glyphs matching the Riften design language
@@ -100,14 +99,6 @@ const glyphs = [
   <GlyphOrbits key="g6" />,
 ];
 
-// Experience images matching brutalist architectural visual language
-const expImages = [
-  "/minimal/monolith-1.jpg",
-  "/minimal/monolith-2.jpg",
-  "/minimal/monolith-3.jpg",
-  "/minimal/monolith-4.jpg",
-];
-
 export default function MinimalView() {
   const [activeSection, setActiveSection] = useState("experience");
   const [copied, setCopied] = useState(false);
@@ -176,10 +167,9 @@ export default function MinimalView() {
             </nav>
           </div>
 
-          {/* Unified Controls Across All Views: ViewModeSwitch + ThemeToggle + Resume */}
+          {/* Minimal View Controls: ViewModeSwitch + Resume (ThemeToggle only on Flow view) */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <ViewModeSwitch />
-            <ThemeToggle />
             <a
               href={personalData.resumePath}
               target="_blank"
@@ -243,15 +233,15 @@ export default function MinimalView() {
               key={exp.company}
               className="border-b border-dotted border-zinc-800 py-12 lg:py-16 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start"
             >
-              {/* Column 1: Monochrome High-Contrast Image */}
+              {/* Column 1: Monochrome High-Contrast Company Logo / Image */}
               <div className="lg:col-span-5">
-                <div className="relative aspect-[16/10] w-full bg-zinc-950 border border-zinc-900 overflow-hidden">
+                <div className="relative aspect-[16/10] w-full bg-black border border-zinc-800/80 overflow-hidden">
                   <Image
-                    src={expImages[idx % expImages.length]}
+                    src={exp.image || "/companies/maximize-bw.png"}
                     alt={exp.company}
                     fill
                     sizes="(max-width: 1024px) 100vw, 40vw"
-                    className="object-cover grayscale contrast-125 brightness-90 hover:brightness-100 transition-all duration-500"
+                    className="object-cover grayscale contrast-125 brightness-95 hover:brightness-110 transition-all duration-500"
                   />
                 </div>
               </div>
