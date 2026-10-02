@@ -16,9 +16,10 @@ import {
 import { FaFilePdf } from "react-icons/fa6";
 import { motion, AnimatePresence } from "framer-motion";
 import ToastyPopup from "@/components/arcade/ToastyPopup";
-import MkFatalityArena from "@/components/arcade/MkFatalityArena";
+import MkFatality from "@/components/arcade/MkFatality";
+import ScorpionSpear from "@/components/arcade/ScorpionSpear";
 import HadoukenWave from "@/components/arcade/HadoukenWave";
-import ContraOverclock from "@/components/arcade/ContraOverclock";
+import ContraRun from "@/components/arcade/ContraRun";
 
 // ==========================================
 // Easter Egg 1: 0x6867 Scramble Effect
@@ -214,6 +215,7 @@ interface TerminalDrawerProps {
   onSwitchFlow?: () => void;
   onTriggerToasty: () => void;
   onTriggerFatality: () => void;
+  onTriggerSpear: () => void;
   onTriggerHadouken: () => void;
   onTriggerContra: () => void;
 }
@@ -224,6 +226,7 @@ function TerminalDrawer({
   onSwitchFlow,
   onTriggerToasty,
   onTriggerFatality,
+  onTriggerSpear,
   onTriggerHadouken,
   onTriggerContra,
 }: TerminalDrawerProps) {
@@ -280,11 +283,12 @@ function TerminalDrawer({
   sudo <cmd>       Execute with elevated permissions
   exit             Close this terminal drawer
 
-AUTHENTIC ARCADE (WASM):
-  games            List all authentic retro WebAssembly games
-  mk / umk3        Play Ultimate Mortal Kombat 3 in WebAssembly
-  contra           Play Contra (NES) in WebAssembly (30 Lives)
-  sf2 / hadouken   Play Street Fighter II in WebAssembly
+AUTHENTIC RETRO ARCADE:
+  games            List all authentic retro arcade easter eggs
+  mk / fatality    Scorpion Hellfire Fatality (Skull flame incineration)
+  spear            Scorpion "GET OVER HERE!" Harpoon Spear & Uppercut
+  contra           Contra 30 Lives Bill Rizer Sprint (or press ↑ ↑ ↓ ↓)
+  sf2 / hadouken   Street Fighter II Hadouken (Authentic CPS2 Ryu)
   toasty           Dan Forden authentic voice & photo pop-out`,
         });
         break;
@@ -347,13 +351,14 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
       case "arcade":
         newLogs.push({
           type: "out",
-          text: `AUTHENTIC RETRO ARCADE EASTER EGGS:
-  * mk / fatality    Mortal Kombat Fatality Arena (Digitized Scorpion vs Sub-Zero)
+          text: `AUTHENTIC RETRO ARCADE EASTER EGGS (100% TRANSPARENT OVERLAY):
+  * mk / fatality    Mortal Kombat Scorpion Flame Fatality (unmasks & incinerates opponent)
+  * spear / getoverhere Scorpion "GET OVER HERE!" Harpoon Spear & Uppercut
   * sf2 / hadouken   Street Fighter II Hadouken (Authentic CPS2 Ryu & Fireball)
-  * contra / konami  Contra 30 Lives Overclock (NES Bill Rizer & Spread Gun)
+  * contra           Contra 30 Lives Bill Rizer Sprint (or press ↑ ↑ ↓ ↓ on keyboard)
   * toasty           Dan Forden "TOASTY!" voice & digitized arcade photo
 
-Type any command above or use global typing / shortcuts to trigger them!`,
+Type any command above or use global typing / shortcuts directly on the page!`,
         });
         break;
 
@@ -367,7 +372,13 @@ Type any command above or use global typing / shortcuts to trigger them!`,
       case "fatality":
       case "abacabb":
         onTriggerFatality();
-        newLogs.push({ type: "out", text: "FINISH HIM! Summoning Mortal Kombat Fatality Arena..." });
+        newLogs.push({ type: "out", text: "FINISH HIM! Scorpion Hellfire Fatality unleashed..." });
+        break;
+
+      case "spear":
+      case "getoverhere":
+        onTriggerSpear();
+        newLogs.push({ type: "out", text: "GET OVER HERE! Scorpion whips harpoon spear..." });
         break;
 
       case "sf2":
@@ -379,7 +390,7 @@ Type any command above or use global typing / shortcuts to trigger them!`,
       case "contra":
       case "konami":
         onTriggerContra();
-        newLogs.push({ type: "out", text: "30 LIVES GRANTED // Contra NES Overclock activated!" });
+        newLogs.push({ type: "out", text: "★ UP UP DOWN DOWN // Bill Rizer sprints across viewport! ★" });
         break;
 
       case "whoami":
@@ -568,7 +579,8 @@ export default function MinimalView() {
   const [showTerminal, setShowTerminal] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastyOpen, setToastyOpen] = useState(false);
-  const [mkOpen, setMkOpen] = useState(false);
+  const [mkFatalityActive, setMkFatalityActive] = useState(false);
+  const [scorpionSpearActive, setScorpionSpearActive] = useState(false);
   const [hadoukenActive, setHadoukenActive] = useState(false);
   const [contraActive, setContraActive] = useState(false);
   const keyHistoryRef = useRef<string[]>([]);
@@ -609,40 +621,46 @@ export default function MinimalView() {
       keyHistoryRef.current = [...keyHistoryRef.current.slice(-15), e.key];
       const seqStr = keyHistoryRef.current.map((k) => k.toLowerCase()).join("");
 
-      // 1. Konami Code (ArrowUp ArrowUp ArrowDown ArrowDown ArrowLeft ArrowRight ArrowLeft ArrowRight B A)
-      const last10 = keyHistoryRef.current.slice(-10);
-      const konami = [
-        "arrowup",
-        "arrowup",
-        "arrowdown",
-        "arrowdown",
-        "arrowleft",
-        "arrowright",
-        "arrowleft",
-        "arrowright",
-        "b",
-        "a",
-      ];
+      // 1. Contra Shortened Code: ArrowUp ArrowUp ArrowDown ArrowDown (↑ ↑ ↓ ↓) or "contra"
+      const last4 = keyHistoryRef.current.slice(-4);
       if (
-        last10.length === 10 &&
-        last10.every((k, i) => k.toLowerCase() === konami[i])
+        last4.length === 4 &&
+        last4[0]?.toLowerCase() === "arrowup" &&
+        last4[1]?.toLowerCase() === "arrowup" &&
+        last4[2]?.toLowerCase() === "arrowdown" &&
+        last4[3]?.toLowerCase() === "arrowdown"
       ) {
         e.preventDefault();
         setContraActive(true);
-        showToast("★ 30 LIVES GRANTED // CONTRA OVERCLOCK ACTIVE ★");
+        showToast("★ UP UP DOWN DOWN // CONTRA 30 LIVES ACTIVE ★");
+        keyHistoryRef.current = [];
+        return;
+      }
+      if (seqStr.endsWith("contra")) {
+        e.preventDefault();
+        setContraActive(true);
+        showToast("★ CONTRA 30 LIVES SPRINT ACTIVE ★");
         keyHistoryRef.current = [];
         return;
       }
 
-      // 2. Mortal Kombat ("mk", "fatality", "abacabb")
+      // 2. Mortal Kombat Scorpion Hellfire Fatality ("mk", "fatality", "abacabb")
       if (seqStr.endsWith("mk") || seqStr.endsWith("fatality") || seqStr.endsWith("abacabb")) {
         e.preventDefault();
-        setMkOpen(true);
+        setMkFatalityActive(true);
         keyHistoryRef.current = [];
         return;
       }
 
-      // 3. TOASTY ("toasty")
+      // 3. Scorpion Harpoon Spear ("spear", "getoverhere")
+      if (seqStr.endsWith("spear") || seqStr.endsWith("getoverhere")) {
+        e.preventDefault();
+        setScorpionSpearActive(true);
+        keyHistoryRef.current = [];
+        return;
+      }
+
+      // 4. TOASTY ("toasty")
       if (seqStr.endsWith("toasty")) {
         e.preventDefault();
         setToastyOpen(true);
@@ -650,7 +668,7 @@ export default function MinimalView() {
         return;
       }
 
-      // 4. Street Fighter ("hadouken", "sf2")
+      // 5. Street Fighter ("hadouken", "sf2")
       if (seqStr.endsWith("hadouken") || seqStr.endsWith("sf2")) {
         e.preventDefault();
         setHadoukenActive(true);
@@ -658,7 +676,7 @@ export default function MinimalView() {
         return;
       }
 
-      // 5. Developer Terminal Drawer toggle (~ or `)
+      // 6. Developer Terminal Drawer toggle (~ or `)
       if (e.key === "~" || e.key === "`") {
         e.preventDefault();
         setShowTerminal((prev) => !prev);
@@ -1117,7 +1135,8 @@ export default function MinimalView() {
             isOpen={showTerminal}
             onClose={() => setShowTerminal(false)}
             onTriggerToasty={() => setToastyOpen(true)}
-            onTriggerFatality={() => setMkOpen(true)}
+            onTriggerFatality={() => setMkFatalityActive(true)}
+            onTriggerSpear={() => setScorpionSpearActive(true)}
             onTriggerHadouken={() => setHadoukenActive(true)}
             onTriggerContra={() => setContraActive(true)}
           />
@@ -1127,14 +1146,17 @@ export default function MinimalView() {
       {/* Easter Egg 1: Dan Forden UMK3 Toasty (Authentic Photo & Real Audio) */}
       <ToastyPopup isOpen={toastyOpen} onClose={() => setToastyOpen(false)} />
 
-      {/* Easter Egg 2: Authentic Mortal Kombat Fatality Arena (3 Random Digitized Fatalities) */}
-      <MkFatalityArena isOpen={mkOpen} onClose={() => setMkOpen(false)} />
+      {/* Easter Egg 2: Authentic Mortal Kombat Scorpion Flame Fatality (100% Transparent Overlay) */}
+      <MkFatality isActive={mkFatalityActive} onComplete={() => setMkFatalityActive(false)} />
 
-      {/* Easter Egg 3: Authentic Street Fighter II Hadouken Wave (Real CPS2 Ryu & Fireball) */}
+      {/* Easter Egg 3: Authentic Scorpion 'GET OVER HERE!' Spear & Uppercut (100% Transparent Overlay) */}
+      <ScorpionSpear isActive={scorpionSpearActive} onComplete={() => setScorpionSpearActive(false)} />
+
+      {/* Easter Egg 4: Authentic Street Fighter II Hadouken Wave (Real CPS2 Ryu & Fireball) */}
       <HadoukenWave isActive={hadoukenActive} onComplete={() => setHadoukenActive(false)} />
 
-      {/* Easter Egg 4: Authentic Contra 30 Lives Overclock (Real NES Sprites & 1UP Chime) */}
-      <ContraOverclock isActive={contraActive} onExit={() => setContraActive(false)} />
+      {/* Easter Egg 5: Authentic Contra 30 Lives Bill Rizer Sprint (Shortened ↑ ↑ ↓ ↓ Cheat Code) */}
+      <ContraRun isActive={contraActive} onComplete={() => setContraActive(false)} />
     </div>
   );
 }
