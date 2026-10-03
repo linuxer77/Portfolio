@@ -19,6 +19,7 @@ import HadoukenWave from "@/components/arcade/HadoukenWave";
 import ContraRun from "@/components/arcade/ContraRun";
 import ToastyPopup from "@/components/arcade/ToastyPopup";
 import MarioRun from "@/components/arcade/MarioRun";
+import MkSpear from "@/components/arcade/MkSpear";
 
 // ==========================================
 // Easter Egg 1: 0x6867 Scramble Effect
@@ -229,6 +230,7 @@ interface TerminalDrawerProps {
   onTriggerHadouken: () => void;
   onTriggerContra: () => void;
   onTriggerMario: () => void;
+  onTriggerMk: () => void;
   onTriggerToasty?: () => void;
 }
 
@@ -238,6 +240,7 @@ function TerminalDrawer({
   onTriggerHadouken,
   onTriggerContra,
   onTriggerMario,
+  onTriggerMk,
   onTriggerToasty,
 }: TerminalDrawerProps) {
   const [inputVal, setInputVal] = useState("");
@@ -404,8 +407,16 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
           text: `ARCADE:
   contra
   mario
+  mk
   sf2`,
         });
+        break;
+
+      case "mk":
+      case "spear":
+      case "scorpion":
+        onTriggerMk();
+        newLogs.push({ type: "out", text: "GET OVER HERE!" });
         break;
 
       case "mario":
@@ -604,6 +615,7 @@ export default function MinimalView() {
   const [hadoukenActive, setHadoukenActive] = useState(false);
   const [contraActive, setContraActive] = useState(false);
   const [marioActive, setMarioActive] = useState(false);
+  const [mkActive, setMkActive] = useState(false);
   const [toastyOpen, setToastyOpen] = useState(false);
   const keyHistoryRef = useRef<string[]>([]);
   // const { setViewMode } = useViewMode();
@@ -687,7 +699,15 @@ export default function MinimalView() {
         return;
       }
 
-      // 4. Secret Toasty ("toasty") - let user discover by typing
+      // 4. Mortal Kombat ("mk", "spear", "scorpion")
+      if (seqStr.endsWith("mk") || seqStr.endsWith("spear") || seqStr.endsWith("scorpion")) {
+        e.preventDefault();
+        setMkActive(true);
+        keyHistoryRef.current = [];
+        return;
+      }
+
+      // 5. Secret Toasty ("toasty") - let user discover by typing
       if (seqStr.endsWith("toasty")) {
         e.preventDefault();
         triggerToasty();
@@ -695,7 +715,7 @@ export default function MinimalView() {
         return;
       }
 
-      // 5. Developer Terminal Drawer toggle (~ or `)
+      // 6. Developer Terminal Drawer toggle (~ or `)
       if (e.key === "~" || e.key === "`") {
         e.preventDefault();
         setShowTerminal((prev) => !prev);
@@ -1160,6 +1180,7 @@ export default function MinimalView() {
             onTriggerHadouken={() => setHadoukenActive(true)}
             onTriggerContra={() => setContraActive(true)}
             onTriggerMario={() => setMarioActive(true)}
+            onTriggerMk={() => setMkActive(true)}
             onTriggerToasty={triggerToasty}
           />
         )}
@@ -1176,6 +1197,9 @@ export default function MinimalView() {
 
       {/* Easter Egg 3: Authentic Super Mario Bros (1985 NES) Power-up Run */}
       <MarioRun isActive={marioActive} onComplete={() => setMarioActive(false)} />
+
+      {/* Easter Egg 4: Authentic UMK3 Scorpion Spear & Uppercut ("GET OVER HERE!") */}
+      <MkSpear isActive={mkActive} onComplete={() => setMkActive(false)} />
     </div>
   );
 }
