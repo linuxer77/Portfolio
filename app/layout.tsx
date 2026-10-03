@@ -18,7 +18,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://harshit.dev"),
-  title: "Harshit Gupta — Backend Engineer",
+  title: "Harshit Gupta",
   description:
     "Portfolio of Harshit Gupta, a Backend Engineer using Python and Go.",
   icons: {
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Harshit Gupta" }],
   openGraph: {
-    title: "Harshit Gupta — Backend Engineer",
+    title: "Harshit Gupta",
     description: "Backend Developer",
     type: "website",
     images: [{ url: "/icon.gif" }],

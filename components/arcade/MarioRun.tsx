@@ -267,7 +267,7 @@ export default function MarioRun({ isActive, onComplete }: MarioRunProps) {
           left: `${blockPos.x}px`,
           bottom: `${blockPos.y + blockBumpY}px`,
         }}
-        className="absolute z-20 pointer-events-none filter drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]"
+        className="absolute z-20 pointer-events-none"
       >
         <div className="relative w-11 h-11 sm:w-12 sm:h-12">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -289,7 +289,7 @@ export default function MarioRun({ isActive, onComplete }: MarioRunProps) {
             left: `${mushroomPos.x}px`,
             bottom: `${mushroomPos.y}px`,
           }}
-          className="absolute z-10 pointer-events-none filter drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]"
+          className="absolute z-10 pointer-events-none"
         >
           <div className="relative w-9 h-9 sm:w-10 sm:h-10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -311,7 +311,7 @@ export default function MarioRun({ isActive, onComplete }: MarioRunProps) {
           left: `${marioPos.x}px`,
           bottom: `${marioPos.y}px`,
         }}
-        className="absolute z-30 pointer-events-none filter drop-shadow-[0_0_12px_rgba(239,68,68,0.7)]"
+        className="absolute z-30 pointer-events-none"
       >
         <div
           className={`relative transition-all duration-75 ${

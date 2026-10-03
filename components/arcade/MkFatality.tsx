@@ -111,7 +111,7 @@ export default function MkFatality({ isActive, onComplete }: MkFatalityProps) {
           opacity,
           imageRendering: "pixelated",
         }}
-        className="transform-gpu transition-none flex flex-col items-center justify-center filter drop-shadow-[0_0_30px_rgba(220,38,38,0.85)] drop-shadow-[0_10px_20px_rgba(0,0,0,0.95)]"
+        className="transform-gpu transition-none flex flex-col items-center justify-center"
       >
         {/* Authentic Digitized Arcade Sprite (171x26 scaled crisp with pixel-perfect resolution) */}
         <div className="relative w-[342px] h-[52px] sm:w-[513px] sm:h-[78px] md:w-[684px] md:h-[104px]">

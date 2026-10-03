@@ -91,7 +91,7 @@ export default function ContraRun({ isActive, onComplete }: ContraRunProps) {
         }}
         className="absolute z-30 flex flex-col items-center pointer-events-none"
       >
-        <div className="relative w-16 h-28 sm:w-20 sm:h-36 filter drop-shadow-[0_0_12px_rgba(239,68,68,0.7)]">
+        <div className="relative w-16 h-28 sm:w-20 sm:h-36">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={runningSprites[spriteIdx]}

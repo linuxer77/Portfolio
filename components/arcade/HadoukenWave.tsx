@@ -107,12 +107,13 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
           transition={{ type: "spring", stiffness: 260, damping: 20 }}
           className="absolute bottom-16 left-4 flex flex-col items-center z-30"
         >
-          <div className="relative w-40 h-44 filter drop-shadow-[0_0_20px_rgba(6,182,212,0.8)]">
+          <div className="relative w-40 h-44">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={ryuSprites[frameIdx]}
               alt="Ryu Hadouken"
               className="w-full h-full object-contain"
+              style={{ imageRendering: "pixelated" }}
               loading="eager"
               decoding="sync"
             />
@@ -128,16 +129,14 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
             }}
             className="absolute z-40 flex items-center"
           >
-            {/* Energy Particle Trail */}
-            <div className="w-16 h-10 bg-gradient-to-r from-transparent via-cyan-400/40 to-blue-500 rounded-full blur-md animate-pulse" />
-
             {/* Fireball Sprite */}
-            <div className="relative w-28 h-18 filter drop-shadow-[0_0_25px_rgba(56,189,248,1)] animate-spin-slow">
+            <div className="relative w-28 h-18">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/arcade/sf2/fireball_1.png"
                 alt="Hadouken Fireball"
                 className="w-full h-full object-contain"
+                style={{ imageRendering: "pixelated" }}
                 loading="eager"
                 decoding="sync"
               />
