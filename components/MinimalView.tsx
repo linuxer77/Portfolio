@@ -19,8 +19,8 @@ import HadoukenWave from "@/components/arcade/HadoukenWave";
 import ContraRun from "@/components/arcade/ContraRun";
 import ToastyPopup from "@/components/arcade/ToastyPopup";
 import MarioRun from "@/components/arcade/MarioRun";
-import MkSpear from "@/components/arcade/MkSpear";
 import MkFatality from "@/components/arcade/MkFatality";
+import ArcadePreload from "@/components/arcade/ArcadePreload";
 
 // ==========================================
 // Easter Egg 1: 0x6867 Scramble Effect
@@ -232,7 +232,6 @@ interface TerminalDrawerProps {
   onTriggerContra: () => void;
   onTriggerMario: () => void;
   onTriggerMk: () => void;
-  onTriggerFatality: () => void;
   onTriggerToasty?: () => void;
 }
 
@@ -243,7 +242,6 @@ function TerminalDrawer({
   onTriggerContra,
   onTriggerMario,
   onTriggerMk,
-  onTriggerFatality,
   onTriggerToasty,
 }: TerminalDrawerProps) {
   const [inputVal, setInputVal] = useState("");
@@ -411,21 +409,13 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
   contra
   mario
   mk
-  mkf
   sf2`,
         });
         break;
 
       case "mk":
-      case "spear":
-      case "scorpion":
-        onTriggerMk();
-        newLogs.push({ type: "out", text: "GET OVER HERE!" });
-        break;
-
-      case "mkf":
       case "fatality":
-        onTriggerFatality();
+        onTriggerMk();
         newLogs.push({ type: "out", text: "FATALITY!" });
         break;
 
@@ -623,11 +613,9 @@ export default function MinimalView() {
   const [hadoukenActive, setHadoukenActive] = useState(false);
   const [contraActive, setContraActive] = useState(false);
   const [marioActive, setMarioActive] = useState(false);
-  const [mkActive, setMkActive] = useState(false);
   const [fatalityActive, setFatalityActive] = useState(false);
   const [toastyOpen, setToastyOpen] = useState(false);
   const keyHistoryRef = useRef<string[]>([]);
-  const mkPendingTimerRef = useRef<NodeJS.Timeout | null>(null);
   // const { setViewMode } = useViewMode();
 
   const showToast = useCallback((msg: string) => {
@@ -709,34 +697,11 @@ export default function MinimalView() {
         return;
       }
 
-      // 4. Mortal Kombat Fatality ("mkf", "fatality")
-      if (seqStr.endsWith("mkf") || seqStr.endsWith("fatality")) {
+      // 4. Mortal Kombat Fatality ("mk", "fatality")
+      if (seqStr.endsWith("mk") || seqStr.endsWith("fatality")) {
         e.preventDefault();
-        if (mkPendingTimerRef.current) {
-          clearTimeout(mkPendingTimerRef.current);
-          mkPendingTimerRef.current = null;
-        }
         setFatalityActive(true);
         keyHistoryRef.current = [];
-        return;
-      }
-
-      // 5. Mortal Kombat Scorpion ("mk", "spear", "scorpion")
-      if (seqStr.endsWith("spear") || seqStr.endsWith("scorpion")) {
-        e.preventDefault();
-        setMkActive(true);
-        keyHistoryRef.current = [];
-        return;
-      }
-
-      if (seqStr.endsWith("mk")) {
-        e.preventDefault();
-        if (mkPendingTimerRef.current) clearTimeout(mkPendingTimerRef.current);
-        mkPendingTimerRef.current = setTimeout(() => {
-          setMkActive(true);
-          keyHistoryRef.current = [];
-          mkPendingTimerRef.current = null;
-        }, 280);
         return;
       }
 
@@ -1207,8 +1172,7 @@ export default function MinimalView() {
             onTriggerHadouken={() => setHadoukenActive(true)}
             onTriggerContra={() => setContraActive(true)}
             onTriggerMario={() => setMarioActive(true)}
-            onTriggerMk={() => setMkActive(true)}
-            onTriggerFatality={() => setFatalityActive(true)}
+            onTriggerMk={() => setFatalityActive(true)}
             onTriggerToasty={triggerToasty}
           />
         )}
@@ -1226,11 +1190,11 @@ export default function MinimalView() {
       {/* Easter Egg 3: Authentic Super Mario Bros (1985 NES) Power-up Run */}
       <MarioRun isActive={marioActive} onComplete={() => setMarioActive(false)} />
 
-      {/* Easter Egg 4: Authentic UMK3 Scorpion Spear & Uppercut ("GET OVER HERE!") */}
-      <MkSpear isActive={mkActive} onComplete={() => setMkActive(false)} />
-
-      {/* Easter Egg 5: Authentic MK Fatality (Announcer Voice & Blood Text) */}
+      {/* Easter Egg 4: Authentic MK Fatality (Announcer Voice & Blood Text) */}
       <MkFatality isActive={fatalityActive} onComplete={() => setFatalityActive(false)} />
+
+      {/* Global Zero-Latency Preloader for Arcade Sprites & Audio */}
+      <ArcadePreload />
     </div>
   );
 }

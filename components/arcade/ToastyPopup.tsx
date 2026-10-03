@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { playCachedAudio } from "./ArcadePreload";
 
 interface ToastyPopupProps {
   isOpen: boolean;
@@ -15,16 +16,8 @@ export default function ToastyPopup({ isOpen, onClose }: ToastyPopupProps) {
   useEffect(() => {
     if (!isOpen) return;
 
-    // Play authentic Dan Forden TOASTY! voice clip
-    try {
-      const audio = new Audio("/arcade/toasty.mp3");
-      audio.volume = 1.0;
-      audio.play().catch((err) => {
-        console.warn("Toasty audio playback prevented:", err);
-      });
-    } catch {
-      // Audio autoplay policy fallback
-    }
+    // Play authentic Dan Forden TOASTY! voice clip instantly from cache
+    playCachedAudio("/arcade/toasty.mp3", 1.0);
 
     const timer = setTimeout(() => {
       onCloseRef.current();
@@ -76,6 +69,8 @@ export default function ToastyPopup({ isOpen, onClose }: ToastyPopupProps) {
               <img
                 src="/arcade/toasty.png"
                 alt="Dan Forden Toasty"
+                loading="eager"
+                decoding="sync"
                 className="w-full h-full object-contain filter drop-shadow-[0_0_20px_rgba(249,115,22,0.8)]"
               />
             </div>

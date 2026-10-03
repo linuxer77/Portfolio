@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
+import { playCachedAudio } from "./ArcadePreload";
 
 interface HadoukenWaveProps {
   isActive: boolean;
@@ -12,25 +12,21 @@ interface HadoukenWaveProps {
 export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps) {
   const [frameIdx, setFrameIdx] = useState(0);
   const [fireballX, setFireballX] = useState<number | null>(null);
-  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const activeAudiosRef = useRef<HTMLAudioElement[]>([]);
 
   const playAudio = useCallback((path: string, volume = 0.85) => {
-    try {
-      const audio = new Audio(path);
-      audio.volume = volume;
-      audioRefs.current[path] = audio;
-      audio.play().catch(() => {});
-    } catch {
-      // Audio playback denied
+    const audio = playCachedAudio(path, volume);
+    if (audio) {
+      activeAudiosRef.current.push(audio);
     }
   }, []);
 
   const stopAllAudio = useCallback(() => {
-    Object.values(audioRefs.current).forEach((audio) => {
+    activeAudiosRef.current.forEach((audio) => {
       audio.pause();
       audio.currentTime = 0;
     });
-    audioRefs.current = {};
+    activeAudiosRef.current = [];
   }, []);
 
   useEffect(() => {
@@ -112,12 +108,13 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
           className="absolute bottom-16 left-4 flex flex-col items-center z-30"
         >
           <div className="relative w-40 h-44 filter drop-shadow-[0_0_20px_rgba(6,182,212,0.8)]">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={ryuSprites[frameIdx]}
               alt="Ryu Hadouken"
-              fill
-              className="object-contain"
-              unoptimized
+              className="w-full h-full object-contain"
+              loading="eager"
+              decoding="sync"
             />
           </div>
         </motion.div>
@@ -136,13 +133,13 @@ export default function HadoukenWave({ isActive, onComplete }: HadoukenWaveProps
 
             {/* Fireball Sprite */}
             <div className="relative w-28 h-18 filter drop-shadow-[0_0_25px_rgba(56,189,248,1)] animate-spin-slow">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src="/arcade/sf2/fireball_1.png"
                 alt="Hadouken Fireball"
-                width={112}
-                height={72}
-                className="object-contain"
-                unoptimized
+                className="w-full h-full object-contain"
+                loading="eager"
+                decoding="sync"
               />
             </div>
           </motion.div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import Image from "next/image";
+import { playCachedAudio } from "./ArcadePreload";
 
 interface ContraRunProps {
   isActive: boolean;
@@ -11,25 +11,21 @@ interface ContraRunProps {
 export default function ContraRun({ isActive, onComplete }: ContraRunProps) {
   const [billX, setBillX] = useState<number | null>(null);
   const [spriteIdx, setSpriteIdx] = useState(0);
-  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const activeAudiosRef = useRef<HTMLAudioElement[]>([]);
 
   const playAudio = useCallback((path: string, volume = 0.85) => {
-    try {
-      const audio = new Audio(path);
-      audio.volume = volume;
-      audioRefs.current[path] = audio;
-      audio.play().catch(() => {});
-    } catch {
-      // Audio playback denied or blocked
+    const audio = playCachedAudio(path, volume);
+    if (audio) {
+      activeAudiosRef.current.push(audio);
     }
   }, []);
 
   const stopAllAudio = useCallback(() => {
-    Object.values(audioRefs.current).forEach((audio) => {
+    activeAudiosRef.current.forEach((audio) => {
       audio.pause();
       audio.currentTime = 0;
     });
-    audioRefs.current = {};
+    activeAudiosRef.current = [];
   }, []);
 
   const runningSprites = [
@@ -96,13 +92,14 @@ export default function ContraRun({ isActive, onComplete }: ContraRunProps) {
         className="absolute z-30 flex flex-col items-center pointer-events-none"
       >
         <div className="relative w-16 h-28 sm:w-20 sm:h-36 filter drop-shadow-[0_0_12px_rgba(239,68,68,0.7)]">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={runningSprites[spriteIdx]}
             alt="Contra Bill Rizer"
-            fill
-            className="object-contain"
+            className="w-full h-full object-contain"
             style={{ imageRendering: "pixelated" }}
-            unoptimized
+            loading="eager"
+            decoding="sync"
           />
         </div>
       </div>

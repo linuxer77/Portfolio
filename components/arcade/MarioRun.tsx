@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import Image from "next/image";
+import { playCachedAudio } from "./ArcadePreload";
 
 interface MarioRunProps {
   isActive: boolean;
@@ -26,25 +26,21 @@ export default function MarioRun({ isActive, onComplete }: MarioRunProps) {
     visible: false,
   });
 
-  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const activeAudiosRef = useRef<HTMLAudioElement[]>([]);
 
   const playAudio = useCallback((path: string, volume = 0.85) => {
-    try {
-      const audio = new Audio(path);
-      audio.volume = volume;
-      audioRefs.current[path] = audio;
-      audio.play().catch(() => {});
-    } catch {
-      // Audio playback fallback
+    const audio = playCachedAudio(path, volume);
+    if (audio) {
+      activeAudiosRef.current.push(audio);
     }
   }, []);
 
   const stopAllAudio = useCallback(() => {
-    Object.values(audioRefs.current).forEach((audio) => {
+    activeAudiosRef.current.forEach((audio) => {
       audio.pause();
       audio.currentTime = 0;
     });
-    audioRefs.current = {};
+    activeAudiosRef.current = [];
   }, []);
 
   useEffect(() => {
@@ -274,13 +270,14 @@ export default function MarioRun({ isActive, onComplete }: MarioRunProps) {
         className="absolute z-20 pointer-events-none filter drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]"
       >
         <div className="relative w-11 h-11 sm:w-12 sm:h-12">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={blockHit ? "/arcade/mario/empty_block.png" : "/arcade/mario/q_block.png"}
             alt="Question Block"
-            fill
-            className="object-contain"
+            className="w-full h-full object-contain"
             style={{ imageRendering: "pixelated" }}
-            unoptimized
+            loading="eager"
+            decoding="sync"
           />
         </div>
       </div>
@@ -295,13 +292,14 @@ export default function MarioRun({ isActive, onComplete }: MarioRunProps) {
           className="absolute z-10 pointer-events-none filter drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]"
         >
           <div className="relative w-9 h-9 sm:w-10 sm:h-10">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/arcade/mario/mushroom.png"
               alt="Super Mushroom"
-              fill
-              className="object-contain"
+              className="w-full h-full object-contain"
               style={{ imageRendering: "pixelated" }}
-              unoptimized
+              loading="eager"
+              decoding="sync"
             />
           </div>
         </div>
@@ -320,13 +318,14 @@ export default function MarioRun({ isActive, onComplete }: MarioRunProps) {
             isSuper ? "w-12 h-24 sm:w-14 sm:h-28" : "w-11 h-11 sm:w-12 sm:h-12"
           }`}
         >
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={marioSprite}
             alt="NES Mario"
-            fill
-            className="object-contain"
+            className="w-full h-full object-contain"
             style={{ imageRendering: "pixelated" }}
-            unoptimized
+            loading="eager"
+            decoding="sync"
           />
         </div>
       </div>

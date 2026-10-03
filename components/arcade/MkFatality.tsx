@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import Image from "next/image";
+import { playCachedAudio } from "./ArcadePreload";
 
 interface MkFatalityProps {
   isActive: boolean;
@@ -12,13 +12,13 @@ export default function MkFatality({ isActive, onComplete }: MkFatalityProps) {
   const [scale, setScale] = useState(2.4);
   const [shake, setShake] = useState({ x: 0, y: 0 });
   const [opacity, setOpacity] = useState(1);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const stopAudio = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current.currentTime = 0;
+      activeAudioRef.current = null;
     }
   }, []);
 
@@ -31,14 +31,10 @@ export default function MkFatality({ isActive, onComplete }: MkFatalityProps) {
       return;
     }
 
-    // Play authentic Steve Ritchie Shao Kahn FATALITY announcer voice line
-    try {
-      const audio = new Audio("/arcade/mk/fatality.mp3");
-      audio.volume = 1.0;
-      audioRef.current = audio;
-      audio.play().catch(() => {});
-    } catch {
-      // Audio autoplay policy fallback
+    // Play authentic Steve Ritchie Shao Kahn FATALITY announcer voice line from memory cache
+    const audio = playCachedAudio("/arcade/mk/fatality.mp3", 1.0);
+    if (audio) {
+      activeAudioRef.current = audio;
     }
 
     const startTime = performance.now();
@@ -119,14 +115,14 @@ export default function MkFatality({ isActive, onComplete }: MkFatalityProps) {
       >
         {/* Authentic Digitized Arcade Sprite (171x26 scaled crisp with pixel-perfect resolution) */}
         <div className="relative w-[342px] h-[52px] sm:w-[513px] sm:h-[78px] md:w-[684px] md:h-[104px]">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/arcade/mk/fatality.gif"
             alt="Mortal Kombat Fatality"
-            fill
-            className="object-contain"
+            className="w-full h-full object-contain"
             style={{ imageRendering: "pixelated" }}
-            priority
-            unoptimized
+            loading="eager"
+            decoding="sync"
           />
         </div>
       </div>
