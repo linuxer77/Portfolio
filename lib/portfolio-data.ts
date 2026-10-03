@@ -51,7 +51,7 @@ export const experiences: Experience[] = [
   {
     company: "Maximize.money",
     role: "Backend Developer Intern",
-    period: "Apr 2026 — Aug 2026",
+    period: "Sep 2026 — Oct 2026",
     link: "https://maximize.money",
     image: "/companies/maximize-bw.png",
     logo: "/companies/maximize-logo.png",
@@ -114,7 +114,7 @@ export const projects: Project[] = [
     description:
       "A 24/7 high-throughput crypto market scanner in Go utilizing a worker-pool architecture to ingest and analyze tick data across 400+ pairs in parallel.",
     highlights: [
-      "Engineered worker pools with sync.Mutex locks to ensure zero race conditions across high-frequency market streams.",
+      "Worker pools with sync.Mutex locks to ensure zero race conditions across high-frequency market streams.",
       "Containerized with Docker and deployed on cloud VM instances for continuous 99.9% uptime.",
       "Dispatches real-time entry/exit alerts to private Telegram and Pushover channels with sub-second execution.",
     ],
@@ -172,7 +172,6 @@ export const skillCategories: SkillCategory[] = [
     skills: [
       { name: "Go", iconKey: "go" },
       { name: "Python", iconKey: "python" },
-      { name: "SQL", iconKey: "sql" },
       { name: "JavaScript", iconKey: "javascript" },
       { name: "Solidity", iconKey: "solidity" },
       { name: "Bash / Shell", iconKey: "bash" },
@@ -207,7 +206,6 @@ export const skillCategories: SkillCategory[] = [
       { name: "AWS", iconKey: "aws" },
       { name: "Oracle Cloud (OCI)", iconKey: "oci" },
       { name: "Git & GitHub Actions", iconKey: "git" },
-      { name: "OpenTelemetry", iconKey: "opentelemetry" },
     ],
   },
 ];

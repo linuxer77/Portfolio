@@ -305,7 +305,7 @@ ARCADE:
       case "fastfetch":
         newLogs.push({
           type: "out",
-          text: `       /\\         harshit@0x6867-arch
+          text: `       /\\         
       /  \\        -------------------
      /\\   \\       OS: Arch Linux x86_64
     /      \\      Host: Distributed Baremetal Node
@@ -326,20 +326,7 @@ ARCADE:
         if (parts[1]?.toLowerCase().includes("resume")) {
           newLogs.push({
             type: "out",
-            text: `# HARSHIT GUPTA — SENIOR BACKEND ENGINEER
-Email: ${personalData.email} | GitHub: ${personalData.github}
-
-## EXPERIENCE
-* Neovista Technologies — Software Engineer (Backend)
-* Asama AI — Backend Engineer
-* Playto.so — Backend Engineer Intern
-* Maximize — Backend Developer Intern
-
-## CORE STACK
-* Languages: Go, Rust, Python, TypeScript
-* Distributed Architecture, Microservices, Event-Driven (Kafka, RabbitMQ)
-* Storage: PostgreSQL, Redis, ScyllaDB
-* Cloud & Infra: Docker, Kubernetes, AWS, gRPC, CI/CD`,
+            text: `nothing's here`,
           });
         } else if (
           parts[1]?.toLowerCase().includes("id_ed25519") ||
@@ -348,7 +335,7 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
         ) {
           newLogs.push({
             type: "out",
-            text: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIERFQ1JZUFQoMHg2ODY3KT09PT09PT09PT09PTY3 harshit@0x6867",
+            text: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIERFQ1JZUFQoMHg2ODY3KT09PT09PT09PT09PTY3",
           });
         } else if (parts[1]?.toLowerCase().includes("project")) {
           newLogs.push({
@@ -358,7 +345,7 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
         } else if (parts[1]?.toLowerCase().includes("system") || parts[1]?.toLowerCase().includes("log")) {
           newLogs.push({
             type: "out",
-            text: "[SYSTEM LOG] 0x6867 node operational | 4 clusters active | 0 errors reported",
+            text: "ok",
           });
         } else if (parts[1]) {
           newLogs.push({
@@ -395,7 +382,7 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
       case "ssh-keygen":
         newLogs.push({
           type: "out",
-          text: "256 SHA256:0x6867/67 harshit@0x6867 (ED25519) -> 67",
+          text: "256 SHA256(ED25519) -> 67",
         });
         break;
 
