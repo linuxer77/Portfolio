@@ -249,7 +249,7 @@ function TerminalDrawer({
   const [historyIdx, setHistoryIdx] = useState<number>(-1);
   const [logs, setLogs] = useState<LogEntry[]>([
     { type: "out", text: "Welcome to 0x6867 shell v1.0.0 (x86_64-linux)" },
-    { type: "out", text: "Type 'help' for routines or 'arcade' to see authentic retro games." },
+    { type: "out", text: "Type 'help' or 'arcade'" },
   ]);
   const logContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1078,7 +1078,7 @@ export default function MinimalView() {
                       rel="noreferrer"
                       className="inline-block text-zinc-400 hover:text-white underline underline-offset-4 decoration-zinc-600"
                     >
-                      Verify Credential ↗
+                      View ↗
                     </a>
                   )}
                 </div>

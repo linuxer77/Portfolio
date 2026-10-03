@@ -216,7 +216,7 @@ export const certifications: Certification[] = [
   {
     title: "Oracle Cloud Infrastructure 2024 Certified Architect Associate",
     issuer: "Oracle",
-    issueDate: "2024",
+    issueDate: "",
     credentialUrl:
       "https://catalog-education.oracle.com/ords/certview/sharebadge?id=9A2628790FF63864C2245588BEDAF6E2A23560828D06974D48FB8559E44D80E9",
     description:

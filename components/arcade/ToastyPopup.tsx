@@ -45,15 +45,6 @@ export default function ToastyPopup({ isOpen, onClose }: ToastyPopupProps) {
             className="absolute bottom-2 right-4 flex items-end gap-2"
           >
             {/* Retro 8-bit Speech Bubble */}
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1, type: "spring", stiffness: 400 }}
-              className="mb-20 px-3 py-1 bg-white text-black border-2 border-black font-mono font-black text-sm tracking-wider relative"
-            >
-              <span>TOASTY!</span>
-              <div className="absolute -bottom-2 right-4 w-0 h-0 border-l-[6px] border-l-transparent border-t-[8px] border-t-white border-r-[6px] border-r-transparent" />
-            </motion.div>
 
             {/* Real Photographic Digitized Dan Forden from UMK3 */}
             <div className="w-28 sm:w-36 h-36 sm:h-44 relative">
