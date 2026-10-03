@@ -798,7 +798,7 @@ export default function MinimalView() {
                   type="button"
                   className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
                 >
-                  {copied ? "EMAIL COPIED" : `COPY: ${personalData.email}`}
+                  {copied ? "EMAIL COPIED" : `${personalData.email}`}
                 </button>
                 <a
                   href={personalData.github}
