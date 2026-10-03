@@ -559,9 +559,8 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
     >
       <div className="flex items-center justify-between px-4 py-2 border-b border-dotted border-zinc-800 bg-zinc-950 text-zinc-400 select-none">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block animate-pulse" />
           <span className="text-[11px] text-zinc-200 font-bold">
-            0x6867_terminal // bash v5.2 (x86_64-linux)
+            bash v5.2 (x86_64-linux)
           </span>
         </div>
         <div className="flex items-center gap-3 text-[11px]">
@@ -582,13 +581,12 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
         {logs.map((log, i) => (
           <div
             key={i}
-            className={`whitespace-pre-wrap ${
-              log.type === "in"
-                ? "text-cyan-400 font-bold"
-                : log.type === "err"
+            className={`whitespace-pre-wrap ${log.type === "in"
+              ? "text-cyan-400 font-bold"
+              : log.type === "err"
                 ? "text-rose-400"
                 : "text-zinc-300"
-            }`}
+              }`}
           >
             {log.text}
           </div>
@@ -596,7 +594,7 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
       </div>
 
       <div className="flex items-center gap-2 p-3 border-t border-dotted border-zinc-800 bg-black">
-        <span className="text-cyan-400 font-bold select-none shrink-0">guest@0x6867:~$</span>
+        <span className="text-white font-bold select-none shrink-0">guest@0x6867:~$</span>
         <input
           ref={inputRef}
           type="text"
@@ -773,33 +771,29 @@ export default function MinimalView() {
             <nav className="hidden md:flex items-center gap-6 text-xs text-zinc-400 tracking-wider uppercase">
               <button
                 onClick={() => scrollTo("experience")}
-                className={`hover:text-white transition-colors ${
-                  activeSection === "experience" ? "text-white underline underline-offset-8 decoration-1" : ""
-                }`}
+                className={`hover:text-white transition-colors ${activeSection === "experience" ? "text-white underline underline-offset-8 decoration-1" : ""
+                  }`}
               >
                 EXPERIENCE
               </button>
               <button
                 onClick={() => scrollTo("projects")}
-                className={`hover:text-white transition-colors ${
-                  activeSection === "projects" ? "text-white underline underline-offset-8 decoration-1" : ""
-                }`}
+                className={`hover:text-white transition-colors ${activeSection === "projects" ? "text-white underline underline-offset-8 decoration-1" : ""
+                  }`}
               >
                 PROJECTS
               </button>
               <button
                 onClick={() => scrollTo("stack")}
-                className={`hover:text-white transition-colors ${
-                  activeSection === "stack" ? "text-white underline underline-offset-8 decoration-1" : ""
-                }`}
+                className={`hover:text-white transition-colors ${activeSection === "stack" ? "text-white underline underline-offset-8 decoration-1" : ""
+                  }`}
               >
                 STACK
               </button>
               <button
                 onClick={() => scrollTo("contact")}
-                className={`hover:text-white transition-colors ${
-                  activeSection === "contact" ? "text-white underline underline-offset-8 decoration-1" : ""
-                }`}
+                className={`hover:text-white transition-colors ${activeSection === "contact" ? "text-white underline underline-offset-8 decoration-1" : ""
+                  }`}
               >
                 CONTACT
               </button>
@@ -867,9 +861,8 @@ export default function MinimalView() {
                 className="group inline-flex items-center gap-2 font-mono text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
                 title="Open bash terminal (~)"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/80 animate-pulse" />
                 <span>
-                  type <code className="text-cyan-400 font-bold group-hover:underline">&apos;arcade&apos;</code> in the terminal
+                  type <code className="text-white font-bold group-hover:underline">&apos;arcade&apos;</code> in the terminal
                 </span>
               </button>
             </div>
@@ -1187,7 +1180,6 @@ export default function MinimalView() {
           className="px-2.5 py-1 rounded bg-black/80 border border-dotted border-zinc-800 hover:border-cyan-700 hover:text-cyan-300 text-[10px] font-mono text-zinc-400 transition-colors shadow-lg flex items-center gap-1.5"
           title="Open terminal console (~)"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
           <span>&gt;_ bash</span>
         </button>
       </div>
