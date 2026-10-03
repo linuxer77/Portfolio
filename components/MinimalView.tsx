@@ -582,7 +582,7 @@ Email: ${personalData.email} | GitHub: ${personalData.github}
           <div
             key={i}
             className={`whitespace-pre-wrap ${log.type === "in"
-              ? "text-cyan-400 font-bold"
+              ? "font-bold"
               : log.type === "err"
                 ? "text-rose-400"
                 : "text-zinc-300"
