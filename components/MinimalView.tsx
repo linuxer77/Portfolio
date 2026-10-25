@@ -43,6 +43,7 @@ const StreetFighterMode = dynamic(() => import("@/components/streetfighter/Stree
 const KombatMode = dynamic(() => import("@/components/mortalkombat/KombatMode"), { ssr: false });
 const PacmanMode = dynamic(() => import("@/components/pacman/PacmanMode"), { ssr: false });
 const BlackHoleMode = dynamic(() => import("@/components/blackhole/BlackHoleMode"), { ssr: false });
+const LifeMode = dynamic(() => import("@/components/life/LifeMode"), { ssr: false });
 
 // ==========================================
 // Motion: visuals and their story loops
@@ -374,6 +375,7 @@ interface TerminalDrawerProps {
   onTriggerKombat: () => void;
   onTriggerPacman: () => void;
   onTriggerBlackHole: () => void;
+  onTriggerLife: () => void;
 }
 
 function TerminalDrawer({
@@ -390,6 +392,7 @@ function TerminalDrawer({
   onTriggerKombat,
   onTriggerPacman,
   onTriggerBlackHole,
+  onTriggerLife,
 }: TerminalDrawerProps) {
   const [inputVal, setInputVal] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -447,7 +450,8 @@ ARCADE:
   fight    (street fighter, 1P or 2P)
   mk3      (mortal kombat, 1P or 2P)
   pacman   (eat the site!)
-  blackhole (swallow the site, then big bang)`,
+  blackhole (swallow the site, then big bang)
+  life     (the site comes alive)`,
         });
         break;
 
@@ -547,7 +551,8 @@ ARCADE:
   fight    (street fighter, 1P or 2P)
   mk3      (mortal kombat, 1P or 2P)
   pacman   (eat the site!)
-  blackhole (swallow the site, then big bang)`,
+  blackhole (swallow the site, then big bang)
+  life     (the site comes alive)`,
         });
         break;
 
@@ -587,6 +592,13 @@ ARCADE:
       case "black-hole":
       case "singularity":
         onTriggerBlackHole();
+        onClose();
+        return;
+
+      case "life":
+      case "conway":
+      case "gameoflife":
+        onTriggerLife();
         onClose();
         return;
 
@@ -798,6 +810,7 @@ export default function MinimalView() {
   const [kombatOpen, setKombatOpen] = useState(false);
   const [pacmanOpen, setPacmanOpen] = useState(false);
   const [holeOpen, setHoleOpen] = useState(false);
+  const [lifeOpen, setLifeOpen] = useState(false);
   const keyHistoryRef = useRef<string[]>([]);
   // const { setViewMode } = useViewMode();
 
@@ -834,7 +847,7 @@ export default function MinimalView() {
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // The games own the keyboard while they are open
-      if (gameOpen || doomOpen || fightOpen || kombatOpen || pacmanOpen || holeOpen) return;
+      if (gameOpen || doomOpen || fightOpen || kombatOpen || pacmanOpen || holeOpen || lifeOpen) return;
 
       // Don't trigger if user is focused inside an input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
@@ -908,7 +921,7 @@ export default function MinimalView() {
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [showToast, triggerToasty, gameOpen, doomOpen, fightOpen, kombatOpen, pacmanOpen, holeOpen]);
+  }, [showToast, triggerToasty, gameOpen, doomOpen, fightOpen, kombatOpen, pacmanOpen, holeOpen, lifeOpen]);
 
   return (
     <div data-page-root className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black relative">
@@ -1431,7 +1444,17 @@ export default function MinimalView() {
               setFightOpen(false);
               setKombatOpen(false);
               setPacmanOpen(false);
+              setLifeOpen(false);
               setHoleOpen(true);
+            }}
+            onTriggerLife={() => {
+              setGameOpen(false);
+              setDoomOpen(false);
+              setFightOpen(false);
+              setKombatOpen(false);
+              setPacmanOpen(false);
+              setHoleOpen(false);
+              setLifeOpen(true);
             }}
           />
         )}
@@ -1469,6 +1492,9 @@ export default function MinimalView() {
 
       {/* Black hole mode: the page falls in, then a Big Bang puts it back (terminal: blackhole) */}
       {holeOpen && <BlackHoleMode onClose={() => setHoleOpen(false)} />}
+
+      {/* Game of Life mode: the page becomes Conway's Life (terminal: life) */}
+      {lifeOpen && <LifeMode onClose={() => setLifeOpen(false)} />}
 
       {/* Global Zero-Latency Preloader for Arcade Sprites & Audio */}
       <ArcadePreload />
