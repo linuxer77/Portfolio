@@ -75,6 +75,46 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const near = (b: Box, x: number, y: number, r: number) =>
   x + r >= b.x && x - r <= b.x + b.w && y + r >= b.y && y - r <= b.y + b.h;
 
+/** A box as it looks on the page, drawn into a canvas, plus whether it holds an image. */
+export function snapshotBox(el: HTMLElement, b: Box) {
+  const dpr = window.devicePixelRatio || 1;
+  const snap = document.createElement("canvas");
+  snap.width = Math.ceil(b.w * dpr);
+  snap.height = Math.ceil(b.h * dpr);
+  const c = snap.getContext("2d")!;
+  c.scale(dpr, dpr);
+  c.fillStyle = getComputedStyle(el).backgroundColor || "#09090b";
+  c.fillRect(0, 0, b.w, b.h);
+  const img = el.querySelector("img");
+  if (img?.complete && img.naturalWidth) {
+    // redraw the image the way CSS shows it: object-fit cover plus its filters
+    const ir = img.getBoundingClientRect();
+    const scale = Math.max(ir.width / img.naturalWidth, ir.height / img.naturalHeight);
+    const sw = ir.width / scale;
+    const sh = ir.height / scale;
+    c.filter = getComputedStyle(img).filter;
+    c.drawImage(
+      img,
+      (img.naturalWidth - sw) / 2,
+      (img.naturalHeight - sh) / 2,
+      sw,
+      sh,
+      ir.left + window.scrollX - b.x,
+      ir.top + window.scrollY - b.y,
+      ir.width,
+      ir.height
+    );
+    c.filter = "none";
+  } else {
+    c.strokeStyle = "#a1a1aa";
+    c.lineWidth = 1.2;
+    c.strokeRect(b.w * 0.25, b.h * 0.25, b.w * 0.5, b.h * 0.5);
+  }
+  c.strokeStyle = "#3f3f46";
+  c.strokeRect(0.5, 0.5, b.w - 1, b.h - 1);
+  return { snap, image: !!(img?.complete && img.naturalWidth) };
+}
+
 export class PageWreck {
   /** letters knocked off the page so far */
   destroyed = 0;
@@ -220,7 +260,7 @@ export class PageWreck {
         }
       }
       if (t.kind !== "skill") {
-        const { snap, image } = this.snapshot(t);
+        const { snap, image } = snapshotBox(t.el, t.box);
         this.pieces(snap, [0, 0, snap.width, snap.height], t.box, image ? 5 : 2, image ? 4 : 2, false, true);
       }
       this.holes.push({
@@ -546,53 +586,12 @@ export class PageWreck {
   /** An image box (or a glyph button) shatters into tumbling pieces. */
   private shatter(t: Target) {
     this.broken.add(t.el);
-    const { snap, image } = this.snapshot(t);
+    const { snap, image } = snapshotBox(t.el, t.box);
     const b = t.box;
     this.pieces(snap, [0, 0, snap.width, snap.height], b, image ? 5 : 2, image ? 3 : 2);
     this.holes.push({ x: b.x - 1, y: b.y - 1, w: b.w + 2, h: b.h + 2 });
     this.dents = this.dents.filter((d) => !near(b, d.x, d.y, 0));
     this.onShatter(image ? 9 : 3);
-  }
-
-  /** A box as it looks on the page, drawn into a canvas, plus whether it holds an image. */
-  private snapshot(t: Target) {
-    const { el, box: b } = t;
-    const dpr = window.devicePixelRatio || 1;
-    const snap = document.createElement("canvas");
-    snap.width = Math.ceil(b.w * dpr);
-    snap.height = Math.ceil(b.h * dpr);
-    const c = snap.getContext("2d")!;
-    c.scale(dpr, dpr);
-    c.fillStyle = getComputedStyle(el).backgroundColor || "#09090b";
-    c.fillRect(0, 0, b.w, b.h);
-    const img = el.querySelector("img");
-    if (img?.complete && img.naturalWidth) {
-      // redraw the image the way CSS shows it: object-fit cover plus its filters
-      const ir = img.getBoundingClientRect();
-      const scale = Math.max(ir.width / img.naturalWidth, ir.height / img.naturalHeight);
-      const sw = ir.width / scale;
-      const sh = ir.height / scale;
-      c.filter = getComputedStyle(img).filter;
-      c.drawImage(
-        img,
-        (img.naturalWidth - sw) / 2,
-        (img.naturalHeight - sh) / 2,
-        sw,
-        sh,
-        ir.left + window.scrollX - b.x,
-        ir.top + window.scrollY - b.y,
-        ir.width,
-        ir.height
-      );
-      c.filter = "none";
-    } else {
-      c.strokeStyle = "#a1a1aa";
-      c.lineWidth = 1.2;
-      c.strokeRect(b.w * 0.25, b.h * 0.25, b.w * 0.5, b.h * 0.5);
-    }
-    c.strokeStyle = "#3f3f46";
-    c.strokeRect(0.5, 0.5, b.w - 1, b.h - 1);
-    return { snap, image: !!(img?.complete && img.naturalWidth) };
   }
 
   /**

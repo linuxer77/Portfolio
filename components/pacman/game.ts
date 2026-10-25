@@ -247,7 +247,7 @@ export class PacGame {
 
   private frame = (now: number) => {
     if (!this.running) return;
-    const dt = Math.min(0.05, (now - this.last) / 1000);
+    const dt = Math.max(0, Math.min(0.05, (now - this.last) / 1000));
     this.last = now;
     this.clock += dt;
     this.update(dt);
