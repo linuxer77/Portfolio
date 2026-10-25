@@ -1,7 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  Children,
+  cloneElement,
+  isValidElement,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+  type SVGProps,
+} from "react";
 import Image from "next/image";
+import { Unit, Rule, d, easeInOut, clamp01 } from "@/lib/motion";
 import {
   experiences,
   projects,
@@ -21,6 +34,125 @@ import ToastyPopup from "@/components/arcade/ToastyPopup";
 import MarioRun from "@/components/arcade/MarioRun";
 import MkFatality from "@/components/arcade/MkFatality";
 import ArcadePreload from "@/components/arcade/ArcadePreload";
+import dynamic from "next/dynamic";
+
+// The playable game is only downloaded when someone launches it
+const StackRunner = dynamic(() => import("@/components/arcade/StackRunner"), { ssr: false });
+const DoomMode = dynamic(() => import("@/components/doom/DoomMode"), { ssr: false });
+const StreetFighterMode = dynamic(() => import("@/components/streetfighter/StreetFighterMode"), { ssr: false });
+const KombatMode = dynamic(() => import("@/components/mortalkombat/KombatMode"), { ssr: false });
+
+// ==========================================
+// Motion: visuals and their story loops
+// Every story starts and ends on the exact resting design.
+// ==========================================
+
+/** Wireframe glyph: strokes draw on in the intro; a white spark copy traces them in the story. */
+function GlyphSvg({ children }: { children: ReactNode }) {
+  const shapes = Children.toArray(children).filter(isValidElement) as ReactElement<
+    SVGProps<SVGElement>
+  >[];
+  return (
+    <svg viewBox="0 0 100 100" className="w-14 h-14 stroke-current fill-none" strokeWidth="1.2">
+      <g className="m-draw">
+        {shapes.map((s, i) => cloneElement(s, { pathLength: 1, style: { "--i": i } as CSSProperties }))}
+      </g>
+      <g className="m-spark" stroke="#fff" strokeWidth="2" aria-hidden>
+        {shapes
+          .filter((s) => !s.props.className?.includes("fill-current"))
+          .map((s) => cloneElement(s, { pathLength: 1 }))}
+      </g>
+    </svg>
+  );
+}
+
+/** Image that resolves from blur once it is both loaded and in view, over a skeleton of its box. */
+function Photo({
+  src,
+  alt,
+  className,
+  delay,
+}: {
+  src: string;
+  alt: string;
+  className: string;
+  delay: number;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <>
+      <div className="m-photo absolute inset-0" style={d(delay)} data-loaded={loaded ? "" : undefined}>
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes="(max-width: 1024px) 100vw, 40vw"
+          className={className}
+          onLoad={() => setLoaded(true)}
+        />
+      </div>
+      <span aria-hidden className="m-skel pointer-events-none" style={d(delay)} />
+    </>
+  );
+}
+
+// Row story (experience + project rows), 5.2s:
+// a pulse of light traces each glyph stroke in turn, then rests.
+const ROW_PERIOD = 5.2;
+const TRACE_STEP = 0.24;
+const TRACE_TRAVEL = 0.8;
+const SPARK_DASH = 0.35;
+
+function rowStory(t: number, el: HTMLElement) {
+  const lt = t % ROW_PERIOD;
+  el.querySelectorAll<SVGElement>(".m-spark > *").forEach((s, i) => {
+    const p = easeInOut(clamp01((lt - i * TRACE_STEP) / TRACE_TRAVEL));
+    // dash travels from just before the start to just past the end (dash length set in globals.css)
+    s.style.strokeDashoffset = String(SPARK_DASH - p * (1 + SPARK_DASH));
+  });
+}
+
+// Stack story: a cursor steps down every list in reading order, then rests.
+const SCAN_STEP = 0.42;
+
+function stackStory(t: number, el: HTMLElement) {
+  const rows = el.querySelectorAll<HTMLElement>(".m-row");
+  const active = Math.floor((t % (rows.length * SCAN_STEP + 1.6)) / SCAN_STEP);
+  rows.forEach((r, i) => {
+    if (r.hasAttribute("data-on") !== (i === active)) r.toggleAttribute("data-on");
+  });
+}
+
+// Hero story, 7s: the 'arcade' hint deletes and retypes itself glyph by glyph.
+const TYPE_WORD = "arcade";
+const TYPE_STEPS = [0.07, 0.05, 0.06, 0.045, 0.065, 0.055];
+const DELETE_AT = 2;
+const DELETE_STEP = 0.04;
+const RETYPE_AT = 2.9;
+
+function typeStory(t: number, el: HTMLElement) {
+  const text = el.querySelector("[data-type]")?.firstChild;
+  const caret = el.querySelector<HTMLElement>("[data-caret]");
+  if (!text || !caret) return;
+  const lt = t % 7;
+  let n = TYPE_WORD.length;
+  if (lt >= DELETE_AT && lt < RETYPE_AT) {
+    n = Math.max(0, TYPE_WORD.length - 1 - Math.floor((lt - DELETE_AT) / DELETE_STEP));
+  } else if (lt >= RETYPE_AT) {
+    n = 0;
+    for (let at = RETYPE_AT; n < TYPE_WORD.length && at <= lt; at += TYPE_STEPS[n++]);
+  }
+  const busy = lt >= DELETE_AT && (lt < RETYPE_AT ? n > 0 : n < TYPE_WORD.length);
+  const value = TYPE_WORD.slice(0, n);
+  if (text.nodeValue !== value) text.nodeValue = value;
+  caret.style.visibility = busy || Math.floor(lt * 2) % 2 === 0 ? "visible" : "hidden";
+}
+
+// Terminal button accent: the underscore blinks like a caret (1s period).
+function blinkStory(t: number, el: HTMLElement) {
+  const u = el.querySelector<HTMLElement>("[data-blink]");
+  if (u) u.style.visibility = Math.floor(t * 2) % 2 === 0 ? "visible" : "hidden";
+}
 
 // ==========================================
 // Easter Egg 1: 0x6867 Scramble Effect
@@ -113,6 +245,7 @@ function InteractiveGlyph({
     <button
       type="button"
       onClick={handleClick}
+      data-game="bump"
       className="cursor-pointer text-zinc-400 hover:text-white transition-colors p-2.5 inline-flex items-center justify-center rounded-lg hover:bg-white/[0.05] select-none border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-zinc-600"
       title="Interactive Vector Glyph (3x rapid clicks for easter egg)"
     >
@@ -131,7 +264,7 @@ function InteractiveGlyph({
 
 function GlyphAsterisk() {
   return (
-    <svg viewBox="0 0 100 100" className="w-14 h-14 stroke-current fill-none" strokeWidth="1.2">
+    <GlyphSvg>
       <line x1="50" y1="10" x2="50" y2="90" />
       <line x1="10" y1="50" x2="90" y2="50" />
       <line x1="22" y1="22" x2="78" y2="78" />
@@ -140,64 +273,64 @@ function GlyphAsterisk() {
       <line x1="50" y1="10" x2="22" y2="78" />
       <line x1="50" y1="90" x2="78" y2="22" />
       <line x1="50" y1="90" x2="22" y2="22" />
-    </svg>
+    </GlyphSvg>
   );
 }
 
 function GlyphWheel() {
   return (
-    <svg viewBox="0 0 100 100" className="w-14 h-14 stroke-current fill-none" strokeWidth="1.2">
+    <GlyphSvg>
       <circle cx="50" cy="50" r="38" />
       <line x1="50" y1="12" x2="50" y2="88" />
       <line x1="12" y1="50" x2="88" y2="50" />
       <line x1="23.1" y1="23.1" x2="76.9" y2="76.9" />
       <line x1="23.1" y1="76.9" x2="76.9" y2="23.1" />
-    </svg>
+    </GlyphSvg>
   );
 }
 
 function GlyphDiamond() {
   return (
-    <svg viewBox="0 0 100 100" className="w-14 h-14 stroke-current fill-none" strokeWidth="1.2">
+    <GlyphSvg>
       <polygon points="50,14 86,50 50,86 14,50" />
       <polygon points="50,26 74,50 50,74 26,50" />
       <line x1="50" y1="6" x2="50" y2="94" />
       <line x1="6" y1="50" x2="94" y2="50" />
       <circle cx="50" cy="50" r="3" className="fill-current" />
-    </svg>
+    </GlyphSvg>
   );
 }
 
 function GlyphCube() {
   return (
-    <svg viewBox="0 0 100 100" className="w-14 h-14 stroke-current fill-none" strokeWidth="1.2">
+    <GlyphSvg>
       <polygon points="50,18 82,34 50,50 18,34" />
       <polygon points="18,34 50,50 50,82 18,66" />
       <polygon points="50,50 82,34 82,66 50,82" />
       <line x1="50" y1="50" x2="50" y2="82" />
-    </svg>
+    </GlyphSvg>
   );
 }
 
 function GlyphHexAperture() {
   return (
-    <svg viewBox="0 0 100 100" className="w-14 h-14 stroke-current fill-none" strokeWidth="1.2">
+    <GlyphSvg>
       <polygon points="50,12 85,31 85,69 50,88 15,69 15,31" />
       <circle cx="50" cy="50" r="20" />
       <line x1="50" y1="12" x2="50" y2="30" />
       <line x1="85" y1="69" x2="67" y2="60" />
       <line x1="15" y1="69" x2="33" y2="60" />
-    </svg>
+    </GlyphSvg>
   );
 }
 
 function GlyphOrbits() {
   return (
-    <svg viewBox="0 0 100 100" className="w-14 h-14 stroke-current fill-none" strokeWidth="1.2">
+    <GlyphSvg>
       <ellipse cx="50" cy="50" rx="40" ry="16" transform="rotate(-30 50 50)" />
       <ellipse cx="50" cy="50" rx="40" ry="16" transform="rotate(30 50 50)" />
       <circle cx="50" cy="50" r="7" className="fill-current" />
-    </svg>
+    </GlyphSvg>
   );
 }
 
@@ -233,6 +366,10 @@ interface TerminalDrawerProps {
   onTriggerMario: () => void;
   onTriggerMk: () => void;
   onTriggerToasty?: () => void;
+  onTriggerGame: () => void;
+  onTriggerDoom: () => void;
+  onTriggerFight: () => void;
+  onTriggerKombat: () => void;
 }
 
 function TerminalDrawer({
@@ -243,6 +380,10 @@ function TerminalDrawer({
   onTriggerMario,
   onTriggerMk,
   onTriggerToasty,
+  onTriggerGame,
+  onTriggerDoom,
+  onTriggerFight,
+  onTriggerKombat,
 }: TerminalDrawerProps) {
   const [inputVal, setInputVal] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -296,8 +437,9 @@ function TerminalDrawer({
   exit
 
 ARCADE:
-  contra
-  sf2`,
+  doom     (shoot the site!)
+  fight    (street fighter, 1P or 2P)
+  mk3      (mortal kombat, 1P or 2P)`,
         });
         break;
 
@@ -393,12 +535,36 @@ ARCADE:
         newLogs.push({
           type: "out",
           text: `ARCADE:
-  contra
-  mario
-  mk
-  sf2`,
+  doom     (shoot the site!)
+  fight    (street fighter, 1P or 2P)
+  mk3      (mortal kombat, 1P or 2P)`,
         });
         break;
+
+      case "play":
+      case "game":
+        onTriggerGame();
+        onClose();
+        return;
+
+      case "doom":
+        onTriggerDoom();
+        onClose();
+        return;
+
+      case "fight":
+      case "streetfighter":
+        onTriggerFight();
+        onClose();
+        return;
+
+      case "mk3":
+      case "umk3":
+      case "kombat":
+      case "mortalkombat":
+        onTriggerKombat();
+        onClose();
+        return;
 
       case "mk":
       case "fatality":
@@ -602,6 +768,10 @@ export default function MinimalView() {
   const [marioActive, setMarioActive] = useState(false);
   const [fatalityActive, setFatalityActive] = useState(false);
   const [toastyOpen, setToastyOpen] = useState(false);
+  const [gameOpen, setGameOpen] = useState(false);
+  const [doomOpen, setDoomOpen] = useState(false);
+  const [fightOpen, setFightOpen] = useState(false);
+  const [kombatOpen, setKombatOpen] = useState(false);
   const keyHistoryRef = useRef<string[]>([]);
   // const { setViewMode } = useViewMode();
 
@@ -637,6 +807,9 @@ export default function MinimalView() {
   // ==========================================
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // The games own the keyboard while they are open
+      if (gameOpen || doomOpen || fightOpen || kombatOpen) return;
+
       // Don't trigger if user is focused inside an input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
@@ -709,51 +882,36 @@ export default function MinimalView() {
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [showToast, triggerToasty]);
+  }, [showToast, triggerToasty, gameOpen, doomOpen, fightOpen, kombatOpen]);
 
   return (
-    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black relative">
+    <div data-page-root className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black relative">
       {/* 1. Riften Top Navigation Header */}
       <header className="sticky top-0 z-40 bg-black/95 backdrop-blur-md border-b border-dotted border-zinc-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <Unit className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Identity & Nav Links */}
           <div className="flex items-center gap-6 sm:gap-8 overflow-x-auto no-scrollbar">
-            <HexScrambler onScrollToIntro={() => scrollTo("intro")} />
+            <div className="m m-down flex shrink-0">
+              <HexScrambler onScrollToIntro={() => scrollTo("intro")} />
+            </div>
 
             <nav className="hidden md:flex items-center gap-6 text-xs text-zinc-400 tracking-wider uppercase">
-              <button
-                onClick={() => scrollTo("experience")}
-                className={`hover:text-white transition-colors ${activeSection === "experience" ? "text-white underline underline-offset-8 decoration-1" : ""
-                  }`}
-              >
-                EXPERIENCE
-              </button>
-              <button
-                onClick={() => scrollTo("projects")}
-                className={`hover:text-white transition-colors ${activeSection === "projects" ? "text-white underline underline-offset-8 decoration-1" : ""
-                  }`}
-              >
-                PROJECTS
-              </button>
-              <button
-                onClick={() => scrollTo("stack")}
-                className={`hover:text-white transition-colors ${activeSection === "stack" ? "text-white underline underline-offset-8 decoration-1" : ""
-                  }`}
-              >
-                STACK
-              </button>
-              <button
-                onClick={() => scrollTo("contact")}
-                className={`hover:text-white transition-colors ${activeSection === "contact" ? "text-white underline underline-offset-8 decoration-1" : ""
-                  }`}
-              >
-                CONTACT
-              </button>
+              {["experience", "projects", "stack", "contact"].map((id, i) => (
+                <span key={id} className="m m-down flex" style={d(0.08 + i * 0.05)}>
+                  <button
+                    onClick={() => scrollTo(id)}
+                    className={`hover:text-white transition-colors ${activeSection === id ? "text-white underline underline-offset-8 decoration-1" : ""
+                      }`}
+                  >
+                    {id.toUpperCase()}
+                  </button>
+                </span>
+              ))}
             </nav>
           </div>
 
           {/* Minimal View Controls: ViewModeSwitch (commented out) + Resume */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="m m-down flex items-center gap-2 sm:gap-3 shrink-0" style={d(0.3)}>
             {/* <ViewModeSwitch /> */}
             <a
               href={personalData.resumePath}
@@ -765,83 +923,107 @@ export default function MinimalView() {
               <span>RESUME ↗</span>
             </a>
           </div>
-        </div>
+        </Unit>
       </header>
 
       {/* 2. Hero Intro Banner */}
-      <section id="intro" className="border-b border-dotted border-zinc-800 py-12 sm:py-16">
+      <Unit
+        as="section"
+        id="intro"
+        story={typeStory}
+        start={1.6}
+        className="relative border-b border-transparent py-12 sm:py-16"
+      >
+        <Rule />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
             <div className="space-y-4 max-w-2xl">
-              <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-white uppercase">
+              <h1 data-game="ledge" className="m m-up text-3xl sm:text-5xl font-bold tracking-tight text-white uppercase" style={d(0.05)}>
                 {personalData.name}
               </h1>
-              <p className="text-sm sm:text-base text-zinc-300 leading-relaxed max-w-2xl font-mono">
+              <p className="m m-up text-sm sm:text-base text-zinc-300 leading-relaxed max-w-2xl font-mono" style={d(0.15)}>
                 {personalData.bio}
               </p>
               <div className="flex flex-wrap items-center gap-4 pt-2 text-xs">
-                <button
-                  onClick={copyEmail}
-                  type="button"
-                  className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
-                >
-                  {copied ? "EMAIL COPIED" : `${personalData.email}`}
-                </button>
-                <a
-                  href={personalData.github}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
-                >
-                  GITHUB ↗
-                </a>
-                <a
-                  href={personalData.linkedin}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
-                >
-                  LINKEDIN ↗
-                </a>
+                <span className="m m-up" style={d(0.25)}>
+                  <button
+                    onClick={copyEmail}
+                    type="button"
+                    className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
+                  >
+                    {copied ? "EMAIL COPIED" : `${personalData.email}`}
+                  </button>
+                </span>
+                <span className="m m-up" style={d(0.31)}>
+                  <a
+                    href={personalData.github}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
+                  >
+                    GITHUB ↗
+                  </a>
+                </span>
+                <span className="m m-up" style={d(0.37)}>
+                  <a
+                    href={personalData.linkedin}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-4 decoration-zinc-500 hover:decoration-white text-zinc-300 hover:text-white transition-colors"
+                  >
+                    LINKEDIN ↗
+                  </a>
+                </span>
               </div>
             </div>
 
-            {/* Right-side quadrant: games terminal hint */}
-            <div className="pt-2 md:pt-0 shrink-0">
+            {/* Right-side quadrant: games terminal hint (types itself out as a story) */}
+            <div className="m m-up pt-2 md:pt-0 shrink-0" style={d(0.5)}>
               <button
                 onClick={() => setShowTerminal(true)}
                 className="group inline-flex items-center gap-2 font-mono text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
                 title="Open bash terminal (~)"
+                aria-label="type 'arcade' in the terminal"
               >
                 <span>
-                  type <code className="text-white font-bold group-hover:underline">&apos;arcade&apos;</code> in the terminal
+                  type{" "}
+                  <code data-doom-secret className="inline-block min-w-[8ch] whitespace-nowrap text-left text-white font-bold group-hover:underline">
+                    &apos;<span data-type>{TYPE_WORD}</span>
+                    <span aria-hidden className="m-helper relative inline-block w-0">
+                      <span data-caret className="absolute left-0 -bottom-[0.2em] h-[1.15em] w-[2px] bg-white" />
+                    </span>
+                    &apos;
+                  </code>{" "}
+                  in the terminal
                 </span>
               </button>
             </div>
           </div>
         </div>
-      </section>
+      </Unit>
 
       {/* 3. Experiences: 3-Column Rows with Dotted Lines */}
       <section id="experience">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="pt-10 pb-4 border-b border-dotted border-zinc-800 text-xs text-zinc-400 uppercase tracking-widest">
-            EXPERIENCE
-          </div>
+          <Unit className="relative pt-10 pb-4 border-b border-transparent text-xs text-zinc-400 uppercase tracking-widest">
+            <Rule />
+            <div className="m m-left">EXPERIENCE</div>
+          </Unit>
 
           {experiences.map((exp, idx) => (
-            <div
+            <Unit
               key={exp.company}
-              className="border-b border-dotted border-zinc-800 py-12 lg:py-16 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start"
+              story={rowStory}
+              className="relative border-b border-transparent py-12 lg:py-16 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start"
             >
+              <Rule />
               {/* Column 1: Monochrome High-Contrast Company Logo / Image */}
               <div className="lg:col-span-5">
-                <div className="relative aspect-[16/10] w-full bg-black border border-zinc-800/80 overflow-hidden">
-                  <Image
+                <div data-game="solid" className="m m-card relative aspect-[16/10] w-full bg-black border border-zinc-800/80 overflow-hidden">
+                  <Photo
                     src={exp.image || "/companies/maximize-bw.png"}
                     alt={exp.company}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 40vw"
+                    delay={0.15}
                     className="object-cover grayscale contrast-125 brightness-95 hover:brightness-110 transition-all duration-500"
                   />
                 </div>
@@ -849,8 +1031,8 @@ export default function MinimalView() {
 
               {/* Column 2: Title, Exact Bullets, Link */}
               <div className="lg:col-span-5 space-y-4">
-                <div>
-                  <h2 className="text-sm sm:text-base font-bold tracking-wider text-white uppercase inline-block underline underline-offset-8 decoration-1 decoration-zinc-400">
+                <div className="m m-up" style={d(0.1)}>
+                  <h2 data-game="ledge" className="text-sm sm:text-base font-bold tracking-wider text-white uppercase inline-block underline underline-offset-8 decoration-1 decoration-zinc-400">
                     {exp.company.toUpperCase()}.
                   </h2>
                   <div className="text-[11px] text-zinc-400 mt-2 uppercase tracking-wide">
@@ -861,7 +1043,7 @@ export default function MinimalView() {
                 {/* EXACT Bullet points from portfolio-data.ts */}
                 <div className="space-y-3 pt-2 text-xs sm:text-[13px] text-zinc-300 leading-relaxed">
                   {exp.description.map((bullet, bIdx) => (
-                    <p key={bIdx} className="leading-relaxed">
+                    <p key={bIdx} className="m m-up leading-relaxed" style={d(0.2 + bIdx * 0.06)}>
                       {bullet}
                     </p>
                   ))}
@@ -869,10 +1051,12 @@ export default function MinimalView() {
 
                 {/* Tech Skills */}
                 <div className="pt-2 flex flex-wrap gap-2 text-[10px] text-zinc-400">
-                  {exp.skills.map((skill) => (
+                  {exp.skills.map((skill, sIdx) => (
                     <span
                       key={skill}
-                      className="border-b border-dotted border-zinc-700 pb-0.5"
+                      data-game="skill"
+                      style={d(0.2 + exp.description.length * 0.06 + sIdx * 0.03)}
+                      className="m m-up border-b border-dotted border-zinc-700 pb-0.5"
                     >
                       {skill}
                     </span>
@@ -881,11 +1065,12 @@ export default function MinimalView() {
 
                 {/* Action Link */}
                 {exp.link && (
-                  <div className="pt-2">
+                  <div className="m m-up pt-2" style={d(0.5 + exp.description.length * 0.06)}>
                     <a
                       href={exp.link}
                       target="_blank"
                       rel="noreferrer"
+                      data-game="ledge"
                       className="inline-block text-xs text-zinc-300 hover:text-white underline underline-offset-8 decoration-1 decoration-zinc-500 hover:decoration-white transition-colors"
                     >
                       Explore {exp.company} ↗
@@ -896,18 +1081,18 @@ export default function MinimalView() {
 
               {/* Column 3: Monospace Index & Interactive Wireframe Glyph */}
               <div className="lg:col-span-2 flex flex-col justify-between h-full space-y-6">
-                <div className="space-y-1 text-xs text-zinc-400 tracking-wider">
+                <div data-game="ledge" className="m m-left space-y-1 text-xs text-zinc-400 tracking-wider" style={d(0.2)}>
                   <div>0{idx + 1} / EXPERIENCE</div>
                   <div className="text-white uppercase font-bold truncate">
                     {exp.company.split(".")[0]}
                   </div>
                 </div>
 
-                <div className="pt-2">
+                <div className="m m-pop pt-2" style={d(0.4)}>
                   {renderGlyph(idx, triggerToasty)}
                 </div>
               </div>
-            </div>
+            </Unit>
           ))}
         </div>
       </section>
@@ -915,24 +1100,26 @@ export default function MinimalView() {
       {/* 4. Projects: 3-Column Rows with Dotted Lines */}
       <section id="projects">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="pt-10 pb-4 border-b border-dotted border-zinc-800 text-xs text-zinc-400 uppercase tracking-widest">
-            FEATURED PROJECTS // SELECTED WORK
-          </div>
+          <Unit className="relative pt-10 pb-4 border-b border-transparent text-xs text-zinc-400 uppercase tracking-widest">
+            <Rule />
+            <div className="m m-left">FEATURED PROJECTS // SELECTED WORK</div>
+          </Unit>
 
           {projects.map((proj, idx) => (
-            <div
+            <Unit
               key={proj.title}
-              className="border-b border-dotted border-zinc-800 py-12 lg:py-16 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start"
+              story={rowStory}
+              className="relative border-b border-transparent py-12 lg:py-16 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start"
             >
+              <Rule />
               {/* Column 1: Project Image */}
               <div className="lg:col-span-5">
-                <div className="relative aspect-[16/10] w-full bg-zinc-950 border border-zinc-900 overflow-hidden">
+                <div data-game="solid" className="m m-card relative aspect-[16/10] w-full bg-zinc-950 border border-zinc-900 overflow-hidden">
                   {proj.image ? (
-                    <Image
+                    <Photo
                       src={proj.image}
                       alt={proj.title}
-                      fill
-                      sizes="(max-width: 1024px) 100vw, 40vw"
+                      delay={0.15}
                       className="object-cover grayscale contrast-125 brightness-90 hover:brightness-100 transition-all duration-500"
                     />
                   ) : (
@@ -945,8 +1132,8 @@ export default function MinimalView() {
 
               {/* Column 2: Exact Project Description & Highlights */}
               <div className="lg:col-span-5 space-y-4">
-                <div>
-                  <h2 className="text-sm sm:text-base font-bold tracking-wider text-white uppercase inline-block underline underline-offset-8 decoration-1 decoration-zinc-400">
+                <div className="m m-up" style={d(0.1)}>
+                  <h2 data-game="ledge" className="text-sm sm:text-base font-bold tracking-wider text-white uppercase inline-block underline underline-offset-8 decoration-1 decoration-zinc-400">
                     {proj.title.toUpperCase()}.
                   </h2>
                   <div className="text-[11px] text-zinc-400 mt-2 uppercase tracking-wide">
@@ -954,14 +1141,14 @@ export default function MinimalView() {
                   </div>
                 </div>
 
-                <p className="text-xs sm:text-[13px] text-zinc-300 leading-relaxed">
+                <p className="m m-up text-xs sm:text-[13px] text-zinc-300 leading-relaxed" style={d(0.2)}>
                   {proj.description}
                 </p>
 
                 {proj.highlights && proj.highlights.length > 0 && (
                   <div className="space-y-2 pt-1 text-xs text-zinc-300">
                     {proj.highlights.map((h, hIdx) => (
-                      <p key={hIdx} className="leading-relaxed">
+                      <p key={hIdx} className="m m-up leading-relaxed" style={d(0.26 + hIdx * 0.06)}>
                         &bull; {h}
                       </p>
                     ))}
@@ -969,22 +1156,25 @@ export default function MinimalView() {
                 )}
 
                 <div className="pt-2 flex flex-wrap gap-2 text-[10px] text-zinc-400">
-                  {proj.tags.map((tag) => (
+                  {proj.tags.map((tag, tIdx) => (
                     <span
                       key={tag}
-                      className="border-b border-dotted border-zinc-700 pb-0.5"
+                      data-game="skill"
+                      style={d(0.44 + tIdx * 0.03)}
+                      className="m m-up border-b border-dotted border-zinc-700 pb-0.5"
                     >
                       {tag}
                     </span>
                   ))}
                 </div>
 
-                <div className="flex items-center gap-4 pt-2 text-xs">
+                <div className="m m-up flex items-center gap-4 pt-2 text-xs" style={d(0.6)}>
                   {proj.liveUrl && (
                     <a
                       href={proj.liveUrl}
                       target="_blank"
                       rel="noreferrer"
+                      data-game="ledge"
                       className="text-zinc-300 hover:text-white underline underline-offset-8 decoration-1 decoration-zinc-500 hover:decoration-white transition-colors"
                     >
                       Live Deployment ↗
@@ -995,6 +1185,7 @@ export default function MinimalView() {
                       href={proj.githubUrl}
                       target="_blank"
                       rel="noreferrer"
+                      data-game="ledge"
                       className="text-zinc-300 hover:text-white underline underline-offset-8 decoration-1 decoration-zinc-500 hover:decoration-white transition-colors"
                     >
                       Source Code ↗
@@ -1005,51 +1196,64 @@ export default function MinimalView() {
 
               {/* Column 3: Project Index & Interactive Wireframe Glyph */}
               <div className="lg:col-span-2 flex flex-col justify-between h-full space-y-6">
-                <div className="space-y-1 text-xs text-zinc-400 tracking-wider">
+                <div data-game="ledge" className="m m-left space-y-1 text-xs text-zinc-400 tracking-wider" style={d(0.2)}>
                   <div>0{idx + 5} / PROJECT</div>
                   <div className="text-white uppercase font-bold truncate">
                     {proj.title}
                   </div>
                 </div>
 
-                <div className="pt-2">
+                <div className="m m-pop pt-2" style={d(0.4)}>
                   {renderGlyph(idx + 4, triggerToasty)}
                 </div>
               </div>
-            </div>
+            </Unit>
           ))}
         </div>
       </section>
 
       {/* 5. Tech Stack & Credentials */}
-      <section id="stack" className="border-b border-dotted border-zinc-800 py-12 lg:py-16">
+      <section id="stack" className="relative border-b border-transparent py-12 lg:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-          <div className="text-xs text-zinc-400 uppercase tracking-widest">
-            CORE CAPABILITIES // ARCHITECTURE &amp; STACK
-          </div>
+          <Unit story={stackStory} start={2} className="space-y-10">
+            <div className="m m-left text-xs text-zinc-400 uppercase tracking-widest">
+              CORE CAPABILITIES // ARCHITECTURE &amp; STACK
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {skillCategories.map((category) => (
-              <div key={category.title} className="space-y-3">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider underline underline-offset-4 decoration-1 decoration-zinc-500">
-                  {category.title}
-                </h3>
-                <ul className="space-y-2 text-xs text-zinc-300 font-mono">
-                  {category.skills.map((skill) => (
-                    <li key={skill.name} className="flex items-center gap-2">
-                      <span className="text-zinc-600">&bull;</span>
-                      <span>{skill.name}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {skillCategories.map((category, cIdx) => (
+                <div key={category.title} className="space-y-3">
+                  <h3
+                    data-game="ledge"
+                    style={d(0.1 + cIdx * 0.085)}
+                    className="m m-up text-xs font-bold text-white uppercase tracking-wider underline underline-offset-4 decoration-1 decoration-zinc-500"
+                  >
+                    {category.title}
+                  </h3>
+                  <ul className="space-y-2 text-xs text-zinc-300 font-mono">
+                    {category.skills.map((skill, sIdx) => (
+                      <li
+                        key={skill.name}
+                        data-game="skill"
+                        data-skill={skill.name}
+                        style={d(0.18 + cIdx * 0.085 + sIdx * 0.04)}
+                        className="m m-left m-row flex items-center gap-2"
+                      >
+                        <span className="text-zinc-600">&bull;</span>
+                        <span>{skill.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </Unit>
 
           {/* Certifications & Education */}
-          <div className="pt-8 border-t border-dotted border-zinc-800 grid grid-cols-1 md:grid-cols-2 gap-8 text-xs font-mono">
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider underline underline-offset-4 decoration-1 decoration-zinc-500">
+          <Unit className="relative pt-8 border-t border-transparent grid grid-cols-1 md:grid-cols-2 gap-8 text-xs font-mono">
+            <Rule edge="top" />
+            <div className="m m-up space-y-2" style={d(0.1)}>
+              <h3 data-game="ledge" className="text-xs font-bold text-white uppercase tracking-wider underline underline-offset-4 decoration-1 decoration-zinc-500">
                 CERTIFICATIONS
               </h3>
               {certifications.map((cert) => (
@@ -1072,8 +1276,8 @@ export default function MinimalView() {
               ))}
             </div>
 
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider underline underline-offset-4 decoration-1 decoration-zinc-500">
+            <div className="m m-up space-y-2" style={d(0.18)}>
+              <h3 data-game="ledge" data-doom-secret className="text-xs font-bold text-white uppercase tracking-wider underline underline-offset-4 decoration-1 decoration-zinc-500">
                 EDUCATION
               </h3>
               <div className="space-y-1 pt-1">
@@ -1084,19 +1288,20 @@ export default function MinimalView() {
                 </div>
               </div>
             </div>
-          </div>
+          </Unit>
         </div>
+        <Rule standalone />
       </section>
 
       {/* 6. Contact & Footer */}
       <footer id="contact" className="py-12 sm:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-6 text-xs font-mono text-zinc-400">
-            <div className="text-zinc-500 font-mono">
+        <div data-game="goal" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+          <Unit className="flex flex-wrap items-center justify-between gap-6 text-xs font-mono text-zinc-400">
+            <div data-doom-secret className="m m-up text-zinc-500 font-mono">
               0x6867
             </div>
 
-            <div className="flex items-center gap-6">
+            <div className="m m-up flex items-center gap-6" style={d(0.1)}>
               <button
                 onClick={copyEmail}
                 type="button"
@@ -1121,20 +1326,20 @@ export default function MinimalView() {
                 LINKEDIN ↗
               </a>
             </div>
-          </div>
+          </Unit>
         </div>
       </footer>
 
-      {/* Terminal Drawer Trigger Button */}
-      <div className="fixed bottom-3 right-3 z-30">
+      {/* Terminal Drawer Trigger Button (pops in after the page lands; the underscore blinks) */}
+      <Unit story={blinkStory} start={2.4} className="m m-pop fixed bottom-3 right-3 z-30" style={d(1.2)}>
         <button
           onClick={() => setShowTerminal((prev) => !prev)}
           className="px-2.5 py-1 rounded bg-black/80 border border-dotted border-zinc-800 hover:border-cyan-700 hover:text-cyan-300 text-[10px] font-mono text-zinc-400 transition-colors shadow-lg flex items-center gap-1.5"
           title="Open terminal console (~)"
         >
-          <span>&gt;_ bash</span>
+          <span>&gt;<span data-blink>_</span> bash</span>
         </button>
-      </div>
+      </Unit>
 
       {/* Toast Notification */}
       <AnimatePresence>
@@ -1161,6 +1366,30 @@ export default function MinimalView() {
             onTriggerMario={() => setMarioActive(true)}
             onTriggerMk={() => setFatalityActive(true)}
             onTriggerToasty={triggerToasty}
+            onTriggerGame={() => {
+              setDoomOpen(false);
+              setFightOpen(false);
+              setKombatOpen(false);
+              setGameOpen(true);
+            }}
+            onTriggerDoom={() => {
+              setGameOpen(false);
+              setFightOpen(false);
+              setKombatOpen(false);
+              setDoomOpen(true);
+            }}
+            onTriggerFight={() => {
+              setGameOpen(false);
+              setDoomOpen(false);
+              setKombatOpen(false);
+              setFightOpen(true);
+            }}
+            onTriggerKombat={() => {
+              setGameOpen(false);
+              setDoomOpen(false);
+              setFightOpen(false);
+              setKombatOpen(true);
+            }}
           />
         )}
       </AnimatePresence>
@@ -1179,6 +1408,18 @@ export default function MinimalView() {
 
       {/* Easter Egg 4: Authentic MK Fatality (Announcer Voice & Blood Text) */}
       <MkFatality isActive={fatalityActive} onComplete={() => setFatalityActive(false)} />
+
+      {/* Playable platformer: Stack Runner (terminal: play) */}
+      {gameOpen && <StackRunner onClose={() => setGameOpen(false)} />}
+
+      {/* DOOM mode: shoot the page apart (terminal: doom) */}
+      {doomOpen && <DoomMode onClose={() => setDoomOpen(false)} />}
+
+      {/* Street Fighter mode: two players brawl on the page (terminal: fight) */}
+      {fightOpen && <StreetFighterMode onClose={() => setFightOpen(false)} />}
+
+      {/* Mortal Kombat mode: Scorpion vs Sub-Zero on the page (terminal: mk3) */}
+      {kombatOpen && <KombatMode onClose={() => setKombatOpen(false)} />}
 
       {/* Global Zero-Latency Preloader for Arcade Sprites & Audio */}
       <ArcadePreload />

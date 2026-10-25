@@ -95,3 +95,110 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #444450;
 }
+
+/* ==========================================
+   Motion (design-to-motion): intro kinds keyed on [data-in] units
+   ========================================== */
+:root {
+  --e: cubic-bezier(0.16, 1, 0.3, 1);
+  --e2: cubic-bezier(0.33, 1, 0.68, 1);
+  --io: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.m {
+  transition:
+    transform 1.05s var(--e) var(--d, 0s),
+    opacity 0.75s var(--e2) var(--d, 0s),
+    filter 0.75s var(--e2) var(--d, 0s);
+}
+.m-up { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+.m-down { opacity: 0; transform: translateY(-8px); filter: blur(4px); }
+.m-left { opacity: 0; transform: translateX(-10px); filter: blur(4px); }
+.m-pop { opacity: 0; transform: scale(0.85); filter: blur(4px); }
+.m-card {
+  opacity: 0;
+  transform: translateY(24px) scale(0.985);
+  filter: blur(6px);
+  transition:
+    transform 0.9s var(--e) var(--d, 0s),
+    opacity 0.6s var(--e2) var(--d, 0s),
+    filter 0.6s var(--e2) var(--d, 0s);
+}
+.m-wipe {
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 1.1s var(--io) var(--d, 0s);
+}
+[data-in] .m,
+[data-in].m {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+[data-in] .m-wipe,
+[data-in].m-wipe {
+  clip-path: inset(0 0 0 0);
+}
+
+/* Photos: skeleton shimmer until loaded and in view, then blur to sharp */
+.m-photo {
+  opacity: 0;
+  filter: blur(14px);
+  transition:
+    opacity 0.8s var(--e2) var(--d, 0s),
+    filter 1s var(--e2) var(--d, 0s);
+}
+[data-in] .m-photo[data-loaded] { opacity: 1; filter: none; }
+.m-skel {
+  position: absolute;
+  inset: 1px;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.05) 50%, transparent 70%) 0 0 / 250% 100%,
+    rgba(255, 255, 255, 0.025);
+  animation: m-shimmer 2.4s linear infinite;
+  transition: opacity 0.6s var(--e2) calc(var(--d, 0s) + 0.6s);
+}
+[data-in] .m-photo[data-loaded] + .m-skel { opacity: 0; animation: none; }
+@keyframes m-shimmer {
+  from { background-position: 125% 0, 0 0; }
+  to { background-position: -125% 0, 0 0; }
+}
+
+/* Glyphs: strokes draw on, dots land after; spark copies stay invisible at rest */
+.m-draw > * {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 0.9s var(--io) calc(var(--d, 0s) + var(--i, 0) * 70ms);
+}
+.m-draw > .fill-current {
+  opacity: 0;
+  transition: opacity 0.5s var(--e2) calc(var(--d, 0s) + 0.7s);
+}
+[data-in] .m-draw > * { stroke-dashoffset: 0; opacity: 1; }
+.m-spark > * { stroke-dasharray: 0.35 2; stroke-dashoffset: 0.35; }
+
+/* Story helpers (caret) fade in once the intro has landed */
+.m-helper { opacity: 0; transition: opacity 0.6s var(--e2); }
+[data-live] .m-helper { opacity: 1; }
+
+/* Stack scan: the active row lights up and nudges right */
+.m-row > * { transition: color 0.3s var(--e2), transform 0.45s var(--e); }
+.m-row[data-on] > * { color: #fff; }
+.m-row[data-on] > :last-child { transform: translateX(4px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .m, .m-photo, .m-draw > * {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    clip-path: none !important;
+    stroke-dashoffset: 0 !important;
+    transition: none !important;
+  }
+  .m-skel, .m-helper { display: none; }
+}
+
+/* Stack Runner: skills the player has collected light up on the page */
+[data-collected],
+[data-collected] > * {
+  color: #fff !important;
+  border-color: #fff !important;
+}

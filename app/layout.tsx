@@ -66,6 +66,9 @@ export default function RootLayout({
             `,
           }}
         />
+        <noscript>
+          <style>{`.m,.m-photo,.m-draw>*{opacity:1!important;transform:none!important;filter:none!important;clip-path:none!important;stroke-dashoffset:0!important}.m-skel{display:none}`}</style>
+        </noscript>
       </head>
       <body className="font-sans min-h-screen bg-black text-slate-200 antialiased">
         <ThemeProvider>
