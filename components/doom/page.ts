@@ -92,7 +92,7 @@ export function textNodes(root: Element = document.body): Text[] {
   const out: Text[] = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode: (n) =>
-      n.nodeValue?.trim() && !n.parentElement?.closest("header, script, style, [data-doom], [data-sf]")
+      n.nodeValue?.trim() && !n.parentElement?.closest("header, script, style, [data-doom], [data-sf], [data-arcade]")
         ? NodeFilter.FILTER_ACCEPT
         : NodeFilter.FILTER_REJECT,
   });

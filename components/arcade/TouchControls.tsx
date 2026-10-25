@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 // ==========================================
 // On-screen controls for the fighting modes on touch screens: an 8-way thumb pad on the
@@ -50,7 +45,7 @@ function ThumbPad({ pad, onKey }: Pick<Props, "pad" | "onKey">) {
       }
       held.current = next;
     },
-    [onKey, pad],
+    [onKey, pad]
   );
 
   const track = useCallback(
@@ -75,7 +70,7 @@ function ThumbPad({ pad, onKey }: Pick<Props, "pad" | "onKey">) {
       }
       setKnob({ x: dx, y: dy });
     },
-    [set],
+    [set]
   );
 
   const release = useCallback(() => {
@@ -123,15 +118,7 @@ function ThumbPad({ pad, onKey }: Pick<Props, "pad" | "onKey">) {
   );
 }
 
-function PadButton({
-  b,
-  onKey,
-  round,
-}: {
-  b: TouchButton;
-  onKey: Props["onKey"];
-  round: boolean;
-}) {
+function PadButton({ b, onKey, round }: { b: TouchButton; onKey: Props["onKey"]; round: boolean }) {
   const [down, setDown] = useState(false);
   const up = () => {
     if (!down) return;
@@ -148,9 +135,7 @@ function PadButton({
     <button
       type="button"
       className={`pointer-events-auto select-none border font-bold uppercase tracking-wider transition-colors ${colour} ${
-        round
-          ? "h-14 w-14 rounded-full text-[10px]"
-          : "rounded-full px-3 py-2 text-[9px]"
+        round ? "h-14 w-14 rounded-full text-[10px]" : "rounded-full px-3 py-2 text-[9px]"
       } ${down ? "!bg-white !text-black" : ""}`}
       style={{ touchAction: "none", WebkitTouchCallout: "none" }}
       onPointerDown={(e) => {
@@ -171,12 +156,7 @@ function PadButton({
   );
 }
 
-export default function TouchControls({
-  pad,
-  buttons,
-  specials = [],
-  onKey,
-}: Props) {
+export default function TouchControls({ pad, buttons, specials = [], onKey }: Props) {
   // a 2- or 3-wide grid, so four buttons sit in a square and six in two rows
   const cols = buttons.length > 4 ? 3 : 2;
   return (
@@ -193,10 +173,7 @@ export default function TouchControls({
             ))}
           </div>
         )}
-        <div
-          className="grid gap-2"
-          style={{ gridTemplateColumns: `repeat(${cols}, 3.5rem)` }}
-        >
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, 3.5rem)` }}>
           {buttons.map((b) => (
             <PadButton key={b.label} b={b} onKey={onKey} round />
           ))}

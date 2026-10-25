@@ -1,9 +1,10 @@
 import { docBox, glyphOf, textNodes, type Box, type Glyph } from "../doom/page";
 
 // ==========================================
-// Fighting-mode page damage (Street Fighter and Mortal Kombat): every blow lands on the
-// portfolio as well as the opponent. Letters are knocked off as rubble that piles up on the
-// arena floor, skill tags burst, image boxes crack and shatter; ice frosts letters over so the
+// Page damage for the arcade modes (Street Fighter, Mortal Kombat, Pac-Man): every blow
+// lands on the portfolio as well as the opponent, and Pac-Man eats it. Letters are knocked
+// off as rubble that piles up on the arena floor, or bitten off and sucked into Pac-Man;
+// skill tags burst, image boxes crack and shatter; ice frosts letters over so the
 // next hit shatters them, fire burns them down to embers. Like DOOM mode, nothing in the DOM
 // is changed: damage is drawn on the game canvas, so exiting restores the page.
 // ==========================================
@@ -15,6 +16,8 @@ const BUMP_HP = 2;
 const BURN_TIME = 0.7;
 
 type Tint = "ice" | "ember";
+const MAX_MORSELS = 500;
+const MAX_CRUMBS = 800;
 
 interface Rubble {
   img: HTMLCanvasElement;
@@ -27,6 +30,32 @@ interface Rubble {
   rot: number;
   vr: number;
   rest: boolean;
+}
+
+/** Something Pac-Man bit off: it pops off the page, then gets sucked into his mouth. */
+interface Morsel {
+  img: HTMLCanvasElement;
+  sx: number; // where it started, centre, document px
+  sy: number;
+  w: number;
+  h: number;
+  rot: number;
+  vr: number;
+  t: number;
+  delay: number;
+  dur: number;
+  swirl: number;
+}
+
+/** A crumb sprayed out by a bite, in the colour of what was bitten. */
+interface Crumb {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  s: number;
+  color: string;
+  t: number;
 }
 
 interface TextEntry {
@@ -63,6 +92,9 @@ export class PageWreck {
   private burning: { g: Glyph; t: number; fromX: number; fromY: number }[] = [];
   private lit = new WeakMap<Text, Set<number>>();
   private clock = 0;
+  private morsels: Morsel[] = [];
+  private crumbs: Crumb[] = [];
+  private mouth: { x: number; y: number } | null = null;
 
   constructor(private onShatter: (strength: number) => void) {}
 
@@ -78,18 +110,30 @@ export class PageWreck {
     this.frost = [];
     this.burning = [];
     this.lit = new WeakMap();
+    this.morsels = [];
+    this.crumbs = [];
     this.measure();
   }
 
   /** Re-read where the text and the breakable boxes are. Call after scrolling or resizing. */
   measure() {
-    this.text = textNodes().map((node) => ({ node, box: docBox(node.parentElement!) }));
+    this.text = textNodes().map((node) => ({
+      node,
+      box: docBox(node.parentElement!),
+    }));
     this.targets = [];
-    document.querySelectorAll<HTMLElement>('[data-game="skill"], [data-game="solid"], [data-game="bump"]').forEach((el) => {
-      if (this.broken.has(el)) return;
-      const box = docBox(el);
-      if (box.w) this.targets.push({ el, kind: el.dataset.game as Target["kind"], box });
-    });
+    document
+      .querySelectorAll<HTMLElement>('[data-game="skill"], [data-game="solid"], [data-game="bump"]')
+      .forEach((el) => {
+        if (this.broken.has(el)) return;
+        const box = docBox(el);
+        if (box.w)
+          this.targets.push({
+            el,
+            kind: el.dataset.game as Target["kind"],
+            box,
+          });
+      });
   }
 
   /**
@@ -136,6 +180,70 @@ export class PageWreck {
     );
   }
 
+  /** Where Pac-Man's mouth is now (document px): bitten pieces fly there. */
+  setMouth(x: number, y: number) {
+    this.mouth = { x, y };
+  }
+
+  /**
+   * Pac-Man: letters within radius that fit in a mouth maxH tall are ripped off the page and
+   * sucked in, spraying crumbs. Returns how many went and the area they covered (what he grows by).
+   */
+  eat(x: number, y: number, radius: number, maxH: number, limit = 200) {
+    let area = 0;
+    const letters = this.eachGlyph(x, y, radius, limit, (g) => {
+      if (g.box.h > maxH) return false;
+      this.gulp(g);
+      area += g.box.w * g.box.h;
+      return true;
+    });
+    return { letters, area };
+  }
+
+  /** Swallows whole skill tags, glyph buttons and image boxes near (x, y) that `fits` allows. */
+  eatBoxes(x: number, y: number, radius: number, fits: (b: Box, kind: string) => boolean) {
+    const eaten: { kind: string; area: number }[] = [];
+    for (const t of this.targets) {
+      if (this.broken.has(t.el) || !near(t.box, x, y, radius * 0.5) || !fits(t.box, t.kind)) continue;
+      this.broken.add(t.el);
+      // a tag goes letter by letter; a box cracks into chunks that get sucked in
+      for (const node of textNodes(t.el)) {
+        const set = this.setOf(this.gone, node);
+        for (let i = 0; i < node.data.length; i++) {
+          if (!node.data[i].trim() || set.has(i)) continue;
+          const g = t.kind === "skill" ? glyphOf(node, i) : null;
+          if (g) this.gulp(g);
+          else {
+            set.add(i);
+            this.destroyed++;
+          }
+        }
+      }
+      if (t.kind !== "skill") {
+        const { snap, image } = this.snapshot(t);
+        this.pieces(snap, [0, 0, snap.width, snap.height], t.box, image ? 5 : 2, image ? 4 : 2, false, true);
+      }
+      this.holes.push({
+        x: t.box.x - 1,
+        y: t.box.y - 1,
+        w: t.box.w + 2,
+        h: t.box.h + 2,
+      });
+      eaten.push({ kind: t.kind, area: t.box.w * t.box.h });
+    }
+    return eaten;
+  }
+
+  /** Letters still on the page. Measures every text node, so call it once the layout has settled. */
+  lettersLeft() {
+    let n = 0;
+    for (const e of this.text) {
+      const gone = this.gone.get(e.node);
+      for (const g of this.glyphsOf(e)) if (!gone?.has(g.index)) n++;
+    }
+    return n;
+  }
+
   /** Fire: letters in range catch, burn for a moment, then crumble into embers. */
   ignite(x: number, y: number, radius: number, limit = 80) {
     return this.eachGlyph(x, y, radius, limit, (g) => {
@@ -167,6 +275,15 @@ export class PageWreck {
       if (b.t >= BURN_TIME) this.knockOff(b.g, b.fromX, b.fromY, 120, "ember");
     }
     this.burning = this.burning.filter((b) => b.t < BURN_TIME);
+    for (const m of this.morsels) m.t += dt;
+    this.morsels = this.morsels.filter((m) => m.t < m.delay + m.dur);
+    for (const c of this.crumbs) {
+      c.t += dt;
+      c.vy += 900 * dt;
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
+    }
+    this.crumbs = this.crumbs.filter((c) => c.t < 0.5);
     for (const r of this.rubble) {
       if (r.rest) continue;
       const prevBottom = r.y + r.h / 2;
@@ -243,6 +360,32 @@ export class PageWreck {
       ctx.drawImage(r.img, -r.w / 2, -r.h / 2, r.w, r.h);
       ctx.restore();
     }
+    for (const c of this.crumbs) {
+      ctx.globalAlpha = 1 - c.t / 0.5;
+      ctx.fillStyle = c.color;
+      ctx.fillRect(c.x - c.s / 2, c.y - c.s / 2, c.s, c.s);
+    }
+    ctx.globalAlpha = 1;
+    const mouth = this.mouth;
+    if (!mouth) return;
+    for (const m of this.morsels) {
+      const p = Math.max(0, Math.min(1, (m.t - m.delay) / m.dur));
+      // first it jumps off the page, then accelerates into the mouth, shrinking
+      const pop = p < 0.3 ? Math.sin((p / 0.3) * Math.PI) : 0;
+      const pull = p < 0.3 ? 0 : ((p - 0.3) / 0.7) ** 2;
+      const dx = mouth.x - m.sx;
+      const dy = mouth.y - m.sy;
+      const d = Math.hypot(dx, dy) || 1;
+      const curve = Math.sin(pull * Math.PI) * m.swirl;
+      const x = m.sx + dx * pull - (dx / d) * pop * 16 - (dy / d) * curve;
+      const y = m.sy + dy * pull - (dy / d) * pop * 16 - 14 * pop + (dx / d) * curve;
+      const scale = p < 0.3 ? 1 + (p / 0.3) * 0.6 : 1.6 * (1 - ((p - 0.3) / 0.7) * 0.9);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(m.rot + m.vr * m.t);
+      ctx.drawImage(m.img, (-m.w / 2) * scale, (-m.h / 2) * scale, m.w * scale, m.h * scale);
+      ctx.restore();
+    }
   }
 
   // ---------- internals ----------
@@ -282,6 +425,54 @@ export class PageWreck {
     return e.glyphs;
   }
 
+  /** One letter bitten off the page: a hole where it was, the letter on its way into the mouth. */
+  private gulp(g: Glyph) {
+    this.setOf(this.gone, g.node).add(g.index);
+    this.destroyed++;
+    this.holes.push({
+      x: g.box.x - 0.5,
+      y: g.box.y - 0.5,
+      w: g.box.w + 1,
+      h: g.box.h + 1,
+    });
+    const cx = g.box.x + g.box.w / 2;
+    const cy = g.box.y + g.box.h / 2;
+    this.addMorsel({
+      img: this.glyphImage(g),
+      sx: cx,
+      sy: cy,
+      w: g.box.w,
+      h: g.box.h,
+      rot: 0,
+      vr: rand(-14, 14),
+      t: 0,
+      delay: rand(0, 0.05),
+      dur: rand(0.32, 0.44),
+      swirl: rand(-24, 24),
+    });
+    for (let i = 0; i < 3; i++) this.crumb(cx, cy, g.color, g.box.h);
+  }
+
+  private crumb(x: number, y: number, color: string, size: number) {
+    if (this.crumbs.length >= MAX_CRUMBS) this.crumbs.shift();
+    const a = rand(0, Math.PI * 2);
+    const v = rand(90, 320);
+    this.crumbs.push({
+      x,
+      y,
+      vx: Math.cos(a) * v,
+      vy: Math.sin(a) * v - 120,
+      s: Math.max(2, size * rand(0.12, 0.26)),
+      color,
+      t: rand(0, 0.15),
+    });
+  }
+
+  private addMorsel(m: Morsel) {
+    this.morsels.push(m);
+    if (this.morsels.length > MAX_MORSELS) this.morsels.shift();
+  }
+
   /** One letter off the page: a black hole where it was, the letter as flying rubble. */
   private knockOff(g: Glyph, fromX: number, fromY: number, force: number, tint?: Tint) {
     const set = this.setOf(this.gone, g.node);
@@ -290,7 +481,12 @@ export class PageWreck {
     if (!tint && this.frozen.get(g.node)?.has(g.index)) tint = "ice";
     set.add(g.index);
     this.destroyed++;
-    this.holes.push({ x: g.box.x - 0.5, y: g.box.y - 0.5, w: g.box.w + 1, h: g.box.h + 1 });
+    this.holes.push({
+      x: g.box.x - 0.5,
+      y: g.box.y - 0.5,
+      w: g.box.w + 1,
+      h: g.box.h + 1,
+    });
     const cx = g.box.x + g.box.w / 2;
     const cy = g.box.y + g.box.h / 2;
     const d = Math.hypot(cx - fromX, cy - fromY) || 1;
@@ -338,14 +534,29 @@ export class PageWreck {
         if (g && this.knockOff(g, fromX, fromY, 420)) n++;
       }
     }
-    this.holes.push({ x: t.box.x - 1, y: t.box.y - 1, w: t.box.w + 2, h: t.box.h + 3 });
+    this.holes.push({
+      x: t.box.x - 1,
+      y: t.box.y - 1,
+      w: t.box.w + 2,
+      h: t.box.h + 3,
+    });
     return n;
   }
 
   /** An image box (or a glyph button) shatters into tumbling pieces. */
   private shatter(t: Target) {
+    this.broken.add(t.el);
+    const { snap, image } = this.snapshot(t);
+    const b = t.box;
+    this.pieces(snap, [0, 0, snap.width, snap.height], b, image ? 5 : 2, image ? 3 : 2);
+    this.holes.push({ x: b.x - 1, y: b.y - 1, w: b.w + 2, h: b.h + 2 });
+    this.dents = this.dents.filter((d) => !near(b, d.x, d.y, 0));
+    this.onShatter(image ? 9 : 3);
+  }
+
+  /** A box as it looks on the page, drawn into a canvas, plus whether it holds an image. */
+  private snapshot(t: Target) {
     const { el, box: b } = t;
-    this.broken.add(el);
     const dpr = window.devicePixelRatio || 1;
     const snap = document.createElement("canvas");
     snap.width = Math.ceil(b.w * dpr);
@@ -381,18 +592,23 @@ export class PageWreck {
     }
     c.strokeStyle = "#3f3f46";
     c.strokeRect(0.5, 0.5, b.w - 1, b.h - 1);
-
-    this.pieces(snap, [0, 0, snap.width, snap.height], b, img ? 5 : 2, img ? 3 : 2);
-    this.holes.push({ x: b.x - 1, y: b.y - 1, w: b.w + 2, h: b.h + 2 });
-    this.dents = this.dents.filter((d) => !near(b, d.x, d.y, 0));
-    this.onShatter(img ? 9 : 3);
+    return { snap, image: !!(img?.complete && img.naturalWidth) };
   }
 
   /**
    * Breaks the src rectangle of an image into cols × rows tumbling pieces, drawn over the
-   * document box `to`. Used for shattered image boxes and for a frozen fighter's last moment.
+   * document box `to`. Used for shattered image boxes and for a frozen fighter's last moment;
+   * with `suck`, the pieces fly into Pac-Man's mouth instead of falling.
    */
-  pieces(img: CanvasImageSource, src: [number, number, number, number], to: Box, cols: number, rows: number, flip = false) {
+  pieces(
+    img: CanvasImageSource,
+    src: [number, number, number, number],
+    to: Box,
+    cols: number,
+    rows: number,
+    flip = false,
+    suck = false
+  ) {
     const [sx, sy, sw, sh] = src;
     const dpr = window.devicePixelRatio || 1;
     const pw = to.w / cols;
@@ -410,9 +626,36 @@ export class PageWreck {
           c.translate(piece.width, 0);
           c.scale(-1, 1);
         }
-        c.drawImage(img, sx + (col * sw) / cols, sy + (j * sh) / rows, sw / cols, sh / rows, 0, 0, piece.width, piece.height);
+        c.drawImage(
+          img,
+          sx + (col * sw) / cols,
+          sy + (j * sh) / rows,
+          sw / cols,
+          sh / rows,
+          0,
+          0,
+          piece.width,
+          piece.height
+        );
         const cx = to.x + (i + 0.5) * pw;
         const cy = to.y + (j + 0.5) * ph;
+        if (suck) {
+          this.addMorsel({
+            img: piece,
+            sx: cx,
+            sy: cy,
+            w: pw,
+            h: ph,
+            rot: 0,
+            vr: rand(-6, 6),
+            t: 0,
+            delay: rand(0, 0.18),
+            dur: rand(0.4, 0.6),
+            swirl: rand(-40, 40),
+          });
+          for (let k = 0; k < 4; k++) this.crumb(cx, cy, "#a1a1aa", 22);
+          continue;
+        }
         this.addRubble({
           img: piece,
           x: cx,

@@ -41,6 +41,7 @@ const StackRunner = dynamic(() => import("@/components/arcade/StackRunner"), { s
 const DoomMode = dynamic(() => import("@/components/doom/DoomMode"), { ssr: false });
 const StreetFighterMode = dynamic(() => import("@/components/streetfighter/StreetFighterMode"), { ssr: false });
 const KombatMode = dynamic(() => import("@/components/mortalkombat/KombatMode"), { ssr: false });
+const PacmanMode = dynamic(() => import("@/components/pacman/PacmanMode"), { ssr: false });
 
 // ==========================================
 // Motion: visuals and their story loops
@@ -370,6 +371,7 @@ interface TerminalDrawerProps {
   onTriggerDoom: () => void;
   onTriggerFight: () => void;
   onTriggerKombat: () => void;
+  onTriggerPacman: () => void;
 }
 
 function TerminalDrawer({
@@ -384,6 +386,7 @@ function TerminalDrawer({
   onTriggerDoom,
   onTriggerFight,
   onTriggerKombat,
+  onTriggerPacman,
 }: TerminalDrawerProps) {
   const [inputVal, setInputVal] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -439,7 +442,8 @@ function TerminalDrawer({
 ARCADE:
   doom     (shoot the site!)
   fight    (street fighter, 1P or 2P)
-  mk3      (mortal kombat, 1P or 2P)`,
+  mk3      (mortal kombat, 1P or 2P)
+  pacman   (eat the site!)`,
         });
         break;
 
@@ -537,7 +541,8 @@ ARCADE:
           text: `ARCADE:
   doom     (shoot the site!)
   fight    (street fighter, 1P or 2P)
-  mk3      (mortal kombat, 1P or 2P)`,
+  mk3      (mortal kombat, 1P or 2P)
+  pacman   (eat the site!)`,
         });
         break;
 
@@ -563,6 +568,13 @@ ARCADE:
       case "kombat":
       case "mortalkombat":
         onTriggerKombat();
+        onClose();
+        return;
+
+      case "pacman":
+      case "pac":
+      case "pac-man":
+        onTriggerPacman();
         onClose();
         return;
 
@@ -772,6 +784,7 @@ export default function MinimalView() {
   const [doomOpen, setDoomOpen] = useState(false);
   const [fightOpen, setFightOpen] = useState(false);
   const [kombatOpen, setKombatOpen] = useState(false);
+  const [pacmanOpen, setPacmanOpen] = useState(false);
   const keyHistoryRef = useRef<string[]>([]);
   // const { setViewMode } = useViewMode();
 
@@ -808,7 +821,7 @@ export default function MinimalView() {
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // The games own the keyboard while they are open
-      if (gameOpen || doomOpen || fightOpen || kombatOpen) return;
+      if (gameOpen || doomOpen || fightOpen || kombatOpen || pacmanOpen) return;
 
       // Don't trigger if user is focused inside an input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
@@ -882,7 +895,7 @@ export default function MinimalView() {
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [showToast, triggerToasty, gameOpen, doomOpen, fightOpen, kombatOpen]);
+  }, [showToast, triggerToasty, gameOpen, doomOpen, fightOpen, kombatOpen, pacmanOpen]);
 
   return (
     <div data-page-root className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black relative">
@@ -1388,7 +1401,15 @@ export default function MinimalView() {
               setGameOpen(false);
               setDoomOpen(false);
               setFightOpen(false);
+              setPacmanOpen(false);
               setKombatOpen(true);
+            }}
+            onTriggerPacman={() => {
+              setGameOpen(false);
+              setDoomOpen(false);
+              setFightOpen(false);
+              setKombatOpen(false);
+              setPacmanOpen(true);
             }}
           />
         )}
@@ -1420,6 +1441,9 @@ export default function MinimalView() {
 
       {/* Mortal Kombat mode: Scorpion vs Sub-Zero on the page (terminal: mk3) */}
       {kombatOpen && <KombatMode onClose={() => setKombatOpen(false)} />}
+
+      {/* Pac-Man mode: eat the page and grow (terminal: pacman) */}
+      {pacmanOpen && <PacmanMode onClose={() => setPacmanOpen(false)} />}
 
       {/* Global Zero-Latency Preloader for Arcade Sprites & Audio */}
       <ArcadePreload />

@@ -1,16 +1,8 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import TouchControls, {
-  type TouchButton,
-} from "@/components/arcade/TouchControls";
+import TouchControls, { type TouchButton } from "@/components/arcade/TouchControls";
 import { loadFighters, Sfx, type FighterId } from "./assets";
 import { KombatGame, type KombatStats, type Mode, type Special } from "./game";
 
@@ -20,8 +12,7 @@ import { KombatGame, type KombatStats, type Mode, type Special } from "./game";
 // menus. Launched from the terminal with `mk3`.
 // ==========================================
 
-const formatTime = (s: number) =>
-  `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const NAMES: Record<FighterId, string> = {
   scorpion: "SCORPION",
   subzero: "SUB-ZERO",
@@ -73,15 +64,7 @@ const MOVES: Record<FighterId | "both", [string, string][]> = {
   ],
 };
 
-function Btn({
-  children,
-  onClick,
-  primary = false,
-}: {
-  children: ReactNode;
-  onClick: () => void;
-  primary?: boolean;
-}) {
+function Btn({ children, onClick, primary = false }: { children: ReactNode; onClick: () => void; primary?: boolean }) {
   return (
     <button
       type="button"
@@ -186,8 +169,7 @@ export default function KombatMode({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!mode) return;
     const block = (e: Event) => {
-      if (!(e.target as Element | null)?.closest?.("[data-menu]"))
-        e.preventDefault();
+      if (!(e.target as Element | null)?.closest?.("[data-menu]")) e.preventDefault();
     };
     window.addEventListener("wheel", block, { passive: false });
     window.addEventListener("touchmove", block, { passive: false });
@@ -205,13 +187,10 @@ export default function KombatMode({ onClose }: { onClose: () => void }) {
       setMode(m);
       gameRef.current.start(m, p1);
     },
-    [p1],
+    [p1]
   );
 
-  const swap = useCallback(
-    () => setP1((who) => (who === "scorpion" ? "subzero" : "scorpion")),
-    [],
-  );
+  const swap = useCallback(() => setP1((who) => (who === "scorpion" ? "subzero" : "scorpion")), []);
 
   const toggleMute = useCallback(() => {
     const sfx = sfxRef.current;
@@ -235,8 +214,7 @@ export default function KombatMode({ onClose }: { onClose: () => void }) {
         else if (e.code === "Enter" && mode) play(mode);
         return;
       }
-      if (gameRef.current?.key(e.code, true) || e.code === "Space")
-        e.preventDefault();
+      if (gameRef.current?.key(e.code, true) || e.code === "Space") e.preventDefault();
     };
     const up = (e: KeyboardEvent) => {
       if (gameRef.current?.key(e.code, false)) e.preventDefault();
@@ -252,10 +230,7 @@ export default function KombatMode({ onClose }: { onClose: () => void }) {
   // the touch FATALITY button only shows up during FINISH HIM
   useEffect(() => {
     if (!touch || !mode || end) return;
-    const id = window.setInterval(
-      () => setCanFinish(!!gameRef.current?.canFinish),
-      150,
-    );
+    const id = window.setInterval(() => setCanFinish(!!gameRef.current?.canFinish), 150);
     return () => window.clearInterval(id);
   }, [touch, mode, end]);
 
@@ -305,10 +280,7 @@ export default function KombatMode({ onClose }: { onClose: () => void }) {
       {touch && playing && (
         <>
           {/* swallows stray taps so they can't follow the page's links mid-fight */}
-          <div
-            className="fixed inset-0 z-[46]"
-            style={{ touchAction: "none" }}
-          />
+          <div className="fixed inset-0 z-[46]" style={{ touchAction: "none" }} />
           <TouchControls
             pad={{ left: "KeyA", right: "KeyD", up: "KeyW", down: "KeyS" }}
             buttons={[
@@ -347,16 +319,11 @@ export default function KombatMode({ onClose }: { onClose: () => void }) {
                 <div className="space-y-1 text-center">
                   <h2 className="text-2xl font-bold tracking-tight">
                     {winner ? `${NAMES[winner]} WINS` : "DRAW"}
-                    {winner && (
-                      <span className="ml-2 text-sm text-zinc-500">
-                        {winnerTag}
-                      </span>
-                    )}
+                    {winner && <span className="ml-2 text-sm text-zinc-500">{winnerTag}</span>}
                   </h2>
                   <p className="text-xs text-zinc-400">
-                    {end.fatality ? "FATALITY. " : ""}The page took{" "}
-                    {end.letters} letters of damage. It all goes back when you
-                    exit.
+                    {end.fatality ? "FATALITY. " : ""}The page took {end.letters} letters of damage. It all goes back
+                    when you exit.
                   </p>
                 </div>
                 <div className="grid grid-cols-4 gap-3 text-left text-xs">
@@ -368,10 +335,7 @@ export default function KombatMode({ onClose }: { onClose: () => void }) {
                       ["TIME", formatTime(end.time)],
                     ] as const
                   ).map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="border-b border-dotted border-zinc-800 pb-1"
-                    >
+                    <div key={label} className="border-b border-dotted border-zinc-800 pb-1">
                       <div className="text-zinc-500">{label}</div>
                       <div className="font-bold text-white">{value}</div>
                     </div>
@@ -391,13 +355,10 @@ export default function KombatMode({ onClose }: { onClose: () => void }) {
             ) : (
               <>
                 <div className="space-y-1 text-center">
-                  <h2 className="text-2xl font-bold tracking-tight">
-                    MORTAL KOMBAT
-                  </h2>
+                  <h2 className="text-2xl font-bold tracking-tight">MORTAL KOMBAT</h2>
                   <p className="text-xs text-zinc-400">
-                    Scorpion vs Sub-Zero, UMK3 rules, on this page. Blood stains
-                    it, ice frosts it, fire burns it, and each round moves down
-                    a section. Exit and it all goes back.
+                    Scorpion vs Sub-Zero, UMK3 rules, on this page. Blood stains it, ice frosts it, fire burns it, and
+                    each round moves down a section. Exit and it all goes back.
                   </p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-3">
@@ -413,15 +374,11 @@ export default function KombatMode({ onClose }: { onClose: () => void }) {
                 </div>
                 {touch && (
                   <p className="text-center text-[11px] leading-relaxed text-zinc-300">
-                    Thumb pad to move, jump and crouch. HP LP HK LK to attack,
-                    hold Block to block, hold Run with → to run. Yellow buttons
-                    are one-tap specials; a red FATALITY button appears during
-                    FINISH HIM.
+                    Thumb pad to move, jump and crouch. HP LP HK LK to attack, hold Block to block, hold Run with → to
+                    run. Yellow buttons are one-tap specials; a red FATALITY button appears during FINISH HIM.
                   </p>
                 )}
-                <div
-                  className={`grid gap-6 text-[11px] sm:grid-cols-2 ${touch ? "hidden" : ""}`}
-                >
+                <div className={`grid gap-6 text-[11px] sm:grid-cols-2 ${touch ? "hidden" : ""}`}>
                   <table className="w-full text-left">
                     <thead className="text-zinc-500">
                       <tr>
@@ -432,10 +389,7 @@ export default function KombatMode({ onClose }: { onClose: () => void }) {
                     </thead>
                     <tbody>
                       {CONTROLS.map(([label, a, b]) => (
-                        <tr
-                          key={label}
-                          className="border-t border-dotted border-zinc-800"
-                        >
+                        <tr key={label} className="border-t border-dotted border-zinc-800">
                           <td className="py-1 text-zinc-500">{label}</td>
                           <td className="py-1 text-white">{a}</td>
                           <td className="py-1 text-white">{b}</td>
@@ -457,13 +411,12 @@ export default function KombatMode({ onClose }: { onClose: () => void }) {
               </>
             )}
             <p className="text-center text-[10px] text-zinc-600">
-              Ultimate Mortal Kombat 3 sprites and sounds © Midway / Warner
-              Bros., via mortalkombatwarehouse.com.
+              Ultimate Mortal Kombat 3 sprites and sounds © Midway / Warner Bros., via mortalkombatwarehouse.com.
             </p>
           </div>
         </div>
       )}
     </div>,
-    document.body,
+    document.body
   );
 }

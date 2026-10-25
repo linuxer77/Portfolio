@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import TouchControls from "@/components/arcade/TouchControls";
 import { loadAtlases, Sfx } from "./assets";
@@ -18,8 +12,7 @@ import { FightGame, type FightStats, type Mode } from "./game";
 // Launched from the terminal with `fight`.
 // ==========================================
 
-const formatTime = (s: number) =>
-  `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 const CONTROLS: [string, string, string][] = [
   ["MOVE", "W A S D", "← ↑ → ↓"],
@@ -35,15 +28,7 @@ const SPECIALS: [string, string][] = [
   ["BLOCK", "hold back"],
 ];
 
-function Btn({
-  children,
-  onClick,
-  primary = false,
-}: {
-  children: ReactNode;
-  onClick: () => void;
-  primary?: boolean;
-}) {
+function Btn({ children, onClick, primary = false }: { children: ReactNode; onClick: () => void; primary?: boolean }) {
   return (
     <button
       type="button"
@@ -59,11 +44,7 @@ function Btn({
   );
 }
 
-export default function StreetFighterMode({
-  onClose,
-}: {
-  onClose: () => void;
-}) {
+export default function StreetFighterMode({ onClose }: { onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<FightGame | null>(null);
   const sfxRef = useRef<Sfx | null>(null);
@@ -130,8 +111,7 @@ export default function StreetFighterMode({
   useEffect(() => {
     if (!mode) return;
     const block = (e: Event) => {
-      if (!(e.target as Element | null)?.closest?.("[data-menu]"))
-        e.preventDefault();
+      if (!(e.target as Element | null)?.closest?.("[data-menu]")) e.preventDefault();
     };
     window.addEventListener("wheel", block, { passive: false });
     window.addEventListener("touchmove", block, { passive: false });
@@ -171,8 +151,7 @@ export default function StreetFighterMode({
         else if (e.code === "Enter" && mode) play(mode);
         return;
       }
-      if (gameRef.current?.key(e.code, true) || e.code === "Space")
-        e.preventDefault();
+      if (gameRef.current?.key(e.code, true) || e.code === "Space") e.preventDefault();
     };
     const up = (e: KeyboardEvent) => {
       if (gameRef.current?.key(e.code, false)) e.preventDefault();
@@ -189,13 +168,7 @@ export default function StreetFighterMode({
 
   const playing = !loading && !failed && mode && !end;
   const winnerLabel =
-    end?.winner == null
-      ? "DRAW GAME"
-      : end.winner === 0
-        ? "1P WINS"
-        : mode === "cpu"
-          ? "CPU WINS"
-          : "2P WINS";
+    end?.winner == null ? "DRAW GAME" : end.winner === 0 ? "1P WINS" : mode === "cpu" ? "CPU WINS" : "2P WINS";
 
   return createPortal(
     <div data-sf className="font-mono">
@@ -225,10 +198,7 @@ export default function StreetFighterMode({
       {touch && playing && (
         <>
           {/* swallows stray taps so they can't follow the page's links mid-fight */}
-          <div
-            className="fixed inset-0 z-[46]"
-            style={{ touchAction: "none" }}
-          />
+          <div className="fixed inset-0 z-[46]" style={{ touchAction: "none" }} />
           <TouchControls
             pad={{ left: "KeyA", right: "KeyD", up: "KeyW", down: "KeyS" }}
             buttons={[
@@ -277,12 +247,9 @@ export default function StreetFighterMode({
             {end ? (
               <>
                 <div className="space-y-1 text-center">
-                  <h2 className="text-2xl font-bold tracking-tight">
-                    {winnerLabel}
-                  </h2>
+                  <h2 className="text-2xl font-bold tracking-tight">{winnerLabel}</h2>
                   <p className="text-xs text-zinc-400">
-                    The page took {end.letters} letters of damage. It all goes
-                    back when you exit.
+                    The page took {end.letters} letters of damage. It all goes back when you exit.
                   </p>
                 </div>
                 <div className="grid grid-cols-4 gap-3 text-left text-xs">
@@ -294,10 +261,7 @@ export default function StreetFighterMode({
                       ["TIME", formatTime(end.time)],
                     ] as const
                   ).map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="border-b border-dotted border-zinc-800 pb-1"
-                    >
+                    <div key={label} className="border-b border-dotted border-zinc-800 pb-1">
                       <div className="text-zinc-500">{label}</div>
                       <div className="font-bold text-white">{value}</div>
                     </div>
@@ -316,12 +280,10 @@ export default function StreetFighterMode({
             ) : (
               <>
                 <div className="space-y-1 text-center">
-                  <h2 className="text-2xl font-bold tracking-tight">
-                    STREET FIGHTER
-                  </h2>
+                  <h2 className="text-2xl font-bold tracking-tight">STREET FIGHTER</h2>
                   <p className="text-xs text-zinc-400">
-                    This page is the stage. Every hit lands on it too, and each
-                    round moves down a section. Exit and it all goes back.
+                    This page is the stage. Every hit lands on it too, and each round moves down a section. Exit and it
+                    all goes back.
                   </p>
                 </div>
                 <div className="flex justify-center gap-3">
@@ -334,9 +296,8 @@ export default function StreetFighterMode({
                 </div>
                 {touch ? (
                   <p className="text-center text-[11px] leading-relaxed text-zinc-300">
-                    Thumb pad to move, jump and crouch. P and K to attack. The
-                    yellow buttons are one-tap specials. Hold away from your
-                    opponent to block.
+                    Thumb pad to move, jump and crouch. P and K to attack. The yellow buttons are one-tap specials. Hold
+                    away from your opponent to block.
                   </p>
                 ) : (
                   <div className="grid grid-cols-2 gap-6 text-[11px]">
@@ -350,10 +311,7 @@ export default function StreetFighterMode({
                       </thead>
                       <tbody>
                         {CONTROLS.map(([label, p1, p2]) => (
-                          <tr
-                            key={label}
-                            className="border-t border-dotted border-zinc-800"
-                          >
+                          <tr key={label} className="border-t border-dotted border-zinc-800">
                             <td className="py-1 text-zinc-500">{label}</td>
                             <td className="py-1 text-white">{p1}</td>
                             <td className="py-1 text-white">{p2}</td>
@@ -370,10 +328,7 @@ export default function StreetFighterMode({
                       </thead>
                       <tbody>
                         {SPECIALS.map(([label, keys]) => (
-                          <tr
-                            key={label}
-                            className="border-t border-dotted border-zinc-800"
-                          >
+                          <tr key={label} className="border-t border-dotted border-zinc-800">
                             <td className="py-1 text-zinc-500">{label}</td>
                             <td className="py-1 text-white">{keys}</td>
                           </tr>
@@ -395,6 +350,6 @@ export default function StreetFighterMode({
         </div>
       )}
     </div>,
-    document.body,
+    document.body
   );
 }
