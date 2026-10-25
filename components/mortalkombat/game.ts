@@ -35,6 +35,7 @@ const SECTIONS = ["intro", "experience", "projects", "stack", "contact"];
 const NAMES: Record<FighterId, string> = { scorpion: "SCORPION", subzero: "SUB-ZERO" };
 
 export type Mode = "cpu" | "versus";
+export type Special = "spear" | "teleport" | "freeze" | "groundFreeze" | "slide";
 
 export interface KombatStats {
   winner: 0 | 1 | null;
@@ -431,6 +432,8 @@ export class KombatGame {
   private voices: { name: Sound; at: number }[] = [];
   private stats = { hits: [0, 0] as [number, number], maxCombo: [0, 0] as [number, number], time: 0, fatality: false };
   private padPrev: [Held, Held] = [{ ...NONE }, { ...NONE }];
+  /** a special tapped on the touch controls, for player 1, waiting a moment for them to be free */
+  private queued: { id: Special; at: number } | null = null;
 
   private running = false;
   private raf = 0;
@@ -501,6 +504,22 @@ export class KombatGame {
 
   releaseAll() {
     for (const f of this.fighters) f.keys = { ...NONE };
+  }
+
+  /** One-tap special for player 1 (the touch controls), without the taps. */
+  tapSpecial(id: Special) {
+    this.queued = { id, at: this.tick };
+    this.sfx.unlock();
+  }
+
+  /** True while the loser is swaying and player 1 can finish them. */
+  get canFinish() {
+    return this.phase === "finish" && this.fighters[1].state === "dizzy";
+  }
+
+  /** One-tap Fatality for player 1 during FINISH HIM. */
+  fatality() {
+    if (this.canFinish) this.cpuFatality(this.fighters[0], this.fighters[1]);
   }
 
   // ---------- input ----------
@@ -709,9 +728,8 @@ export class KombatGame {
     winner.face = winner.x < this.fighters[1 - winner.id].x ? 1 : -1;
     const flawless = winner.hp >= MAX_HP;
     this.banner = { text: `${NAMES[winner.who]} WINS`, sub: flawless ? "FLAWLESS VICTORY" : undefined };
-    this.say(winner.who, 10);
-    this.say("wins", 50);
-    if (flawless) this.say("flawless", 100);
+    this.say(`${winner.who}Wins`, 10);
+    if (flawless) this.say("flawless", 90);
   }
 
   private next() {
@@ -801,7 +819,10 @@ export class KombatGame {
     f.moveHit = false;
     f.buf = { hp: 0, lp: 0, hk: 0, lk: 0, block: 0, run: 0 };
     if (MOVES[id].air) f.airAttacked = true;
-    if (id === "spear") this.sfx.play("getOverHere");
+    if (id === "spear") {
+      this.sfx.play("getOverHere");
+      this.sfx.play("spear", 0.7);
+    }
     if (id === "teleport") {
       f.invuln = 14;
       this.sfx.play("teleport");
@@ -818,6 +839,13 @@ export class KombatGame {
   /** Specials from taps, then a dial-a-combo link, then normals. */
   private tryAttack(f: Fighter, opp: Fighter, h: Held, inAir: boolean) {
     if (this.phase !== "fight" && this.phase !== "finish") return false;
+    const q = this.queued;
+    // only the teleport works in the air; the rest wait for the ground
+    if (f.id === 0 && q && (!inAir || q.id === "teleport")) {
+      this.queued = null;
+      const mine = f.who === "scorpion" ? q.id === "spear" || q.id === "teleport" : q.id !== "spear" && q.id !== "teleport";
+      if (this.tick - q.at <= 12 && mine) f.forced = q.id;
+    }
     if (f.forced) {
       const id = f.forced;
       f.forced = null;
@@ -1510,7 +1538,7 @@ export class KombatGame {
           fire.hit = true;
           victim.t = 0;
           this.sparks.push({ x: victim.x, alt: 70, t: 0, kind: "explode" });
-          this.sfx.play("fire");
+          this.sfx.play("explode");
           this.sfx.play("die", 0.8);
           this.onShake(10);
         }
@@ -1566,8 +1594,8 @@ export class KombatGame {
     this.phaseT = -60;
     this.banner = null;
     this.nextBanner = { banner: { text: `${NAMES[by.who]} WINS`, sub: "FATALITY" }, at: this.tick + 100 };
-    this.say(by.who, 110);
-    this.say("wins", 150);
+    this.say(`${by.who}Wins`, 110);
+    this.say("laugh", 170);
   }
 
   // ---------- CPU ----------

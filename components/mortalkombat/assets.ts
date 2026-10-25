@@ -79,11 +79,11 @@ export async function loadFighters(): Promise<Fighters> {
 export const SOUNDS = [
   // announcer
   "round1", "round2", "round3", "fight", "finishHim", "fatality", "flawless", "excellent",
-  "scorpion", "subzero", "wins", "laugh",
+  "scorpionWins", "subzeroWins", "laugh",
   // the fighters
   "getOverHere", "attack", "hurt", "fall", "die",
   // effects
-  "spear", "spearHit", "fire", "teleport", "iceBlast", "frozen", "shatter", "slide", "groundIce",
+  "spear", "spearHit", "fire", "explode", "teleport", "iceBlast", "frozen", "shatter", "slide", "groundIce",
   // hits
   "punch", "kick", "heavy", "block", "whiff", "land", "uppercut",
 ] as const;

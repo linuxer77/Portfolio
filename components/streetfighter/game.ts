@@ -27,6 +27,7 @@ const INTRO = 150; // ticks of "ROUND n" + "FIGHT!"
 const SECTIONS = ["intro", "experience", "projects", "stack", "contact"];
 
 export type Mode = "cpu" | "versus";
+export type Special = "hadouken" | "shoryuken" | "tatsu";
 
 export interface FightStats {
   /** 0 or 1, or null for a draw */
@@ -294,6 +295,8 @@ export class FightGame {
   private banner: { text: string; sub?: string } | null = null;
   private stats = { hits: [0, 0] as [number, number], maxCombo: [0, 0] as [number, number], time: 0 };
   private padPrev: [Held, Held] = [{ ...NONE }, { ...NONE }];
+  /** a special tapped on the touch controls, for player 1, waiting a moment for them to be free */
+  private queued: { id: Special; at: number } | null = null;
 
   private running = false;
   private raf = 0;
@@ -368,6 +371,12 @@ export class FightGame {
 
   releaseAll() {
     for (const f of this.fighters) f.keys = { ...NONE };
+  }
+
+  /** One-tap special for player 1 (the touch controls), without the motion. */
+  tapSpecial(id: Special) {
+    this.queued = { id, at: this.tick };
+    this.sfx.unlock();
   }
 
   // ---------- match flow ----------
@@ -684,6 +693,11 @@ export class FightGame {
 
   /** Specials first (motion + button), then normals. */
   private tryAttack(f: Fighter, h: Held) {
+    const q = this.queued;
+    if (f.id === 0 && q) {
+      this.queued = null;
+      if (this.tick - q.at <= 12) f.forced = q.id;
+    }
     if (f.forced) {
       const id = f.forced;
       f.forced = null;
