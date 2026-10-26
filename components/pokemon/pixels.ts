@@ -33,6 +33,7 @@ export class PixelLayer {
   p = 2;
   private ox = 0;
   private oy = 0;
+  private patterns = new Map<string, CanvasPattern>();
 
   /** Clears the layer for a frame: p px per pixel, the viewport's top-left at (ox, oy). */
   begin(vw: number, vh: number, p: number, ox: number, oy: number) {
@@ -141,14 +142,14 @@ export class PixelLayer {
 
   /** Half-filled with a checkerboard: pixel art's way of being see-through. */
   dither(x: number, y: number, w: number, h: number, colour: string, phase = 0) {
-    const X0 = this.X(x);
-    const Y0 = this.Y(y);
-    const W = this.L(w);
-    const H = this.L(h);
+    this.ctx.fillStyle = this.checker(colour, phase);
+    this.ctx.fillRect(this.X(x), this.Y(y), this.L(w), this.L(h));
+  }
+
+  /** A solid rectangle (doc coords). */
+  rect(x: number, y: number, w: number, h: number, colour: string) {
     this.ctx.fillStyle = colour;
-    for (let j = 0; j < H; j++) {
-      for (let i = (j + phase) % 2; i < W; i += 2) this.ctx.fillRect(X0 + i, Y0 + j, 1, 1);
-    }
+    this.ctx.fillRect(this.X(x), this.Y(y), this.L(w), this.L(h));
   }
 
   /** A filled disc, dithered (every other pixel). */
@@ -157,11 +158,28 @@ export class PixelLayer {
     const cx = this.X(x);
     const cy = this.Y(y);
     const ry = Math.max(0.5, R * sy);
-    this.ctx.fillStyle = colour;
+    this.ctx.fillStyle = this.checker(colour, phase);
     for (let dy = -Math.floor(ry); dy <= Math.floor(ry); dy++) {
       const half = Math.floor(R * Math.sqrt(Math.max(0, 1 - (dy * dy) / (ry * ry))));
-      for (let i = -half; i <= half; i++) if ((i + dy + phase) % 2 === 0) this.ctx.fillRect(cx + i, cy + dy, 1, 1);
+      this.ctx.fillRect(cx - half, cy + dy, half * 2 + 1, 1);
     }
+  }
+
+  /** A 2×2 checkerboard pattern in one colour, cached; it lines up with the layer's pixels. */
+  private checker(colour: string, phase: number) {
+    const key = `${colour}|${phase % 2}`;
+    let pattern = this.patterns.get(key);
+    if (!pattern) {
+      const tile = document.createElement("canvas");
+      tile.width = tile.height = 2;
+      const c = tile.getContext("2d")!;
+      c.fillStyle = colour;
+      c.fillRect(phase % 2, 0, 1, 1);
+      c.fillRect(1 - (phase % 2), 1, 1, 1);
+      pattern = this.ctx.createPattern(tile, "repeat")!;
+      this.patterns.set(key, pattern);
+    }
+    return pattern;
   }
 
   /** A raw rectangle in layer pixels, for hand-drawn shapes (the Night Shade grin). */

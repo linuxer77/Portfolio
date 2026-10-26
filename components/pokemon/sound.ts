@@ -207,6 +207,26 @@ export class Sound {
     this.tone(1800, 600, 0.25, "square", 0.05, 0.3);
   }
 
+  /** A Burst's cut-in: a rising swoosh and a stab. */
+  cutin() {
+    this.hiss(0.45, "bandpass", 600, 6000, 0.3, 0, 2, 0.02);
+    this.tone(220, 880, 0.4, "sawtooth", 0.09);
+    this.tone(1320, 1320, 0.25, "square", 0.07, 0.38);
+    this.tone(660, 660, 0.3, "square", 0.07, 0.38);
+  }
+
+  /** The ground rumbling under a Burst, for `dur` seconds. */
+  rumble(dur: number) {
+    this.tone(48, 36, dur, "sine", 0.5, 0, 0.1);
+    this.hiss(dur, "lowpass", 260, 120, 0.45, 0, 0.7, 0.15);
+  }
+
+  /** One fire geyser bursting out of the page. */
+  eruption() {
+    this.hiss(0.35, "lowpass", 2200, 300, 0.22);
+    this.tone(150, 55, 0.3, "sine", 0.18);
+  }
+
   fireBlast() {
     this.tone(160, 50, 0.9, "sawtooth", 0.14);
     this.hiss(0.9, "lowpass", 3000, 300, 0.45, 0, 0.7, 0.01);

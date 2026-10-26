@@ -14,7 +14,9 @@ import type { Sound } from "./sound";
 // Types matter in real time (water is super effective on Charizard, Rapid Spin passes right
 // through Gengar, Ground can't touch a Flying type), and so do statuses: burn, poison,
 // paralysis, sleep and freeze. Like the games, the battle opens with Poké Balls and ends with
-// a faint and a recall. Every move is drawn in pixels on the sprites' own grid (pixels.ts).
+// a faint and a recall. Every move is drawn in pixels on the sprites' own grid (pixels.ts),
+// and each Pokémon's Burst is a full-screen finale with a cut-in: Blast Burn erupts the whole
+// page in fire, Surf floods the screen, Night Shade turns out the lights and reaches for you.
 // You can fight the CPU, or sit back and watch two CPUs fight it out. Exit and the page flies
 // back together.
 // ==========================================
@@ -23,6 +25,8 @@ const TICK = 1 / 60;
 const BODY = 15; // body radius, sprite px
 const HIGH = 35; // above this (sprite px) a flyer is out of reach of ground moves
 const DAMAGE = 0.6; // scales every move, so a battle lasts long enough to read
+const CUTIN = 0.95; // how long a Burst's cut-in holds the battle, s
+const FINALE: Record<Species, number> = { charizard: 2.2, blastoise: 2.7, gengar: 2.3 };
 
 type State =
   | "hidden"
@@ -38,6 +42,7 @@ type State =
   | "lurk"
   | "rise"
   | "charge"
+  | "ult"
   | "dodge"
   | "hurt"
   | "faint"
@@ -164,6 +169,8 @@ interface Wave {
   owner: 0 | 1;
   axis: "x" | "y";
   sign: 1 | -1;
+  /** where it set off from: everything between there and the front is under water */
+  start: number;
   pos: number;
   end: number;
   hit: boolean;
@@ -229,7 +236,24 @@ export class BattleGame {
   private waves: Wave[] = [];
   private swipes: Swipe[] = [];
   private flashes: { x: number; y: number; t: number; r: number; colour: string }[] = [];
-  private night: { owner: 0 | 1; t: number; hit: boolean } | null = null;
+  /** a Burst's cut-in: the battle holds still while the banner plays */
+  private cutin: { owner: 0 | 1; t: number } | null = null;
+  /** a Burst in progress */
+  private finale: {
+    owner: 0 | 1;
+    kind: Species;
+    t: number;
+    hits: number;
+    hit: boolean;
+    next: number;
+    shake: number;
+    wreckT: number;
+    hands: { x: number; y: number }[];
+  } | null = null;
+  /** Blast Burn's fire geysers */
+  private geysers: { x: number; y: number; t: number }[] = [];
+  /** how flooded the screen is after Surf, 0 to 1 */
+  private flood = 0;
   private ground = new PixelLayer();
   private air = new PixelLayer();
   private keys = new Set<string>();
@@ -307,7 +331,10 @@ export class BattleGame {
     this.waves = [];
     this.swipes = [];
     this.flashes = [];
-    this.night = null;
+    this.cutin = null;
+    this.finale = null;
+    this.geysers = [];
+    this.flood = 0;
     this.messages = [];
     this.message = null;
     this.keys.clear();
@@ -468,6 +495,15 @@ export class BattleGame {
       this.freeze--;
       return;
     }
+    if (this.cutin) {
+      this.cutin.t += dt;
+      if (this.cutin.t >= CUTIN) {
+        const f = this.f[this.cutin.owner];
+        this.cutin = null;
+        this.startFinale(f);
+      }
+      return;
+    }
     this.phaseT += dt;
     if (this.phase === "battle") this.time += dt;
     this.updateBalls(dt);
@@ -478,8 +514,10 @@ export class BattleGame {
     this.updateBursts(dt);
     this.updateZones(dt);
     this.updateWaves(dt);
-    this.updateNight(dt);
+    this.updateFinale(dt);
     this.updateParticles(dt);
+    for (const gy of this.geysers) gy.t += dt;
+    this.geysers = this.geysers.filter((gy) => gy.t < 0.55);
     for (const s of this.swipes) s.t += dt;
     this.swipes = this.swipes.filter((s) => s.t < 0.22);
     for (const fl of this.flashes) fl.t += dt;
@@ -563,6 +601,12 @@ export class BattleGame {
     }
     this.act(f, dt);
     this.move(f, dt);
+    if (
+      f.z > 0 &&
+      (f.state === "free" || f.state === "hurt") &&
+      !(this.finale?.kind === "gengar" && f.state === "hurt")
+    )
+      f.z = Math.max(0, f.z - 300 * this.k * dt);
 
     // a dodge or a spin leaves afterimages
     if (f.state === "dodge" || f.state === "spin") f.trail.push({ x: f.x, y: f.y, z: f.z, a: 0.5 });
@@ -678,6 +722,8 @@ export class BattleGame {
       return true;
     }
     if (slot === "burst" ? f.meter < 1 : f.cd[slot] > 0) return false;
+    // one Burst at a time: the other waits for the screen to be free
+    if (slot === "burst" && (this.cutin || this.finale)) return false;
     const move = MOVES[f.species][slot];
     f.cd[slot] = move.cooldown * (f.cpu ? 1.3 : 1);
     f.move = slot;
@@ -698,8 +744,11 @@ export class BattleGame {
     } else if (slot === "burst") {
       f.meter = 0;
       f.state = "charge";
-      f.invuln = 0.5;
+      f.invuln = 99;
+      this.cutin = { owner: f.id, t: 0 };
+      this.sound.cutin();
       if (sp === "gengar") this.sound.cackle();
+      else this.sound.roar(sp === "blastoise");
     } else if ((sp === "charizard" && slot === "s1") || (sp === "blastoise" && (slot === "s1" || slot === "s3"))) {
       f.state = "stream";
       if (sp === "charizard") this.sound.flame(0.95);
@@ -878,32 +927,12 @@ export class BattleGame {
         }
         if (f.t >= 0.32) this.toFree(f);
         break;
-      case "charge": {
-        const len = f.species === "charizard" ? 0.6 : 0.45;
-        if (f.t < len) {
-          if (Math.random() < 0.6) {
-            const ang = rand(0, Math.PI * 2);
-            const d = rand(30, 50) * k;
-            const kind: PKind = f.species === "charizard" ? "flame" : f.species === "blastoise" ? "drop" : "wisp";
-            this.spawn(
-              kind,
-              f.x + Math.cos(ang) * d,
-              f.y + Math.sin(ang) * d,
-              -Math.cos(ang) * d * 2.5,
-              -Math.sin(ang) * d * 2.5,
-              0.35,
-              (kind === "flame" ? 3 : 1.6) * k,
-              8 * k
-            );
-          }
-          break;
-        }
-        if (f.species === "charizard") this.blastBurn(f);
-        else if (f.species === "blastoise") this.surf(f);
-        else this.nightShade(f);
-        this.toFree(f);
+      case "charge":
+        // holding still for the cut-in; the finale takes over from there
         break;
-      }
+      case "ult":
+        f.invuln = 1;
+        break;
       case "dodge":
         if (f.t >= 0.24) {
           f.vx *= 0.3;
@@ -1246,23 +1275,250 @@ export class BattleGame {
 
   // ---------- bursts: explosions and shockwaves ----------
 
-  /** Charizard's Burst: a ring of fire bursts out across the page. */
-  private blastBurn(f: Fighter) {
+  /** After the cut-in, the Burst itself: a finale that takes over the whole screen. */
+  private startFinale(f: Fighter) {
     const k = this.k;
-    this.bursts.push({ kind: "blastburn", owner: f.id, x: f.x, y: f.y, t: 0, max: 165 * k, hit: false, wreckT: 0 });
-    this.wreck.crater(f.x, f.y, 18 * k);
-    this.wreck.blast(f.x, f.y, 55 * k, 8, f.x, f.y, 200);
-    this.sound.boom();
-    this.onShake(16);
-    this.screenFlash = 0.8;
-    for (let i = 0; i < 90; i++) {
-      const a = rand(0, Math.PI * 2);
-      const sp = rand(180, 340) * k;
-      this.spawn("flame", f.x, f.y, Math.cos(a) * sp, Math.sin(a) * sp, rand(0.45, 0.7), 5 * k, 6 * k);
+    f.state = "ult";
+    f.t = 0;
+    f.told = false;
+    f.invuln = 1;
+    this.finale = { owner: f.id, kind: f.species, t: 0, hits: 0, hit: false, next: 0, shake: 0, wreckT: 0, hands: [] };
+    this.sound.rumble(FINALE[f.species]);
+    if (f.species === "charizard") {
+      this.sound.boom();
+      this.wreck.crater(f.x, f.y, 14 * k);
+      this.wreck.blast(f.x, f.y, 40 * k, 6, f.x, f.y, 120);
+    } else if (f.species === "blastoise") {
+      this.sound.water(0.6);
+    } else {
+      this.sound.nightShade();
+      // shadow hands reach in from every edge of the screen toward the foe
+      const sx = window.scrollX;
+      const sy = window.scrollY + this.headerBottom;
+      const w = window.innerWidth;
+      const h = window.innerHeight - this.headerBottom;
+      for (let i = 0; i < 7; i++) {
+        const side = i % 4;
+        const along = (i + 0.5) / 7 + rand(-0.05, 0.05);
+        this.finale.hands.push(
+          side === 0
+            ? { x: sx + along * w, y: sy - 10 }
+            : side === 1
+              ? { x: sx + w + 10, y: sy + along * h }
+              : side === 2
+                ? { x: sx + along * w, y: sy + h + 10 }
+                : { x: sx - 10, y: sy + along * h }
+        );
+      }
     }
   }
 
-  /** Blastoise's Burst: a wave sweeps the whole arena toward its foe. */
+  private endFinale(f: Fighter) {
+    this.finale = null;
+    f.invuln = 0;
+    if (f.state === "ult") this.toFree(f);
+  }
+
+  private updateFinale(dt: number) {
+    const fin = this.finale;
+    this.flood = Math.max(0, this.flood - (this.waves.length ? 0 : dt / 0.9));
+    if (!fin) return;
+    const k = this.k;
+    const f = this.f![fin.owner];
+    const o = this.other(f);
+    fin.t += dt;
+    const t = fin.t;
+    const len = FINALE[fin.kind];
+    // the screen never stops shaking while it lasts
+    fin.shake -= dt;
+    if (fin.shake <= 0 && t < len - 0.3) {
+      fin.shake = 0.11;
+      this.onShake(fin.kind === "gengar" ? 4 : 7);
+    }
+    const reachable = () => o.invuln <= 0 && o.state !== "lurk" && o.hp > 0;
+
+    if (fin.kind === "charizard") {
+      // Charizard rises, blazing, and the whole page erupts in fire around it
+      f.z = Math.min(55 * k, f.z + 160 * k * dt);
+      if (Math.random() < 0.8) {
+        const a = rand(0, Math.PI * 2);
+        const d = rand(14, 28) * k;
+        this.spawn("flame", f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * 0.5, 0, 0, 0.35, 4 * k, f.z * 0.6, 60 * k);
+      }
+      const a = this.arena();
+      const far = Math.hypot(Math.max(f.x - a.l, a.r - f.x), Math.max(f.y - a.t, a.b - f.y)) + 60 * k;
+      if (t > 0.2 && t < 1.45) {
+        const reach = ((t - 0.2) / 1.25) * far;
+        fin.next -= dt;
+        if (fin.next <= 0) {
+          fin.next = 0.05;
+          for (let i = 0; i < 3; i++) {
+            const ang = rand(0, Math.PI * 2);
+            const x = f.x + Math.cos(ang) * reach;
+            const y = f.y + Math.sin(ang) * reach * 0.8;
+            if (x > a.l - 40 && x < a.r + 40 && y > a.t - 60 && y < a.b + 60) this.erupt(f, o, x, y);
+          }
+          // the ring of eruptions always catches up with the foe
+          const dist = Math.hypot(o.x - f.x, o.y - f.y);
+          if (Math.abs(dist - reach) < 30 * k) this.erupt(f, o, o.x + rand(-12, 12) * k, o.y + rand(-12, 12) * k);
+        }
+      }
+      if (t >= 1.5 && !fin.hit) {
+        // and it all comes down on the foe in one last blast
+        fin.hit = true;
+        this.bursts.push({ kind: "blastburn", owner: f.id, x: o.x, y: o.y, t: 0, max: 120 * k, hit: true, wreckT: 0 });
+        this.wreck.crater(o.x, o.y, 20 * k);
+        this.wreck.blast(o.x, o.y, 80 * k, 8, o.x, o.y, 220);
+        this.sound.boom();
+        this.onShake(24);
+        this.screenFlash = 1;
+        for (let i = 0; i < 70; i++) {
+          const ang = rand(0, Math.PI * 2);
+          const sp = rand(160, 360) * k;
+          this.spawn(
+            "flame",
+            o.x,
+            o.y,
+            Math.cos(ang) * sp,
+            Math.sin(ang) * sp,
+            rand(0.4, 0.7),
+            5 * k,
+            6 * k,
+            rand(0, 120) * k
+          );
+        }
+        if (reachable() && o.z < HIGH * k) {
+          const d = Math.hypot(o.x - f.x, o.y - f.y) || 1;
+          this.strike(f, o, "burst", (o.x - f.x) / d, (o.y - f.y) / d, 460, false, 0, 0.6);
+          if (Math.random() < 0.5) this.inflict(o, "brn");
+        }
+      }
+      if (t > 1.7) f.z = Math.max(0, f.z - 200 * k * dt);
+    } else if (fin.kind === "blastoise") {
+      // cannons to the sky, then a wave the height of the screen, then the flood
+      if (t < 0.5) {
+        for (const side of [-1, 1]) {
+          const x = f.x + side * 9 * k;
+          const sp = rand(260, 420) * k;
+          this.spawn("drop", x, f.y, rand(-40, 40) * k, rand(-20, 20) * k, 0.8, rand(1.5, 2.5) * k, 24 * k, sp);
+          if (Math.random() < 0.4)
+            this.spawn("foam", x, f.y, rand(-30, 30) * k, rand(-30, 30) * k, 0.7, 2.5 * k, 24 * k, sp);
+        }
+      }
+      if (t >= 0.5 && !fin.hit) {
+        fin.hit = true;
+        this.surf(f);
+        this.flood = 1;
+      }
+    } else {
+      // Gengar: the lights go out, a grin fills the screen, the dark eats the page,
+      // and shadow hands grab the foe
+      fin.wreckT -= dt;
+      if (t > 0.3 && t < 1.7 && fin.wreckT <= 0) {
+        fin.wreckT = 0.05;
+        const sx = window.scrollX;
+        const sy = window.scrollY + this.headerBottom;
+        for (let i = 0; i < 3; i++)
+          this.wreck.dissolve(
+            sx + rand(0, window.innerWidth),
+            sy + rand(0, window.innerHeight - this.headerBottom),
+            16 * k,
+            4
+          );
+      }
+      if (t > 0.4 && t < 1.1 && Math.random() < 0.9) {
+        const ang = rand(0, Math.PI * 2);
+        const d = rand(120, 240) * k;
+        this.spawn(
+          "wisp",
+          o.x + Math.cos(ang) * d,
+          o.y + Math.sin(ang) * d,
+          -Math.cos(ang) * d * 2.2,
+          -Math.sin(ang) * d * 2.2,
+          0.45,
+          3 * k,
+          14 * k
+        );
+      }
+      if (t >= 1.05 && !fin.hit) {
+        fin.hit = true;
+        if (!reachable()) {
+          this.say(`${this.name(o)} slipped out of its grasp!`);
+          fin.hits = -1;
+        } else {
+          // caught: hoisted up into the dark…
+          o.state = "hurt";
+          o.t = -0.6;
+          this.sound.cackle();
+        }
+      }
+      if (fin.hit && fin.hits === 0) o.z = Math.min(46 * k, o.z + 150 * k * dt);
+      if (t >= 1.5 && fin.hits === 0) {
+        // …and slammed back down onto the page
+        fin.hits = 1;
+        o.z = 0;
+        o.state = "free";
+        this.strike(f, o, "burst", 0, 0, 0, false, o.status === "slp" ? 1.5 : 1);
+        this.wreck.blast(o.x, o.y, 60 * k, 8, o.x, o.y, 160);
+        this.wreck.crater(o.x, o.y, 16 * k);
+        this.sound.slam();
+        this.onShake(22);
+        this.screenFlash = 0.6;
+        this.flashes.push({ x: o.x, y: o.y, t: 0, r: 70 * k, colour: GHOST[1] });
+        for (let i = 0; i < 40; i++) {
+          const ang = rand(0, Math.PI * 2);
+          const sp = rand(80, 260) * k;
+          this.spawn("wisp", o.x, o.y, Math.cos(ang) * sp, Math.sin(ang) * sp, 0.5, 3 * k, 8 * k);
+        }
+      }
+    }
+    if (t >= len) this.endFinale(f);
+  }
+
+  /** One fire geyser out of the page: it burns what's there, and whoever is standing on it. */
+  private erupt(f: Fighter, o: Fighter, x: number, y: number) {
+    const k = this.k;
+    this.geysers.push({ x, y, t: 0 });
+    this.wreck.ignite(x, y, 16 * k, 8);
+    this.wreck.knock(x, y, 10 * k, x, y + 20, 260, 6);
+    if (Math.random() < 0.25) this.wreck.crater(x, y, rand(5, 8) * k);
+    if (Math.random() < 0.3) this.sound.eruption();
+    for (let i = 0; i < 6; i++)
+      this.spawn(
+        "flame",
+        x + rand(-6, 6) * k,
+        y,
+        rand(-20, 20) * k,
+        rand(-10, 10) * k,
+        rand(0.35, 0.55),
+        4 * k,
+        2 * k,
+        rand(160, 300) * k
+      );
+    const fin = this.finale!;
+    if (
+      fin.hits < 5 &&
+      Math.hypot(o.x - x, o.y - y) < 28 * k &&
+      o.z < HIGH * k &&
+      o.invuln <= 0 &&
+      o.state !== "lurk"
+    ) {
+      fin.hits++;
+      this.strike(
+        f,
+        o,
+        "burst",
+        (o.x - f.x) / (Math.hypot(o.x - f.x, o.y - f.y) || 1),
+        (o.y - f.y) / (Math.hypot(o.x - f.x, o.y - f.y) || 1),
+        140,
+        false,
+        0,
+        0.16
+      );
+    }
+  }
+
+  /** Blastoise's Burst: a wave the height of the screen sweeps toward its foe. */
   private surf(f: Fighter) {
     const o = this.other(f);
     const a = this.arena();
@@ -1271,52 +1527,19 @@ export class BattleGame {
     const lo = axis === "x" ? a.l : a.t;
     const hi = axis === "x" ? a.r : a.b;
     const pad = 60 * this.k;
+    const from = sign > 0 ? lo - pad * 2 : hi + pad * 2;
     this.waves.push({
       owner: f.id,
       axis,
       sign,
-      pos: sign > 0 ? lo - pad : hi + pad,
+      start: from,
+      pos: from,
       end: sign > 0 ? hi + pad * 3 : lo - pad * 3,
       hit: false,
       wreckT: 0,
     });
     this.sound.wave();
-    this.onShake(8);
-  }
-
-  /** Gengar's Burst: the page goes dark, a grin looms over the foe, and the dark closes in. */
-  private nightShade(f: Fighter) {
-    this.night = { owner: f.id, t: 0, hit: false };
-    this.sound.nightShade();
-  }
-
-  private updateNight(dt: number) {
-    const n = this.night;
-    if (!n) return;
-    n.t += dt;
-    const k = this.k;
-    const f = this.f![n.owner];
-    const o = this.other(f);
-    if (n.t > 0.4 && n.t < 1.1 && Math.random() < 0.8) {
-      // shadows streaming in from every side
-      const a = rand(0, Math.PI * 2);
-      const d = rand(120, 220) * k;
-      const x = o.x + Math.cos(a) * d;
-      const y = o.y + Math.sin(a) * d;
-      this.spawn("wisp", x, y, -Math.cos(a) * d * 2.2, -Math.sin(a) * d * 2.2, 0.45, 2.5 * k, 14 * k);
-    }
-    if (!n.hit && n.t >= 1.05) {
-      n.hit = true;
-      if (o.invuln > 0 || o.state === "lurk") this.say(`${this.name(o)} avoided the attack!`);
-      else {
-        // Night Shade always does the same damage, more to a sleeping foe
-        this.strike(f, o, "burst", 0, 0, 0, false, o.status === "slp" ? 1.5 : 1);
-        this.wreck.blast(o.x, o.y, 48 * k, 6, o.x, o.y, 120);
-        this.wreck.crater(o.x, o.y, 12 * k);
-        this.onShake(14);
-      }
-    }
-    if (n.t > 1.7) this.night = null;
+    this.onShake(12);
   }
 
   private updateBursts(dt: number) {
@@ -1424,8 +1647,10 @@ export class BattleGame {
       const inWave = (p - w.pos) * w.sign < 0 && (p - w.pos) * w.sign > -thick;
       if (!w.hit && inWave && o.z < HIGH * k && o.state !== "lurk") {
         w.hit = true;
-        this.strike(this.f![w.owner], o, "burst", w.axis === "x" ? w.sign : 0, w.axis === "y" ? w.sign : 0, 520);
+        this.strike(this.f![w.owner], o, "burst", w.axis === "x" ? w.sign : 0, w.axis === "y" ? w.sign : 0, 620);
       }
+      // behind the front it's all water: the undertow drags at anyone in it
+      if ((p - w.pos) * w.sign < 0 && o.z < HIGH * k) o.slow = 0.25;
       // the wave washes the page along with it
       w.wreckT -= dt;
       if (w.wreckT <= 0) {
@@ -1532,7 +1757,17 @@ export class BattleGame {
    * f's move lands on o, pushing it along (dx, dy). Streams call this every tick, so they
    * don't crit or stun as hard. `fixed` is for Night Shade, which ignores power and type.
    */
-  private strike(f: Fighter, o: Fighter, slot: Slot, dx: number, dy: number, knock: number, stream = false, fixed = 0) {
+  private strike(
+    f: Fighter,
+    o: Fighter,
+    slot: Slot,
+    dx: number,
+    dy: number,
+    knock: number,
+    stream = false,
+    fixed = 0,
+    mult = 1
+  ) {
     if (o.invuln > 0 || o.hp <= 0 || o.state === "hidden" || o.state === "gone") return;
     const move = MOVES[f.species][slot];
     const eff = fixed ? 1 : effectiveness(move.kind, o.species);
@@ -1542,7 +1777,7 @@ export class BattleGame {
       return;
     }
     const crit = !stream && !fixed && Math.random() < 0.0625;
-    let dmg = fixed ? move.power * fixed : move.power * DAMAGE * eff * rand(0.85, 1) * (crit ? 1.5 : 1);
+    let dmg = fixed ? move.power * fixed : move.power * mult * DAMAGE * eff * rand(0.85, 1) * (crit ? 1.5 : 1);
     // tucked into its shell, Blastoise shrugs off half
     if (o.state === "spin" || (o.state === "charge" && o.species === "blastoise")) dmg *= 0.5;
     this.damage(o, dmg, f);
@@ -1566,7 +1801,7 @@ export class BattleGame {
         this.spawn("ice", o.x, o.y, rand(-120, 120) * k, rand(-120, 120) * k, 0.5, 2 * k, 14 * k, rand(60, 140) * k);
     }
     // a stream only staggers; real blows interrupt whatever o was doing
-    const busy = ["charge", "fly", "dive", "lurk", "sink", "rise", "stomp"].includes(o.state);
+    const busy = ["charge", "ult", "fly", "dive", "lurk", "sink", "rise", "stomp"].includes(o.state);
     if (!this.helpless(o) && (!stream || o.state === "free") && o.hp > 0 && !busy) {
       o.state = "hurt";
       o.t = stream ? 0.2 : 0;
@@ -1599,7 +1834,13 @@ export class BattleGame {
     this.phase = "ko";
     this.phaseT = 0;
     this.freeze = 14;
-    this.night = null;
+    if (this.finale) {
+      // the battle's over: whoever was mid-Burst comes back down
+      const f = this.f![this.finale.owner];
+      this.finale = null;
+      f.invuln = 0;
+      if (f.state === "ult") this.toFree(f);
+    }
     this.onShake(12);
     this.sound.faint();
     this.messages = [];
@@ -1645,6 +1886,10 @@ export class BattleGame {
         p.r += dt * 18 * k;
         p.vx *= Math.exp(-1.5 * dt);
         p.vy *= Math.exp(-1.5 * dt);
+        if (p.vz) {
+          p.z += p.vz * dt;
+          p.vz *= Math.exp(-2.5 * dt);
+        }
         // Flamethrower's fire burns whoever it reaches (and the page under it)
         if (p.owner !== undefined && age < 0.85) {
           const f = p.owner === 0 ? a : b;
@@ -1751,7 +1996,7 @@ export class BattleGame {
     const away = o.z >= HIGH * k || o.state === "lurk";
     const chance = (p: number) => Math.random() < p;
     const eff = (s: Slot) => effectiveness(MOVES[f.species][s].kind, o.species);
-    if (f.meter >= 1 && !away && (f.species !== "charizard" || d < 130 * k)) return "burst";
+    if (f.meter >= 1 && !away) return "burst";
     if (d < 52 * k && ready("melee") && eff("melee") > 0 && chance(0.75)) return "melee";
     if (away) return null;
     if (f.species === "charizard") {
@@ -1784,7 +2029,7 @@ export class BattleGame {
     }
     if (o.state === "melee" && o.t < 0.12 && d < 60 * k) return true;
     if (o.state === "spin" && d < 140 * k) return true;
-    if (o.state === "charge" || o.state === "stomp") return true;
+    if (o.state === "stomp" || (this.finale && this.finale.owner === o.id)) return true;
     if (this.waves.some((w) => w.owner === o.id)) return true;
     // a shot heading this way
     return this.shots.some(
@@ -1888,11 +2133,19 @@ export class BattleGame {
     this.air.begin(vw, vh, p, window.scrollX, window.scrollY);
     this.drawGround(this.ground);
     this.ground.blit(ctx);
-    if (this.night) {
-      // Night Shade: the lights go out on everything but the two of them
-      const n = this.night.t;
-      const dark = n < 0.4 ? n / 0.4 : n > 1.3 ? Math.max(0, 1 - (n - 1.3) / 0.4) : 1;
-      ctx.fillStyle = `rgba(12,4,24,${dark * 0.82})`;
+    const fin = this.finale;
+    if (fin) {
+      // a Burst colours the whole screen: fire's glow, deep water, or the dark
+      const len = FINALE[fin.kind];
+      const tt = fin.t;
+      const env = Math.min(1, tt / 0.3) * Math.min(1, (len - tt) / 0.4);
+      const pulse = 0.85 + Math.sin(tt * 18) * 0.15;
+      ctx.fillStyle =
+        fin.kind === "gengar"
+          ? `rgba(10,2,22,${env * 0.86})`
+          : fin.kind === "charizard"
+            ? `rgba(120,24,0,${env * 0.35 * pulse})`
+            : `rgba(4,30,70,${env * 0.3})`;
       ctx.fillRect(0, 0, vw, vh);
     }
     ctx.save();
@@ -1901,6 +2154,11 @@ export class BattleGame {
     ctx.restore();
     this.drawAir(this.air);
     this.air.blit(ctx);
+    if (fin?.kind === "charizard") {
+      // heat: a hot orange wash over everything, flickering
+      ctx.fillStyle = `rgba(255,120,20,${0.1 + Math.sin(fin.t * 30) * 0.04})`;
+      ctx.fillRect(0, 0, vw, vh);
+    }
     ctx.restore();
 
     if (this.screenFlash > 0) {
@@ -1908,6 +2166,81 @@ export class BattleGame {
       ctx.fillRect(0, this.headerBottom, vw, vh - this.headerBottom);
     }
     this.drawHud(vw, vh);
+    if (this.cutin) this.drawCutin(this.cutin, vw, vh);
+  }
+
+  /**
+   * A Burst's cut-in: the screen dims and a slanted banner sweeps across with speed lines,
+   * the Pokémon's portrait blown up in pixels, and the move's name.
+   */
+  private drawCutin(c: { owner: 0 | 1; t: number }, vw: number, vh: number) {
+    const { ctx } = this;
+    const f = this.f![c.owner];
+    const t = c.t;
+    const inT = Math.min(1, t / 0.14);
+    const outT = Math.max(0, (t - (CUTIN - 0.16)) / 0.16);
+    const ease = (q: number) => 1 - (1 - q) ** 3;
+    const slide = (1 - ease(inT)) * vw - ease(outT) * vw;
+    const theme =
+      f.species === "charizard"
+        ? { band: "#7c1408", light: "#f86818", text: "#ffe25c" }
+        : f.species === "blastoise"
+          ? { band: "#0c2c70", light: "#2890e8", text: "#c8f0ff" }
+          : { band: "#1c0838", light: "#9050e0", text: "#f4dcff" };
+    ctx.save();
+    ctx.fillStyle = `rgba(0,0,0,${0.55 * (1 - outT)})`;
+    ctx.fillRect(0, 0, vw, vh);
+    const h = Math.min(170, vh * 0.3);
+    const cy = this.headerBottom + (vh - this.headerBottom) * 0.48;
+    const skew = h * 0.35;
+    ctx.translate(slide, 0);
+    const band = (y0: number, y1: number, colour: string) => {
+      ctx.fillStyle = colour;
+      ctx.beginPath();
+      ctx.moveTo(-skew, y0 + skew);
+      ctx.lineTo(vw + skew, y0 - skew);
+      ctx.lineTo(vw + skew, y1 - skew);
+      ctx.lineTo(-skew, y1 + skew);
+      ctx.closePath();
+      ctx.fill();
+    };
+    band(cy - h / 2 - 6, cy + h / 2 + 6, "#f4f4f5");
+    band(cy - h / 2, cy + h / 2, theme.band);
+    band(cy - h / 2, cy - h / 2 + 10, theme.light);
+    band(cy + h / 2 - 10, cy + h / 2, theme.light);
+    // speed lines racing across
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    for (let i = 0; i < 26; i++) {
+      const ly = cy - h / 2 + 14 + hash(i * 3.1) * (h - 28);
+      const lw = 60 + hash(i * 7.7) * 220;
+      const travel = hash(i) * vw - t * (1600 + hash(i * 2) * 1400);
+      const lx = (((travel % (vw + lw)) + vw + lw) % (vw + lw)) - lw;
+      ctx.fillRect(lx, ly, lw, 2);
+    }
+    // the portrait, big and pixelated, in a frame
+    const size = Math.round(h * 0.82);
+    const px = Math.max(16, vw * 0.12);
+    const py = cy - size / 2;
+    ctx.fillStyle = "#f4f4f5";
+    ctx.fillRect(px - 5, py - 5, size + 10, size + 10);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(f.mon.portrait, px, py, size, size);
+    // the move's name
+    const name = MOVES[f.species].burst.name;
+    const big = Math.min(72, Math.max(28, vw / 16));
+    const tx = px + size + Math.max(20, vw * 0.04);
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    ctx.font = `bold ${Math.round(big * 0.32)}px ${this.font}`;
+    ctx.fillStyle = theme.light;
+    ctx.fillText(`${f.species.toUpperCase()}'S BURST`, tx, cy - big * 0.62);
+    ctx.font = `bold ${Math.round(big)}px ${this.font}`;
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "#000";
+    ctx.strokeText(name, tx, cy + big * 0.1);
+    ctx.fillStyle = theme.text;
+    ctx.fillText(name, tx, cy + big * 0.1);
+    ctx.restore();
   }
 
   /** On the page, under the Pokémon: shadows, puddles, shockwaves, Surf's body, a lurking Gengar. */
@@ -1958,6 +2291,7 @@ export class BattleGame {
       g.alpha = 1;
     }
     for (const w of this.waves) this.drawWaveBody(g, w);
+    if (this.flood > 0) this.drawFlood(g, this.flood);
     for (const f of this.f!) {
       if (f.state === "hidden" || f.state === "gone") continue;
       if (f.state === "lurk") {
@@ -1984,25 +2318,61 @@ export class BattleGame {
     }
   }
 
-  /** Surf's body of water behind the crest, dithered so the page shows through. */
+  /** Surf's body of water: everything it has swept over is under water, deepest far behind. */
   private drawWaveBody(g: PixelLayer, w: Wave) {
     const k = this.k;
-    const trail = 170 * k;
     const sx = window.scrollX;
     const sy = window.scrollY;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    [WATER[5], WATER[4], WATER[3]].forEach((c, i) => {
-      const from = w.pos - w.sign * trail * (1 - i / 3);
-      const to = w.pos - w.sign * trail * (1 - (i + 1) / 3);
+    const span = (from: number, to: number, colour: string, phase: number, solid = false) => {
       const lo = Math.min(from, to);
       const len = Math.abs(to - from);
-      if (w.axis === "x") g.dither(lo, sy, len, vh, c, i);
-      else g.dither(sx, lo, vw, len, c, i);
-    });
-    const thick = 40 * k;
-    if (w.axis === "x") g.dither(w.sign > 0 ? w.pos - thick : w.pos, sy, thick, vh, WATER[2], 1);
-    else g.dither(sx, w.sign > 0 ? w.pos - thick : w.pos, vw, thick, WATER[2], 1);
+      if (len <= 0) return;
+      if (w.axis === "x") solid ? g.rect(lo, sy, len, vh, colour) : g.dither(lo, sy, len, vh, colour, phase);
+      else solid ? g.rect(sx, lo, vw, len, colour) : g.dither(sx, lo, vw, len, colour, phase);
+    };
+    const back = w.start;
+    const front = w.pos;
+    const depth = front - back;
+    // deep water far behind the crest, getting lighter toward it
+    span(back, back + depth * 0.55, WATER[5], 0, true);
+    span(back + depth * 0.55, front - w.sign * 70 * k, WATER[5], 0);
+    span(back + depth * 0.55, front - w.sign * 70 * k, WATER[4], 1);
+    span(front - w.sign * 70 * k, front - w.sign * 30 * k, WATER[3], 0);
+    span(front - w.sign * 30 * k, front, WATER[2], 1, true);
+  }
+
+  /** After Surf: the screen stays flooded for a moment, then drains. */
+  private drawFlood(g: PixelLayer, level: number) {
+    if (this.waves.length) return;
+    const sx = window.scrollX;
+    const sy = window.scrollY;
+    g.dither(sx, sy, window.innerWidth, window.innerHeight, WATER[4], 0);
+    if (level > 0.45) g.dither(sx, sy, window.innerWidth, window.innerHeight, WATER[5], 1);
+    this.drawCaustics(g, level);
+  }
+
+  /** Light rippling through water: wavy bright lines drifting across the screen. */
+  private drawCaustics(g: PixelLayer, level: number) {
+    const k = this.k;
+    const t = this.clock;
+    const sx = window.scrollX;
+    const sy = window.scrollY + this.headerBottom;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight - this.headerBottom;
+    const rows = Math.round(10 * level);
+    for (let i = 0; i < rows; i++) {
+      const y0 = sy + ((hash(i * 4.3) * vh + t * 30 * k) % vh);
+      let px = sx;
+      let py = y0;
+      for (let x = sx; x <= sx + vw; x += 14 * k) {
+        const y = y0 + Math.sin(x * 0.02 + t * 3 + i) * 6 * k;
+        if (hash(i * 31 + Math.floor(x / (14 * k))) > 0.35) g.line(px, py, x, y, i % 3 ? WATER[2] : WATER[1], 1);
+        px = x;
+        py = y;
+      }
+    }
   }
 
   private drawFighter(f: Fighter) {
@@ -2064,6 +2434,17 @@ export class BattleGame {
       case "charge":
         anim = "Charge";
         frame = frameAt(a.Charge, f.t);
+        break;
+      case "ult":
+        // Charizard hovers, wings beating; Blastoise aims its cannons; Gengar strikes a pose
+        anim = f.species === "charizard" ? "Walk" : f.species === "blastoise" ? (f.t < 0.6 ? "Shoot" : "Idle") : "Pose";
+        frame =
+          f.species === "charizard"
+            ? frameAt(a.Walk, f.t * 2.5)
+            : f.species === "blastoise" && f.t < 0.6
+              ? Math.min(frameAt(a.Shoot, f.t, false), (a.Shoot.hitFrame ?? 1) + 1)
+              : frameAt(a[anim], f.t);
+        if (f.species !== "gengar") d = 0;
         break;
       case "dodge":
         anim = "Hop";
@@ -2163,8 +2544,11 @@ export class BattleGame {
         }
       }
     }
-    // Night Shade's grin, looming over its victim
-    if (this.night && this.night.t > 0.3 && this.night.t < 1.5) this.drawGrin(g, this.night);
+    for (const gy of this.geysers) this.drawGeyser(g, gy);
+    if (this.finale?.kind === "gengar") {
+      this.drawGrin(g, this.finale.t);
+      this.drawHands(g, this.finale);
+    }
     for (const b of this.balls) this.drawBall(g, b);
   }
 
@@ -2353,32 +2737,99 @@ export class BattleGame {
     g.raw(X, Y + 3 * s, 3 * s, s, "#f4f4f5");
   }
 
-  /** Gengar's grin: big red eyes and a jagged white smile in the dark. */
-  private drawGrin(g: PixelLayer, n: { owner: 0 | 1; t: number }) {
-    const o = this.other(this.f![n.owner]);
-    const appear = Math.min(1, (n.t - 0.3) / 0.25) * Math.min(1, (1.5 - n.t) / 0.2);
-    if (appear <= 0) return;
-    const s = Math.max(1, Math.round(this.k * 1.6 * appear));
-    const cx = g.X(o.x);
-    const cy = g.Y(o.y - 30 * this.k) - Math.round((1 - appear) * 6);
+  /** Gengar's grin, filling the screen: big red eyes and a jagged white smile in the dark. */
+  private drawGrin(g: PixelLayer, t: number) {
+    const len = FINALE.gengar;
+    const appear = Math.min(1, Math.max(0, (t - 0.15) / 0.35)) * Math.min(1, (len - 0.1 - t) / 0.3);
+    // it flickers on, like a bad bulb
+    if (appear <= 0 || (t < 0.5 && hash(Math.floor(t * 30)) < 0.35)) return;
+    const vw = window.innerWidth;
+    const s = Math.max(2, Math.round((vw * 0.62) / 30 / g.p));
+    const cx = Math.round(vw / 2 / g.p);
+    const cy = Math.round((this.headerBottom + (window.innerHeight - this.headerBottom) * 0.42) / g.p);
+    g.alpha = Math.min(1, appear * 1.2) * 0.92;
+    const glow = 0.5 + Math.sin(t * 14) * 0.5;
     // two slanted, angry eyes
     for (const [ox, slant] of [
-      [-10, 1],
-      [4, -1],
+      [-12, 1],
+      [5, -1],
     ]) {
-      for (let row = 0; row < 3; row++) {
-        const w = 6 - row;
+      for (let row = 0; row < 4; row++) {
+        const w = 7 - row;
         const shift = slant > 0 ? row : 0;
-        g.raw(cx + (ox + shift) * s, cy + (row - 8) * s, w * s, s, row === 0 ? "#ff8098" : "#ff2850");
+        g.raw(
+          cx + (ox + shift) * s,
+          cy + (row - 10) * s,
+          w * s,
+          s,
+          row === 0 ? "#ffb0c0" : glow > 0.5 ? "#ff2850" : "#e01040"
+        );
       }
-      g.raw(cx + (ox + 2) * s, cy - 7 * s, s, s, "#fff");
+      g.raw(cx + (ox + 2) * s, cy - 9 * s, s, s, "#fff");
     }
     // the grin: a wide jagged band of teeth
-    const half = 12;
+    const half = 15;
     for (let i = -half; i <= half; i++) {
-      const curve = Math.round(((i * i) / (half * half)) * -3);
-      g.raw(cx + i * s, cy + (2 + curve) * s, s, 3 * s, "#2a0a38");
-      g.raw(cx + i * s, cy + (2 + curve + (i % 2 === 0 ? 0 : 1)) * s, s, 2 * s, "#f4f4f5");
+      const curve = Math.round(((i * i) / (half * half)) * -4);
+      g.raw(cx + i * s, cy + (1 + curve) * s, s, 4 * s, "#2a0a38");
+      g.raw(cx + i * s, cy + (1 + curve + (i % 2 === 0 ? 0 : 2)) * s, s, 2 * s, "#f4f4f5");
+    }
+    g.alpha = 1;
+  }
+
+  /** Night Shade's shadow hands: jagged arms of dark reaching from the edges for the foe. */
+  private drawHands(g: PixelLayer, fin: NonNullable<BattleGame["finale"]>) {
+    const k = this.k;
+    const o = this.other(this.f![fin.owner]);
+    const grab = Math.min(1, Math.max(0, (fin.t - 0.45) / 0.6));
+    const fade = Math.min(1, (FINALE.gengar - fin.t) / 0.4);
+    if (grab <= 0 || fade <= 0) return;
+    const tx = o.x;
+    const ty = o.y - o.z - 14 * k;
+    fin.hands.forEach((h, i) => {
+      const ex = h.x + (tx - h.x) * grab;
+      const ey = h.y + (ty - h.y) * grab;
+      const nx = -(ey - h.y);
+      const ny = ex - h.x;
+      const nl = Math.hypot(nx, ny) || 1;
+      let px = h.x;
+      let py = h.y;
+      const steps = 14;
+      for (let sI = 1; sI <= steps; sI++) {
+        const q = sI / steps;
+        const wob = Math.sin(q * 9 + fin.t * 12 + i) * 10 * k * (1 - q);
+        const x = h.x + (ex - h.x) * q + (nx / nl) * wob;
+        const y = h.y + (ey - h.y) * q + (ny / nl) * wob;
+        g.line(px, py, x, y, GHOST[5], Math.round(6 - q * 3));
+        g.line(px, py, x, y, GHOST[3], Math.round(3 - q * 1.5));
+        px = x;
+        py = y;
+      }
+      // a clawed hand at the end
+      const ang = Math.atan2(ey - h.y, ex - h.x);
+      for (const off of [-0.6, 0, 0.6]) {
+        const cx = ex + Math.cos(ang + off) * 9 * k;
+        const cy = ey + Math.sin(ang + off) * 9 * k;
+        g.line(ex, ey, cx, cy, GHOST[2], 2);
+      }
+    });
+  }
+
+  /** A fire geyser: a column of flame shooting up out of the page and dying back down. */
+  private drawGeyser(g: PixelLayer, gy: { x: number; y: number; t: number }) {
+    const k = this.k;
+    const p = gy.t / 0.55;
+    if (p >= 1) return;
+    const height = (p < 0.25 ? p / 0.25 : 1 - (p - 0.25) / 0.75) * 70 * k;
+    const flick = Math.floor(this.clock * 24);
+    g.ditherDisc(gy.x, gy.y, 14 * k * (1 - p * 0.5), FIRE[5], 0.45, flick % 2);
+    for (let h = 0; h < height; h += 5 * k) {
+      const q = h / Math.max(1, height);
+      const w = (9 - q * 5) * k * (0.8 + hash(h + flick + gy.x) * 0.4);
+      const x = gy.x + Math.sin(h * 0.1 + this.clock * 20) * 2 * k;
+      g.disc(x, gy.y - h, w, FIRE[4]);
+      g.disc(x, gy.y - h, w * 0.65, FIRE[2]);
+      if (q < 0.7) g.disc(x, gy.y - h, w * 0.3, FIRE[0]);
     }
   }
 

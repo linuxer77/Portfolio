@@ -39,7 +39,7 @@ export const MOVES: Record<Species, Record<Slot, Move>> = {
     s2: { name: "RAPID SPIN", short: "SPIN", kind: "normal", power: 10, cooldown: 3.6 },
     s3: { name: "ICE BEAM", short: "ICE", kind: "ice", power: 2.2, cooldown: 4.5 },
     s4: { name: "EARTHQUAKE", short: "QUAKE", kind: "ground", power: 22, cooldown: 6 },
-    burst: { name: "SURF", short: "SURF", kind: "water", power: 19, cooldown: 0 },
+    burst: { name: "SURF", short: "SURF", kind: "water", power: 26, cooldown: 0 },
   },
   gengar: {
     melee: { name: "LICK", short: "LICK", kind: "ghost", power: 9, cooldown: 0.5 },
