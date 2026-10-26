@@ -1,0 +1,236 @@
+{
+ "name": "blastoise-mega",
+ "anims": {
+  "Walk": {
+   "w": 52,
+   "h": 60,
+   "dirs": 8,
+   "durations": [
+    8,
+    14,
+    8,
+    14
+   ],
+   "sheet": "Walk"
+  },
+  "Attack": {
+   "w": 84,
+   "h": 92,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    1,
+    1,
+    1,
+    2,
+    2,
+    4
+   ],
+   "hitFrame": 7,
+   "rushFrame": 1,
+   "returnFrame": 10,
+   "sheet": "Attack"
+  },
+  "Ricochet": {
+   "w": 84,
+   "h": 92,
+   "dirs": 8,
+   "durations": [
+    6,
+    2,
+    2,
+    4,
+    3,
+    2,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 6,
+   "returnFrame": 10,
+   "sheet": "Ricochet"
+  },
+  "Shoot": {
+   "w": 68,
+   "h": 76,
+   "dirs": 8,
+   "durations": [
+    4,
+    2,
+    6,
+    2,
+    2,
+    4
+   ],
+   "hitFrame": 1,
+   "returnFrame": 3,
+   "sheet": "Shoot"
+  },
+  "Withdraw": {
+   "w": 52,
+   "h": 44,
+   "dirs": 8,
+   "durations": [
+    20,
+    2,
+    2,
+    1,
+    1,
+    2,
+    2
+   ],
+   "hitFrame": 1,
+   "sheet": "Withdraw"
+  },
+  "Sleep": {
+   "w": 52,
+   "h": 60,
+   "dirs": 1,
+   "durations": [
+    30,
+    35
+   ],
+   "sheet": "Sleep"
+  },
+  "Hurt": {
+   "w": 60,
+   "h": 60,
+   "dirs": 8,
+   "durations": [
+    2,
+    8
+   ],
+   "sheet": "Hurt"
+  },
+  "Idle": {
+   "w": 60,
+   "h": 60,
+   "dirs": 8,
+   "durations": [
+    32,
+    12,
+    4,
+    4,
+    4,
+    4,
+    4,
+    8
+   ],
+   "sheet": "Idle"
+  },
+  "Swing": {
+   "w": 100,
+   "h": 100,
+   "dirs": 8,
+   "durations": [
+    2,
+    1,
+    2,
+    2,
+    3,
+    2,
+    2,
+    1,
+    1
+   ],
+   "hitFrame": 5,
+   "returnFrame": 5,
+   "sheet": "Swing"
+  },
+  "Double": {
+   "w": 84,
+   "h": 84,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    2,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "sheet": "Double"
+  },
+  "Hop": {
+   "w": 52,
+   "h": 108,
+   "dirs": 8,
+   "durations": [
+    2,
+    1,
+    2,
+    3,
+    4,
+    4,
+    3,
+    2,
+    1,
+    2
+   ],
+   "hitFrame": 9,
+   "sheet": "Hop"
+  },
+  "Charge": {
+   "w": 60,
+   "h": 60,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 5,
+   "returnFrame": 9,
+   "sheet": "Charge"
+  },
+  "Rotate": {
+   "w": 52,
+   "h": 60,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 8,
+   "sheet": "Rotate"
+  }
+ }
+}

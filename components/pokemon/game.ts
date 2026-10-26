@@ -4085,19 +4085,6 @@ export class BattleGame {
         g.line(f.x + 9 * k, f.y - 12 * k, f.x + 15 * k, f.y - 12 * k, "#a1a1aa", 2);
         g.dot(f.x + 12 * k, top - 6 * k - Math.sin(t * 5) * 3 * k, GHOST[1], 2);
       }
-      if (f.mega && f.species === "blastoise" && f.state !== "faint" && f.state !== "recall") {
-        // Mega Blastoise's great shell cannon, swivelling to aim
-        const a = f.aimAngle || f.face;
-        const bx = f.x;
-        const by = f.y - f.z - 24 * k;
-        const ex = bx + Math.cos(a) * 16 * k;
-        const ey = by + Math.sin(a) * 9 * k;
-        g.line(bx, by, ex, ey, "#1f2937", 6);
-        g.line(bx, by, ex, ey, "#9ca3af", 4);
-        g.line(bx, by, ex, ey, "#e5e7eb", 1);
-        g.disc(ex, ey, 3 * k, "#1f2937");
-        g.disc(ex, ey, 1.5 * k, "#0c2c70");
-      }
     }
     const fin = this.finale;
     if (!fin?.mega) return;

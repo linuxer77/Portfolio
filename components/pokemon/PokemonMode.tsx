@@ -121,11 +121,11 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
       loadMon("gengar"),
       loadMon("charizard", "charizard-mega"),
       loadMon("gengar", "gengar-mega"),
+      loadMon("blastoise", "blastoise-mega"),
     ])
-      .then(([charizard, blastoise, gengar, megaCharizard, megaGengar]) => {
+      .then(([charizard, blastoise, gengar, megaCharizard, megaGengar, megaBlastoise]) => {
         if (cancelled) return;
-        // there's no Mega Blastoise sprite: it keeps its own, with a cannon drawn on
-        const megas = { charizard: megaCharizard, gengar: megaGengar };
+        const megas = { charizard: megaCharizard, gengar: megaGengar, blastoise: megaBlastoise };
         gameRef.current = new BattleGame(canvas, { charizard, blastoise, gengar }, megas, sound, setEnd, shake);
         gameRef.current.setTouch(window.matchMedia("(pointer: coarse)").matches);
         gameRef.current.onMega = (id) => {
