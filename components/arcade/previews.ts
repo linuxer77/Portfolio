@@ -2,10 +2,12 @@ import type { ArcadeGame } from "@/lib/arcade";
 import { Disk } from "../blackhole/disk";
 import { drawSprite, loadAtlas, type Atlas as DoomAtlas } from "../doom/assets";
 import { drawFrame, loadAtlases, type Atlas } from "../streetfighter/assets";
+import { drawMon, frameAt, loadMon } from "../pokemon/sprites";
 
 // ==========================================
 // The arcade cards' live previews: a few seconds of each game, looping, drawn small with the
-// game's own art (Ryu and Scorpion from their atlases, DOOM's imp, the black hole's real disk).
+// game's own art (Ryu and Scorpion from their atlases, DOOM's imp, the black hole's real disk,
+// Charizard and Blastoise from their sheets).
 // Each preview loads what it needs the first time it's drawn and shows a blank card until then.
 // ==========================================
 
@@ -47,6 +49,103 @@ function lazy<T>(load: () => Promise<T>) {
         .catch(() => {});
     }
     return value;
+  };
+}
+
+function pokemon(): Preview {
+  const mons = lazy(() => Promise.all([loadMon("charizard"), loadMon("blastoise")]));
+  let t = 0;
+  const flames: { x: number; y: number; vx: number; vy: number; life: number }[] = [];
+  return {
+    draw(ctx, dt, w, h, font) {
+      t += dt;
+      pageText(ctx, w, h, font, 0.3);
+      const m = mons();
+      if (!m) return;
+      const [charizard, blastoise] = m;
+      const k = h / 70;
+      const c = t % 4;
+      // Flamethrower meets Hydro Pump in the middle: steam
+      const firing = c > 1 && c < 2.6;
+      const cx = w * 0.27;
+      const bx = w * 0.73;
+      const y = h * 0.62;
+      for (const [x, yy] of [
+        [cx, y],
+        [bx, y - h * 0.08],
+      ]) {
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.beginPath();
+        ctx.ellipse(x, yy, 13 * k, 4.5 * k, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const mid = w * 0.5;
+      if (firing) {
+        for (let i = 0; i < 3; i++)
+          flames.push({
+            x: cx + 14 * k,
+            y: y - 8 * k,
+            vx: (mid - cx) * 2.4,
+            vy: (Math.random() - 0.5) * 30,
+            life: 0.4,
+          });
+        ctx.save();
+        ctx.lineCap = "round";
+        for (const [lw, col] of [
+          [8, "rgba(56,189,248,0.8)"],
+          [3, "rgba(240,249,255,0.95)"],
+        ] as const) {
+          ctx.strokeStyle = col;
+          ctx.lineWidth = lw * k * 0.5;
+          ctx.beginPath();
+          ctx.moveTo(bx - 12 * k, y - h * 0.08 - 8 * k);
+          ctx.lineTo(mid + 4, y - 8 * k);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "rgba(226,232,240,0.5)";
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.arc(mid + Math.sin(t * 9 + i) * 6, y - 8 * k - i * 5 - ((t * 30) % 10), 3 + i * 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (const f of flames) {
+        f.life -= dt;
+        f.x = Math.min(mid, f.x + f.vx * dt);
+        f.y += f.vy * dt;
+        const a = Math.max(0, f.life / 0.4);
+        ctx.fillStyle = a > 0.6 ? `rgba(255,240,180,${a})` : `rgba(249,115,22,${a})`;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, (1 - a) * 5 + 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      for (let i = flames.length - 1; i >= 0; i--) if (flames[i].life <= 0) flames.splice(i, 1);
+      const shoot = (mon: typeof charizard) => Math.min(frameAt(mon.anims.Shoot, c - 1, false), 3);
+      drawMon(
+        ctx,
+        charizard,
+        firing ? "Shoot" : "Idle",
+        2,
+        firing ? shoot(charizard) : frameAt(charizard.anims.Idle, t),
+        cx,
+        y,
+        k
+      );
+      drawMon(
+        ctx,
+        blastoise,
+        firing ? "Shoot" : "Idle",
+        6,
+        firing ? shoot(blastoise) : frameAt(blastoise.anims.Idle, t),
+        bx,
+        y - h * 0.08,
+        k
+      );
+    },
   };
 }
 
@@ -285,6 +384,7 @@ function doom(): Preview {
 
 export function makePreviews(): Record<ArcadeGame, Preview> {
   return {
+    pokemon: pokemon(),
     blackhole: blackHole(),
     life: life(),
     kombat: kombat(),

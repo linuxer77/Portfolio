@@ -2,11 +2,14 @@ import { docBox, glyphOf, textNodes, type Box, type Glyph } from "../doom/page";
 import { Rewind } from "../arcade/rewind";
 
 // ==========================================
-// Page damage for the fighting modes (Street Fighter and Mortal Kombat): every blow lands on
-// the portfolio as well as the opponent. Letters are knocked off as rubble that piles up on the
-// arena floor, skill tags burst, image boxes crack and shatter; ice frosts letters over so the
-// next hit shatters them, fire burns them down to embers. Like DOOM mode, nothing in the DOM
-// is changed: damage is drawn on the game canvas, and on the way out every piece flies home.
+// Page damage for the fighting modes (Street Fighter, Mortal Kombat, Pokémon): every blow lands
+// on the portfolio as well as the opponent. Letters are knocked off as rubble that piles up on
+// the arena floor, skill tags burst, image boxes crack and shatter; ice frosts letters over so
+// the next hit shatters them, fire burns them down to embers. Like DOOM mode, nothing in the
+// DOM is changed: damage is drawn on the game canvas, and on the way out every piece flies home.
+//
+// Seen side-on, rubble falls to the floor. Seen from above (`topDown`, for Pokémon), the page
+// is the floor: rubble pops up, lands, skids to a stop, and is scuffed about by the fighters.
 // ==========================================
 
 const GRAVITY = 1800;
@@ -14,8 +17,9 @@ const MAX_RUBBLE = 1200;
 const SOLID_HP = 6;
 const BUMP_HP = 2;
 const BURN_TIME = 0.7;
+const FRICTION = 5; // top-down: how fast skidding rubble stops, 1/s
 
-type Tint = "ice" | "ember";
+type Tint = "ice" | "ember" | "water" | "poison";
 
 interface Rubble {
   img: HTMLCanvasElement;
@@ -28,6 +32,9 @@ interface Rubble {
   rot: number;
   vr: number;
   rest: boolean;
+  /** top-down: height above the page, and its speed */
+  z?: number;
+  vz?: number;
   /** where it came from on the page and how it looked there, for the rewind */
   home?: Box;
   homeImg?: HTMLCanvasElement;
@@ -111,7 +118,10 @@ export class PageWreck {
   private parked: Rubble[] = [];
   private homecoming = new Rewind();
 
-  constructor(private onShatter: (strength: number) => void) {}
+  constructor(
+    private onShatter: (strength: number) => void,
+    private topDown = false
+  ) {}
 
   reset() {
     this.destroyed = 0;
@@ -155,6 +165,36 @@ export class PageWreck {
    * away from (fromX, fromY), and deals `power` to any box it touches. Returns letters hit.
    */
   blast(x: number, y: number, radius: number, power: number, fromX = x, fromY = y + 20, limit = 120) {
+    const n = this.hitTargets(x, y, radius, power, fromX, fromY);
+    return n + this.eachGlyph(x, y, radius, limit - n, (g) => this.knockOff(g, fromX, fromY, 260 + power * 90));
+  }
+
+  /** Water: letters in range are washed off along (dirX, dirY), soaked blue. */
+  wash(x: number, y: number, radius: number, dirX: number, dirY: number, power = 1, limit = 80) {
+    // pushed from far behind, so they all stream the same way
+    const fromX = x - dirX * 600;
+    const fromY = y - dirY * 600;
+    const n = this.hitTargets(x, y, radius, power, fromX, fromY);
+    return n + this.eachGlyph(x, y, radius, limit - n, (g) => this.knockOff(g, fromX, fromY, 380, "water"));
+  }
+
+  /** Letters only, no boxes: knocked off flying away from (fromX, fromY). For cuts and tremors. */
+  knock(x: number, y: number, radius: number, fromX: number, fromY: number, force = 300, limit = 20) {
+    return this.eachGlyph(x, y, radius, limit, (g) => this.knockOff(g, fromX, fromY, force));
+  }
+
+  /** Poison: letters in range melt off the page, oozing slowly away. */
+  dissolve(x: number, y: number, radius: number, limit = 30) {
+    return this.eachGlyph(x, y, radius, limit, (g) => this.knockOff(g, x, y, 90, "poison"));
+  }
+
+  /** A crater punched into the page (top-down slams): a dark pit with cracks running out. */
+  crater(x: number, y: number, r: number) {
+    this.dents.push({ x, y, r });
+  }
+
+  /** Damages the boxes in range; skill tags burst. Returns letters knocked off. */
+  private hitTargets(x: number, y: number, radius: number, power: number, fromX: number, fromY: number) {
     let n = 0;
     for (const t of this.targets) {
       if (this.broken.has(t.el) || !near(t.box, x, y, radius)) continue;
@@ -173,7 +213,7 @@ export class PageWreck {
         });
       }
     }
-    return n + this.eachGlyph(x, y, radius, limit - n, (g) => this.knockOff(g, fromX, fromY, 260 + power * 90));
+    return n;
   }
 
   /** Ice: letters in range frost over, and shatter into ice the next time they're hit. */
@@ -216,6 +256,23 @@ export class PageWreck {
     }
   }
 
+  /** Top-down: a fighter moving through debris sends the pieces around it skidding. */
+  scuff(x: number, y: number, radius: number, vx: number, vy: number) {
+    for (const r of this.rubble) {
+      if (!r.rest) continue;
+      const dx = r.x - x;
+      const dy = r.y - y;
+      const d = Math.hypot(dx, dy);
+      if (d > radius) continue;
+      const out = (1 - d / radius) * 220 + 40;
+      r.rest = false;
+      r.vx = vx * rand(0.5, 1.1) + (dx / (d || 1)) * out;
+      r.vy = vy * rand(0.5, 1.1) + (dy / (d || 1)) * out;
+      r.vz = rand(40, 140);
+      r.vr = rand(-8, 8);
+    }
+  }
+
   /** Debris falls to the arena floor (document px) or the bottom of the page. */
   update(dt: number, floor: number) {
     const docH = document.documentElement.scrollHeight;
@@ -231,6 +288,7 @@ export class PageWreck {
       this.dents = [];
       this.frost = [];
     }
+    if (this.topDown) return this.slide(dt);
     for (const r of this.rubble) {
       if (r.rest) continue;
       const prevBottom = r.y + r.h / 2;
@@ -252,6 +310,43 @@ export class PageWreck {
         r.vx *= 0.5;
         r.vr *= 0.5;
       }
+    }
+  }
+
+  /** Top-down rubble: pops up off the page, bounces, and skids to a stop. */
+  private slide(dt: number) {
+    const docW = document.documentElement.scrollWidth;
+    const docH = document.documentElement.scrollHeight;
+    const drag = Math.exp(-FRICTION * dt);
+    for (const r of this.rubble) {
+      if (r.rest) continue;
+      r.x = Math.max(0, Math.min(docW, r.x + r.vx * dt));
+      r.y = Math.max(0, Math.min(docH, r.y + r.vy * dt));
+      r.rot += r.vr * dt;
+      let z = r.z ?? 0;
+      let vz = r.vz ?? 0;
+      if (z > 0 || vz > 0) {
+        vz -= GRAVITY * dt;
+        z += vz * dt;
+        if (z <= 0) {
+          z = 0;
+          // a hard landing bounces; a soft one settles into a skid
+          vz = vz < -160 ? -vz * 0.35 : 0;
+          r.vx *= 0.7;
+          r.vy *= 0.7;
+          r.vr *= 0.6;
+        }
+      } else {
+        r.vx *= drag;
+        r.vy *= drag;
+        r.vr *= drag;
+        if (Math.hypot(r.vx, r.vy) < 10) {
+          r.rest = true;
+          r.vx = r.vy = 0;
+        }
+      }
+      r.z = z;
+      r.vz = vz;
     }
   }
 
@@ -307,7 +402,10 @@ export class PageWreck {
     for (const r of this.rubble) {
       if (r.y < top || r.y > bottom) continue;
       ctx.save();
-      ctx.translate(r.x, r.y);
+      // top-down, a piece in the air is drawn above its spot, a little bigger
+      const z = r.z ?? 0;
+      ctx.translate(r.x, r.y - z);
+      if (z > 0) ctx.scale(1 + z / 300, 1 + z / 300);
       ctx.rotate(r.rot);
       ctx.drawImage(r.img, -r.w / 2, -r.h / 2, r.w, r.h);
       ctx.restore();
@@ -397,8 +495,18 @@ export class PageWreck {
       y: cy,
       w: g.box.w,
       h: g.box.h,
-      vx: ((cx - fromX) / d) * force + rand(-60, 60),
-      vy: -Math.abs(((cy - fromY) / d) * force) * 0.6 - rand(100, 300),
+      ...(this.topDown
+        ? {
+            // out across the page, popping up off it
+            vx: ((cx - fromX) / d) * force * rand(0.5, 1) + rand(-40, 40),
+            vy: ((cy - fromY) / d) * force * rand(0.5, 1) + rand(-40, 40),
+            z: 0,
+            vz: rand(0.3, 0.8) * force,
+          }
+        : {
+            vx: ((cx - fromX) / d) * force + rand(-60, 60),
+            vy: -Math.abs(((cy - fromY) / d) * force) * 0.6 - rand(100, 300),
+          }),
       rot: 0,
       vr: rand(-12, 12),
       rest: false,
@@ -419,7 +527,16 @@ export class PageWreck {
     const c = img.getContext("2d")!;
     c.scale(dpr, dpr);
     c.font = g.font;
-    c.fillStyle = tint === "ice" ? "#bae6fd" : tint === "ember" ? "#c2410c" : g.color;
+    c.fillStyle =
+      tint === "ice"
+        ? "#bae6fd"
+        : tint === "ember"
+          ? "#c2410c"
+          : tint === "water"
+            ? "#38bdf8"
+            : tint === "poison"
+              ? "#b860f0"
+              : g.color;
     c.textAlign = "center";
     c.textBaseline = "middle";
     c.fillText(g.char, (g.box.w + 2) / 2, (g.box.h + 2) / 2 + 1);
@@ -451,7 +568,9 @@ export class PageWreck {
     this.broken.add(t.el);
     const { snap, image } = snapshotBox(t.el, t.box);
     const b = t.box;
-    this.pieces(snap, [0, 0, snap.width, snap.height], b, image ? 5 : 2, image ? 3 : 2);
+    // from above the pieces lie on the page, so a box breaks finer and stays closer to home
+    const [cols, rows] = image ? (this.topDown ? [9, 6] : [5, 3]) : [2, 2];
+    this.pieces(snap, [0, 0, snap.width, snap.height], b, cols, rows);
     this.holes.push({ x: b.x - 1, y: b.y - 1, w: b.w + 2, h: b.h + 2 });
     this.dents = this.dents.filter((d) => !near(b, d.x, d.y, 0));
     this.onShatter(image ? 9 : 3);
@@ -507,8 +626,17 @@ export class PageWreck {
           y: cy,
           w: pw,
           h: ph,
-          vx: (cx - (to.x + to.w / 2)) * 2.4 + rand(-80, 80),
-          vy: -rand(200, 520) + (cy - (to.y + to.h / 2)),
+          ...(this.topDown
+            ? {
+                vx: (cx - (to.x + to.w / 2)) * 1.3 + rand(-60, 60),
+                vy: (cy - (to.y + to.h / 2)) * 1.3 + rand(-60, 60),
+                z: 0,
+                vz: rand(150, 320),
+              }
+            : {
+                vx: (cx - (to.x + to.w / 2)) * 2.4 + rand(-80, 80),
+                vy: -rand(200, 520) + (cy - (to.y + to.h / 2)),
+              }),
           rot: 0,
           vr: rand(-4, 4),
           rest: false,

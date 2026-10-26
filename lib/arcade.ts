@@ -5,7 +5,7 @@
 // which the toast listens for, so games don't need to know about the toast at all.
 // ==========================================
 
-export type ArcadeGame = "blackhole" | "life" | "kombat" | "fight" | "doom";
+export type ArcadeGame = "pokemon" | "blackhole" | "life" | "kombat" | "fight" | "doom";
 
 export interface GameInfo {
   id: ArcadeGame;
@@ -18,6 +18,14 @@ export interface GameInfo {
 }
 
 export const GAMES: GameInfo[] = [
+  {
+    id: "pokemon",
+    title: "Pokémon Arena",
+    command: "pokemon",
+    pitch: "Charizard, Blastoise and Gengar, live and seen from above. Every move tears the page up.",
+    players: "1P",
+    record: { label: "fastest win", better: "min", time: true },
+  },
   {
     id: "blackhole",
     title: "Black Hole",
@@ -68,6 +76,10 @@ export interface Achievement {
 }
 
 export const ACHIEVEMENTS: Achievement[] = [
+  { id: "poke-win", game: "pokemon", title: "Champion", detail: "Win a Pokémon battle" },
+  { id: "poke-underdog", game: "pokemon", title: "Type Disadvantage", detail: "Beat Blastoise with Charizard" },
+  { id: "poke-untouchable", game: "pokemon", title: "Untouchable", detail: "Win with over half your HP left" },
+  { id: "poke-haunted", game: "pokemon", title: "Haunted", detail: "Win a battle with Gengar" },
   { id: "hole-bang", game: "blackhole", title: "Big Bang", detail: "Collapse a black hole" },
   { id: "hole-image", game: "blackhole", title: "Spaghettified", detail: "Tear an image apart" },
   { id: "hole-500", game: "blackhole", title: "Event Horizon", detail: "Swallow 500 letters in one hole" },

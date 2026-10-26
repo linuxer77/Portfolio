@@ -41,6 +41,7 @@ const DoomMode = dynamic(() => import("@/components/doom/DoomMode"), { ssr: fals
 const StreetFighterMode = dynamic(() => import("@/components/streetfighter/StreetFighterMode"), { ssr: false });
 const KombatMode = dynamic(() => import("@/components/mortalkombat/KombatMode"), { ssr: false });
 const BlackHoleMode = dynamic(() => import("@/components/blackhole/BlackHoleMode"), { ssr: false });
+const PokemonMode = dynamic(() => import("@/components/pokemon/PokemonMode"), { ssr: false });
 const LifeMode = dynamic(() => import("@/components/life/LifeMode"), { ssr: false });
 const ArcadeMenu = dynamic(() => import("@/components/arcade/ArcadeMenu"), { ssr: false });
 import AchievementToast from "@/components/arcade/AchievementToast";
@@ -437,6 +438,7 @@ function TerminalDrawer({
   exit
 
 ARCADE:
+  pokemon  (charizard vs blastoise, live)
   doom     (shoot the site!)
   fight    (street fighter, 1P or 2P)
   mk3      (mortal kombat, 1P or 2P)
@@ -568,6 +570,15 @@ ARCADE:
       case "conway":
       case "gameoflife":
         onLaunch("life");
+        onClose();
+        return;
+
+      case "pokemon":
+      case "poke":
+      case "pokemon-arena":
+      case "charizard":
+      case "blastoise":
+        onLaunch("pokemon");
         onClose();
         return;
 
@@ -1417,6 +1428,7 @@ export default function MinimalView() {
       {playing === "kombat" && <KombatMode onClose={stopPlaying} />}
       {playing === "blackhole" && <BlackHoleMode onClose={stopPlaying} />}
       {playing === "life" && <LifeMode onClose={stopPlaying} />}
+      {playing === "pokemon" && <PokemonMode onClose={stopPlaying} />}
       {arcadeOpen && !playing && <ArcadeMenu onLaunch={launch} onClose={() => setArcadeOpen(false)} />}
       <AchievementToast />
 
