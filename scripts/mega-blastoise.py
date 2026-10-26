@@ -61,31 +61,31 @@ def cannon(size, box, row):
         # all we see is its muzzle peeking up above
         bx = PAD + (l + r) / 2 + dx * 2
         by = PAD + t + 3
-        tx = bx + dx * 5
-        ty = PAD + t - 6
+        tx = bx + dx * 4
+        ty = PAD + t - 4
     else:
         # the barrel runs forward along the facing, over the head: level side-on, and
         # foreshortened (rising up the screen) when it points away from us
-        length = 15 if row in (2, 6) else 13
-        lift = 3 if row in (2, 6) else 7
+        length = 11 if row in (2, 6) else 9
+        lift = 2 if row in (2, 6) else 5
         tx = bx + dx * length
         ty = by + dy * length * 0.45 - lift
-    thick(d, bx, by, tx, ty, 4, OUTLINE)
-    thick(d, bx, by, tx, ty, 3, DARK)
-    thick(d, bx - 0.5, by - 1, tx - 0.5, ty - 1, 2, MID)
-    thick(d, bx - 1, by - 2, tx - 1, ty - 2, 0.5, LIGHT)
+    thick(d, bx, by, tx, ty, 3, OUTLINE)
+    thick(d, bx, by, tx, ty, 2, DARK)
+    thick(d, bx - 0.5, by - 0.5, tx - 0.5, ty - 0.5, 1, MID)
+    thick(d, bx - 1, by - 1.5, tx - 1, ty - 1.5, 0, LIGHT)
     # the muzzle, opening toward wherever it points
-    big = 5 if row in (0, 1, 7) else 4
+    big = 4 if row in (0, 1, 7) else 3
     disc(d, tx, ty, big, OUTLINE)
     disc(d, tx, ty, big - 1, MID)
     if dy > 0.3:
-        disc(d, tx, ty + 0.5, 2, HOLE)  # pointing at us: we look down the barrel
+        disc(d, tx, ty + 0.5, 1.5, HOLE)  # pointing at us: we look down the barrel
     else:
-        disc(d, tx + dx * 1.5, ty + dy * 1.5, 1.5, DARK)
+        disc(d, tx + dx, ty + dy, 1, DARK)
     # the mount, bolted to the shell
-    disc(d, bx, by + 1, 4, OUTLINE)
-    disc(d, bx, by + 1, 3, MOUNT)
-    disc(d, bx - 1, by, 1, MOUNT_LIGHT)
+    disc(d, bx, by + 1, 3, OUTLINE)
+    disc(d, bx, by + 1, 2, MOUNT)
+    disc(d, bx - 1, by, 0.5, MOUNT_LIGHT)
     return layer
 
 
@@ -124,7 +124,8 @@ for name, a in meta["anims"].items():
         sheets_done[sheet] = True
     out["anims"][name] = {**a, "w": nw, "h": nh}
 json.dump(out, open(os.path.join(DST, "anims.json"), "w"), indent=1)
-shutil.copy(PORTRAIT, os.path.join(DST, "portrait.png"))
+if os.path.abspath(PORTRAIT) != os.path.abspath(os.path.join(DST, "portrait.png")):
+    shutil.copy(PORTRAIT, os.path.join(DST, "portrait.png"))
 
 # a preview: Idle and Walk, every direction, 4x
 prev = Image.new("RGBA", (8 * 60 * 4, 2 * 60 * 4), (70, 70, 90, 255))
