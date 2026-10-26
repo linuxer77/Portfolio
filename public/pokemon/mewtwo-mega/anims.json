@@ -1,0 +1,223 @@
+{
+ "name": "mewtwo-mega",
+ "anims": {
+  "Walk": {
+   "w": 40,
+   "h": 56,
+   "dirs": 8,
+   "durations": [
+    12,
+    8,
+    8,
+    12,
+    8,
+    8
+   ],
+   "sheet": "Walk"
+  },
+  "Attack": {
+   "w": 80,
+   "h": 88,
+   "dirs": 8,
+   "durations": [
+    2,
+    3,
+    4,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 4,
+   "rushFrame": 2,
+   "returnFrame": 7,
+   "sheet": "Attack"
+  },
+  "Shoot": {
+   "w": 48,
+   "h": 56,
+   "dirs": 8,
+   "durations": [
+    3,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    3
+   ],
+   "hitFrame": 6,
+   "returnFrame": 8,
+   "sheet": "Shoot"
+  },
+  "Pose": {
+   "w": 40,
+   "h": 56,
+   "dirs": 8,
+   "durations": [
+    6,
+    6,
+    6,
+    6,
+    10,
+    8,
+    10,
+    8,
+    8,
+    8,
+    8,
+    8,
+    6,
+    6,
+    6,
+    6
+   ],
+   "hitFrame": 4,
+   "returnFrame": 9,
+   "sheet": "Pose"
+  },
+  "Sleep": {
+   "w": 32,
+   "h": 40,
+   "dirs": 1,
+   "durations": [
+    30,
+    35,
+    30
+   ],
+   "sheet": "Sleep"
+  },
+  "Hurt": {
+   "w": 48,
+   "h": 64,
+   "dirs": 8,
+   "durations": [
+    2,
+    8
+   ],
+   "sheet": "Hurt"
+  },
+  "Idle": {
+   "w": 48,
+   "h": 56,
+   "dirs": 8,
+   "durations": [
+    20,
+    15,
+    12,
+    12,
+    12,
+    15,
+    12,
+    15
+   ],
+   "sheet": "Idle"
+  },
+  "Swing": {
+   "w": 80,
+   "h": 88,
+   "dirs": 8,
+   "durations": [
+    2,
+    1,
+    2,
+    2,
+    3,
+    2,
+    2,
+    1,
+    1
+   ],
+   "hitFrame": 5,
+   "returnFrame": 5,
+   "sheet": "Swing"
+  },
+  "Double": {
+   "w": 64,
+   "h": 80,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    2,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "sheet": "Double"
+  },
+  "Hop": {
+   "w": 40,
+   "h": 104,
+   "dirs": 8,
+   "durations": [
+    2,
+    1,
+    2,
+    3,
+    4,
+    4,
+    3,
+    2,
+    1,
+    2
+   ],
+   "hitFrame": 9,
+   "sheet": "Hop"
+  },
+  "Charge": {
+   "w": 40,
+   "h": 56,
+   "dirs": 8,
+   "durations": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+   ],
+   "hitFrame": 5,
+   "returnFrame": 9,
+   "sheet": "Charge"
+  },
+  "Rotate": {
+   "w": 48,
+   "h": 48,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 8,
+   "sheet": "Rotate"
+  }
+ }
+}

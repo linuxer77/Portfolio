@@ -22,7 +22,8 @@ export const GAMES: GameInfo[] = [
     id: "pokemon",
     title: "Pokémon Arena",
     command: "pokemon",
-    pitch: "Charizard, Blastoise and Gengar, live and seen from above. Every move tears the page up.",
+    pitch:
+      "Charizard, Blastoise, Gengar and Mewtwo, live and seen from above, with Mega Evolution. Every move tears the page up.",
     players: "1P",
     record: { label: "fastest win", better: "min", time: true },
   },
@@ -80,6 +81,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: "poke-underdog", game: "pokemon", title: "Type Disadvantage", detail: "Beat Blastoise with Charizard" },
   { id: "poke-untouchable", game: "pokemon", title: "Untouchable", detail: "Win with over half your HP left" },
   { id: "poke-haunted", game: "pokemon", title: "Haunted", detail: "Win a battle with Gengar" },
+  { id: "poke-mewtwo", game: "pokemon", title: "Genetic Pokémon", detail: "Win a battle with Mewtwo" },
   { id: "hole-bang", game: "blackhole", title: "Big Bang", detail: "Collapse a black hole" },
   { id: "hole-image", game: "blackhole", title: "Spaghettified", detail: "Tear an image apart" },
   { id: "hole-500", game: "blackhole", title: "Event Horizon", detail: "Swallow 500 letters in one hole" },

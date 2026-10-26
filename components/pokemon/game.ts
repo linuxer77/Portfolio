@@ -45,8 +45,8 @@ const BODY = 15; // body radius, sprite px
 const HIGH = 35; // above this (sprite px) a flyer is out of reach of ground moves
 const DAMAGE = 0.6; // scales every move, so a battle lasts long enough to read
 const CUTIN = 0.95; // how long a Burst's cut-in holds the battle, s
-const FINALE: Record<Species, number> = { charizard: 2.2, blastoise: 2.7, gengar: 2.3 };
-const MEGA_FINALE: Record<Species, number> = { charizard: 3.0, blastoise: 3.3, gengar: 3.3 };
+const FINALE: Record<Species, number> = { charizard: 2.2, blastoise: 2.7, gengar: 2.3, mewtwo: 2.6 };
+const MEGA_FINALE: Record<Species, number> = { charizard: 3.0, blastoise: 3.3, gengar: 3.3, mewtwo: 3.4 };
 const MEGA_AT = 0.4; // Mega Evolution unlocks below this much HP
 
 type State =
@@ -68,6 +68,9 @@ type State =
   | "dash"
   | "buff"
   | "sneak"
+  | "psy"
+  | "blink"
+  | "zen"
   | "dodge"
   | "hurt"
   | "faint"
@@ -128,13 +131,29 @@ interface Fighter {
   curseTick: number;
   /** Water Pulse: confused, controls reversed, s */
   confused: number;
+  /** Mewtwo's Barrier: blocks hits and bounces projectiles back, s */
+  barrier: number;
+  /** held in the air by psychic power (Psychic, Psystrike, Shattered Psyche), s */
+  held: number;
   input: { x: number; y: number };
   trail: { x: number; y: number; z: number; a: number }[];
   ai: { think: number; strafe: number; strafeT: number; react: number; dive: number };
   stats: { dealt: number; supers: number };
 }
 
-type PKind = "flame" | "spark" | "drop" | "foam" | "smoke" | "rock" | "ice" | "wisp" | "bubble" | "zap" | "steam";
+type PKind =
+  | "flame"
+  | "spark"
+  | "drop"
+  | "foam"
+  | "smoke"
+  | "rock"
+  | "ice"
+  | "wisp"
+  | "bubble"
+  | "zap"
+  | "steam"
+  | "psy";
 
 /** How much a projectile weighs in a collision: the lighter one is destroyed, equals both go. */
 const MASS: Record<Shot["kind"], number> = {
@@ -142,6 +161,8 @@ const MASS: Record<Shot["kind"], number> = {
   aura: 3,
   hex: 2,
   waterpulse: 2,
+  psyshard: 1,
+  star: 1,
   fireblast: 3,
   shadowball: 3,
   sludge: 2,
@@ -167,7 +188,18 @@ interface Particle {
 
 /** Things in flight: Fire Blast, Air Slash blades, Shadow Balls, Sludge Bombs, Hypnosis rings. */
 interface Shot {
-  kind: "fireblast" | "slash" | "shadowball" | "sludge" | "hypno" | "dragonpulse" | "aura" | "hex" | "waterpulse";
+  kind:
+    | "fireblast"
+    | "slash"
+    | "shadowball"
+    | "sludge"
+    | "hypno"
+    | "dragonpulse"
+    | "aura"
+    | "hex"
+    | "waterpulse"
+    | "psyshard"
+    | "star";
   owner: 0 | 1;
   x: number;
   y: number;
@@ -186,7 +218,7 @@ interface Shot {
 
 /** Explosions and shockwaves that play out over time. */
 interface Burst {
-  kind: "blastburn" | "daikanji" | "quake" | "shadow" | "darkpulse" | "sludgewave";
+  kind: "blastburn" | "daikanji" | "quake" | "shadow" | "darkpulse" | "sludgewave" | "futuresight" | "psywave";
   owner: 0 | 1;
   x: number;
   y: number;
@@ -233,7 +265,7 @@ interface Wave {
 
 /** Melee flourishes: claw streaks, snapping fangs, a lick. */
 interface Swipe {
-  kind: "claw" | "fang" | "lick" | "tail" | "aqua" | "shadowclaw";
+  kind: "claw" | "fang" | "lick" | "tail" | "aqua" | "shadowclaw" | "psycut";
   x: number;
   y: number;
   angle: number;
@@ -317,6 +349,8 @@ export class BattleGame {
   onMega: ((id: 0 | 1) => void) | null = null;
   /** Blast Burn's fire geysers */
   private geysers: { x: number; y: number; t: number }[] = [];
+  /** Thunderbolt's lightning, for the moment it's on screen */
+  private bolts: { x0: number; y0: number; x1: number; y1: number; t: number; seed: number }[] = [];
   /** how flooded the screen is after Surf, 0 to 1 */
   private flood = 0;
   private ground = new PixelLayer();
@@ -403,6 +437,7 @@ export class BattleGame {
     this.cutin = null;
     this.finale = null;
     this.geysers = [];
+    this.bolts = [];
     this.flood = 0;
     this.megaHint = false;
     this.invertPage(false);
@@ -503,6 +538,8 @@ export class BattleGame {
       curse: 0,
       curseTick: 0,
       confused: 0,
+      barrier: 0,
+      held: 0,
       input: { x: 0, y: 0 },
       trail: [],
       ai: { think: 0.5, strafe: 1, strafeT: 1, react: 0, dive: 0 },
@@ -601,6 +638,8 @@ export class BattleGame {
     this.updateWaves(dt);
     this.updateFinale(dt);
     this.updateParticles(dt);
+    for (const b of this.bolts) b.t += dt;
+    this.bolts = this.bolts.filter((b) => b.t < 0.3);
     for (const gy of this.geysers) gy.t += dt;
     this.geysers = this.geysers.filter((gy) => gy.t < 0.55);
     for (const s of this.swipes) s.t += dt;
@@ -633,6 +672,7 @@ export class BattleGame {
     f.tintColour = "#fff";
     this.sound.ballOpen();
     if (f.species === "gengar") this.sound.cackle();
+    else if (f.species === "mewtwo") this.sound.mewtwoCry();
     else this.sound.roar(f.species === "blastoise");
     this.flashes.push({ x: f.x, y: f.y, t: 0, r: 40 * this.k, colour: "#fff" });
     for (let i = 0; i < 18; i++) {
@@ -842,6 +882,8 @@ export class BattleGame {
       this.sound.cutin();
       if (sp === "gengar") this.sound.cackle();
       else this.sound.roar(sp === "blastoise");
+    } else if (sp === "mewtwo") {
+      this.mewtwoMove(f, slot);
     } else if ((sp === "charizard" && slot === "s1") || (sp === "blastoise" && (slot === "s1" || slot === "s3"))) {
       f.state = "stream";
       if (sp === "charizard") this.sound.flame(0.95);
@@ -884,6 +926,11 @@ export class BattleGame {
   /** The animation a cast plays, and when in it the move comes out. */
   private castAnim(f: Fighter) {
     if (f.mega) return this.megaCastAnim(f);
+    if (f.species === "mewtwo") {
+      const name = this.anim(f, f.move === "s4" ? "Pose" : "Charge");
+      const anim = f.mon.anims[name];
+      return { name, anim, at: 0.18, len: Math.max(anim.length, 0.4) };
+    }
     const name =
       f.species === "charizard"
         ? f.move === "s3"
@@ -916,7 +963,14 @@ export class BattleGame {
           const px = f.x + Math.cos(f.aimAngle) * reach * k;
           const py = f.y + Math.sin(f.aimAngle) * reach * k;
           this.swipes.push({
-            kind: f.species === "charizard" ? "claw" : f.species === "blastoise" ? "fang" : "lick",
+            kind:
+              f.species === "charizard"
+                ? "claw"
+                : f.species === "blastoise"
+                  ? "fang"
+                  : f.species === "mewtwo"
+                    ? "psycut"
+                    : "lick",
             x: px,
             y: py,
             angle: f.aimAngle,
@@ -950,6 +1004,11 @@ export class BattleGame {
       case "buff":
       case "sneak":
         this.megaAct(f, o, dt);
+        break;
+      case "psy":
+      case "blink":
+      case "zen":
+        this.mewtwoAct(f, o, dt);
         break;
       case "cast": {
         const c = this.castAnim(f);
@@ -1364,6 +1423,7 @@ export class BattleGame {
 
   private cast(f: Fighter, o: Fighter) {
     if (f.mega) return this.megaCast(f, o);
+    if (f.species === "mewtwo") return this.mewtwoCast(f, o);
     const k = this.k;
     const a = f.aimAngle;
     const mx = f.x + Math.cos(a) * 16 * k;
@@ -1450,6 +1510,31 @@ export class BattleGame {
         s.vy = Math.sin(cur + turn) * sp;
         if (Math.random() < 0.7) this.spawn("wisp", s.x, s.y, rand(-30, 30) * k, rand(-30, 30) * k, 0.35, 2 * k, s.z);
       }
+      // Mewtwo's Barrier bounces projectiles straight back at whoever threw them
+      if (o.barrier > 0 && !this.lofted(s) && Math.hypot(o.x - s.x, o.y - s.y) < (BODY + 14) * k + this.shotRadius(s)) {
+        const back = Math.atan2(f.y - s.y, f.x - s.x);
+        const sp = Math.max(260 * k, Math.hypot(s.vx, s.vy));
+        s.owner = o.id;
+        s.vx = Math.cos(back) * sp;
+        s.vy = Math.sin(back) * sp;
+        s.angle = back;
+        s.t = Math.min(s.t, 0.1);
+        this.sound.ping();
+        this.sparks(s.x, s.y, 6, PINK[0]);
+        this.tell("It bounced off the Barrier!");
+        continue;
+      }
+      if (s.kind === "star" || s.kind === "psyshard") {
+        // Swift's stars never lose their target; Psyshock's shards curve after it a little
+        const want = Math.atan2(o.y - s.y, o.x - s.x);
+        const cur = Math.atan2(s.vy, s.vx);
+        const rate = (s.kind === "star" ? (s.t < 0.25 ? 0 : 6) : 1) * dt;
+        const turn = Math.max(-rate, Math.min(rate, wrap(want - cur)));
+        const sp = Math.hypot(s.vx, s.vy);
+        s.vx = Math.cos(cur + turn) * sp;
+        s.vy = Math.sin(cur + turn) * sp;
+        s.angle = cur + turn;
+      }
       if (s.kind === "aura" || s.kind === "hex") {
         // Aura Sphere hunts its target down; Hex drifts after it
         const want = Math.atan2(o.y - s.y, o.x - s.x);
@@ -1519,6 +1604,12 @@ export class BattleGame {
           s.life = -1;
           this.sparks(s.x, s.y - 8 * k, 6, "#fff");
         }
+      } else if (s.kind === "psyshard" || s.kind === "star") {
+        if (touching(reach)) {
+          s.life = -1;
+          this.strike(f, o, s.kind === "star" ? "s2" : "s1", Math.cos(s.angle), Math.sin(s.angle), 110);
+          this.sparks(s.x, s.y - 8 * k, 6, s.kind === "star" ? "#fde047" : PINK[0]);
+        } else if (s.t >= s.life || out) s.life = -1;
       } else if (s.kind === "waterpulse") {
         const r = (6 + s.t * 18) * k;
         if (touching(reach + r * 0.6) && o.invuln <= 0) {
@@ -1636,7 +1727,10 @@ export class BattleGame {
       sweep: 0,
     };
     this.sound.rumble(FINALE[f.species]);
-    if (f.species === "charizard") {
+    if (f.species === "mewtwo") {
+      this.sound.psychic(1.2);
+      this.sound.mewtwoCry();
+    } else if (f.species === "charizard") {
       this.sound.boom();
       this.wreck.crater(f.x, f.y, 14 * k);
       this.wreck.blast(f.x, f.y, 40 * k, 6, f.x, f.y, 120);
@@ -1690,7 +1784,9 @@ export class BattleGame {
     }
     const reachable = () => o.invuln <= 0 && o.state !== "lurk" && o.hp > 0;
 
-    if (fin.kind === "charizard") {
+    if (fin.kind === "mewtwo") {
+      this.psystrike(fin, f, o, dt, reachable);
+    } else if (fin.kind === "charizard") {
       // Charizard rises, blazing, and the whole page erupts in fire around it
       f.z = Math.min(55 * k, f.z + 160 * k * dt);
       if (Math.random() < 0.8) {
@@ -1970,22 +2066,39 @@ export class BattleGame {
             this.wreck.crater(b.x, b.y, 8 * k);
           }
         }
-      } else if (b.kind === "darkpulse" || b.kind === "sludgewave") {
-        // a ring rolling out across the page
-        const rad = Math.min(1, b.t / 0.45) * b.max;
+      } else if (b.kind === "futuresight") {
+        // orbs gather round the marked spot, then implode on it
+        if (!b.hit && b.t >= 1) {
+          b.hit = true;
+          this.sound.burstDark();
+          this.onShake(9);
+          this.wreck.crater(b.x, b.y, 10 * k);
+          this.wreck.blast(b.x, b.y, 36 * k, 5, b.x, b.y, 80);
+          this.flashes.push({ x: b.x, y: b.y, t: 0, r: 60 * k, colour: PINK[1] });
+          for (let i = 0; i < 24; i++) {
+            const a = rand(0, Math.PI * 2);
+            const sp = rand(80, 240) * k;
+            this.spawn("psy", b.x, b.y, Math.cos(a) * sp, Math.sin(a) * sp, 0.5, 2.5 * k, 8 * k);
+          }
+          if (dist < (BODY + 26) * k && grounded) this.strike(f, o, "s3", ux, uy, 320);
+        }
+      } else if (b.kind === "darkpulse" || b.kind === "sludgewave" || b.kind === "psywave") {
+        // a ring rolling out across the page (Psystrike's psychic waves go slower, and further)
+        const span = b.kind === "psywave" ? 0.8 : 0.45;
+        const rad = Math.min(1, b.t / span) * b.max;
         if (!b.hit && dist < rad + BODY * k && dist > rad - 40 * k && grounded) {
           b.hit = true;
           this.strike(f, o, b.kind === "darkpulse" ? "s2" : "s1", ux, uy, 300);
           if (b.kind === "sludgewave" && Math.random() < 0.3) this.inflict(o, "psn");
         }
         b.wreckT -= dt;
-        if (b.t < 0.45 && b.wreckT <= 0) {
+        if (b.t < span && b.wreckT <= 0) {
           b.wreckT = 0.04;
           for (let i = 0; i < 8; i++) {
             const a = rand(0, Math.PI * 2);
             const x = b.x + Math.cos(a) * rad;
             const y = b.y + Math.sin(a) * rad * 0.8;
-            if (b.kind === "darkpulse") this.wreck.knock(x, y, 12 * k, b.x, b.y, 300, 5);
+            if (b.kind !== "sludgewave") this.wreck.knock(x, y, 12 * k, b.x, b.y, 300, 5);
             else this.wreck.dissolve(x, y, 12 * k, 5);
           }
         }
@@ -2005,7 +2118,9 @@ export class BattleGame {
         }
       }
     }
-    this.bursts = this.bursts.filter((b) => b.t < (b.kind === "daikanji" ? 0.75 : b.kind === "shadow" ? 0.4 : 0.9));
+    this.bursts = this.bursts.filter(
+      (b) => b.t < (b.kind === "daikanji" ? 0.75 : b.kind === "shadow" ? 0.4 : b.kind === "futuresight" ? 1.3 : 0.9)
+    );
   }
 
   private updateWaves(dt: number) {
@@ -2158,6 +2273,16 @@ export class BattleGame {
     mult = 1
   ) {
     if (o.invuln > 0 || o.hp <= 0 || o.state === "hidden" || o.state === "gone") return;
+    // Mewtwo's Barrier stops anything short of a Burst
+    if (o.barrier > 0 && slot !== "burst") {
+      if (this.clashSound <= 0) {
+        this.clashSound = 0.1;
+        this.sound.ping();
+      }
+      this.sparks(o.x, o.y - 14 * this.k, 5, PINK[0]);
+      this.tell(`${this.name(o)}'s Barrier blocked it!`);
+      return;
+    }
     const move = this.moves(f)[slot];
     const eff = fixed ? 1 : this.eff(move.kind, o);
     if (eff === 0) {
@@ -2369,6 +2494,12 @@ export class BattleGame {
   private megaMove(f: Fighter, slot: Slot) {
     const k = this.k;
     const sp = f.species;
+    if (sp === "mewtwo") {
+      // Zen Headbutt is a lunge, Recover a moment's focus, the rest are cast
+      f.state = slot === "melee" ? "zen" : slot === "s4" ? "buff" : "cast";
+      this.sound.psychic(0.3);
+      return;
+    }
     if (slot === "melee") {
       f.state = "melee";
       this.sound.swipe();
@@ -2400,6 +2531,11 @@ export class BattleGame {
   }
 
   private megaCastAnim(f: Fighter) {
+    if (f.species === "mewtwo") {
+      const name = this.anim(f, f.move === "s3" ? "Charge" : "Shoot");
+      const anim = f.mon.anims[name];
+      return { name, anim, at: 0.2, len: Math.max(0.45, Math.min(anim.length, 0.6)) };
+    }
     const charge = (f.species === "blastoise" && f.move === "s2") || (f.species === "gengar" && f.move !== "s3");
     const name = this.anim(f, charge ? "Charge" : "Shoot");
     const anim = f.mon.anims[name];
@@ -2549,6 +2685,20 @@ export class BattleGame {
         break;
       }
       case "buff":
+        if (f.species === "mewtwo") {
+          // Recover: Mega Mewtwo Y gathers itself and heals
+          if (!f.fired && f.t >= 0.35) {
+            f.fired = true;
+            const max = STATS[f.species].hp;
+            f.hp = Math.min(max, f.hp + max * 0.25);
+            this.say(`${this.name(f)} restored its HP!`);
+            this.sound.heal();
+            for (let i = 0; i < 26; i++)
+              this.spawn("psy", f.x + rand(-16, 16) * k, f.y, 0, 0, 0.8, 2 * k, rand(0, 20) * k, rand(40, 120) * k);
+          }
+          if (f.t >= 0.6) this.toFree(f);
+          break;
+        }
         // Dragon Dance (a whirl of blue fire) or Shell Smash (the shell cracks open)
         if (!f.fired && f.t >= 0.35) {
           f.fired = true;
@@ -2612,6 +2762,7 @@ export class BattleGame {
   }
 
   private megaCast(f: Fighter, o: Fighter) {
+    if (f.species === "mewtwo") return this.megaMewtwoCast(f, o);
     const k = this.k;
     const a = f.aimAngle;
     const mx = f.x + Math.cos(a) * 16 * k;
@@ -2678,6 +2829,8 @@ export class BattleGame {
   private updateMegaStatus(f: Fighter, dt: number) {
     const k = this.k;
     f.boost = Math.max(0, f.boost - dt);
+    f.barrier = Math.max(0, f.barrier - dt);
+    f.held = Math.max(0, f.held - dt);
     f.brittle = Math.max(0, f.brittle - dt);
     f.confused = Math.max(0, f.confused - dt);
     if (f.curse > 0 && f.hp > 0) {
@@ -2725,12 +2878,17 @@ export class BattleGame {
 
   /** Never-Ending Nightmare turns the real page negative for a few seconds. */
   private invertPage(on: boolean) {
+    this.pageFilterTo(on ? "invert(1) hue-rotate(180deg)" : null);
+  }
+
+  /** Puts a CSS filter on the real page for a finale (null restores the page's own). */
+  private pageFilterTo(filter: string | null) {
     const root = document.querySelector<HTMLElement>("[data-page-root]");
     if (!root) return;
-    if (on && this.pageFilter === null) {
-      this.pageFilter = root.style.filter;
-      root.style.filter = "invert(1) hue-rotate(180deg)";
-    } else if (!on && this.pageFilter !== null) {
+    if (filter !== null) {
+      if (this.pageFilter === null) this.pageFilter = root.style.filter;
+      root.style.filter = filter;
+    } else if (this.pageFilter !== null) {
       root.style.filter = this.pageFilter;
       this.pageFilter = null;
     }
@@ -2798,7 +2956,9 @@ export class BattleGame {
       return rad;
     };
 
-    if (fin.kind === "charizard") {
+    if (fin.kind === "mewtwo") {
+      this.shatteredPsyche(fin, f, o, dt, reachable, sweep);
+    } else if (fin.kind === "charizard") {
       // INFERNO OVERDRIVE: off the top of the screen, a lock-on, a meteor of blue fire, and
       // a firestorm that burns the whole page
       if (t < 0.6) {
@@ -3012,7 +3172,15 @@ export class BattleGame {
     const chance = (p: number) => Math.random() < p;
     const eff = (s: Slot) => this.eff(this.moves(f)[s].kind, o);
     if (d < 50 * k && ready("melee") && eff("melee") > 0 && !away && chance(0.75)) return "melee";
-    if (f.species === "charizard") {
+    if (f.species === "mewtwo") {
+      if (f.hp / STATS[f.species].hp < 0.45 && ready("s4") && chance(0.4)) return "s4";
+      if (away) return null;
+      if (d < 260 * k && ready("s3") && eff("s3") > 1 && chance(0.6)) return "s3";
+      if (d < 240 * k && ready("s1") && chance(0.45)) return "s1";
+      if (d < 300 * k && ready("s2") && eff("s2") > 0 && chance(0.4)) return "s2";
+      if (d < 260 * k && ready("s3") && eff("s3") > 0 && chance(0.35)) return "s3";
+      if (d < 70 * k && ready("melee") && chance(0.5)) return "melee";
+    } else if (f.species === "charizard") {
       if (f.boost <= 0 && ready("s4") && chance(0.3)) return "s4";
       if (away) return null;
       if (d < 130 * k && ready("s1") && chance(0.5)) return "s1";
@@ -3032,6 +3200,345 @@ export class BattleGame {
       if (d > 60 * k && ready("s2") && chance(0.25)) return "s2";
     }
     return null;
+  }
+
+  // ---------- Mewtwo ----------
+
+  /** Mewtwo's own moves: Psychic grabs, Teleport blinks, the rest are cast. */
+  private mewtwoMove(f: Fighter, slot: Slot) {
+    if (slot === "s1") {
+      f.state = "psy";
+      this.sound.psychic(0.7);
+    } else if (slot === "s2") {
+      f.state = "blink";
+      f.invuln = 0.3;
+      this.sound.teleport();
+      this.psyPuff(f.x, f.y);
+    } else {
+      f.state = "cast";
+      if (slot === "s3") this.sound.psychic(0.5);
+    }
+  }
+
+  /** A puff of psychic sparkle, where Mewtwo vanishes or appears. */
+  private psyPuff(x: number, y: number) {
+    const k = this.k;
+    for (let i = 0; i < 16; i++) {
+      const a = rand(0, Math.PI * 2);
+      const sp = rand(60, 160) * k;
+      this.spawn("psy", x, y, Math.cos(a) * sp, Math.sin(a) * sp, 0.4, 2 * k, rand(4, 24) * k);
+    }
+  }
+
+  private mewtwoCast(f: Fighter, o: Fighter) {
+    const k = this.k;
+    if (f.move === "s3") {
+      // Future Sight: the attack is already on its way to where the foe stands now
+      this.bursts.push({ kind: "futuresight", owner: f.id, x: o.x, y: o.y, t: 0, max: 60 * k, hit: false, wreckT: 0 });
+      this.say(`${this.name(f)} foresaw an attack!`);
+    } else {
+      f.barrier = 1.5;
+      this.sound.barrier();
+    }
+  }
+
+  private megaMewtwoCast(f: Fighter, o: Fighter) {
+    const k = this.k;
+    const a = f.aimAngle;
+    const make = (kind: Shot["kind"], speed: number, life: number, angle: number, x = f.x, y = f.y): Shot => ({
+      kind,
+      owner: f.id,
+      x,
+      y,
+      z: 14 * k,
+      vx: Math.cos(angle) * speed * k,
+      vy: Math.sin(angle) * speed * k,
+      angle,
+      t: 0,
+      life,
+      x0: x,
+      y0: y,
+      tx: 0,
+      ty: 0,
+    });
+    if (f.move === "s1") {
+      // Psyshock: a fan of psychic crystal shards
+      for (let i = -2; i <= 2; i++) this.shots.push(make("psyshard", 380, 0.75, a + i * 0.18));
+      this.sound.psychic(0.3);
+    } else if (f.move === "s2") {
+      // Swift: stars burst out all round, then home in
+      for (let i = 0; i < 5; i++) {
+        const ang = a + (i / 5) * Math.PI * 2;
+        const s = make("star", 260, 1.8, ang, f.x + Math.cos(ang) * 14 * k, f.y + Math.sin(ang) * 14 * k);
+        s.t = -i * 0.05;
+        this.shots.push(s);
+      }
+      this.sound.ballOpen();
+    } else {
+      // Thunderbolt: lightning straight to the foe, if it's in range, else where it's aimed
+      const d = Math.hypot(o.x - f.x, o.y - f.y);
+      const onFoe = d < 280 * k && o.state !== "lurk" && o.state !== "hidden";
+      const x1 = onFoe ? o.x : f.x + Math.cos(a) * 200 * k;
+      const y1 = onFoe ? o.y : f.y + Math.sin(a) * 200 * k;
+      this.bolts.push({ x0: f.x, y0: f.y - 20 * k, x1, y1: y1 - 10 * k, t: 0, seed: Math.random() * 100 });
+      this.sound.thunder();
+      this.onShake(8);
+      this.screenFlash = 0.35;
+      // it scorches a line across the page
+      const n = Math.max(2, Math.round(Math.hypot(x1 - f.x, y1 - f.y) / (14 * k)));
+      for (let i = 1; i <= n; i++) {
+        const q = i / n;
+        const x = f.x + (x1 - f.x) * q;
+        const y = f.y + (y1 - f.y) * q;
+        this.wreck.knock(x, y, 8 * k, x, y + 10, 220, 4);
+        if (i % 2) this.wreck.ignite(x, y, 8 * k, 3);
+      }
+      this.wreck.crater(x1, y1, 7 * k);
+      for (let i = 0; i < 12; i++) this.spawn("zap", x1 + rand(-14, 14) * k, y1, 0, 0, 0.2, 1.5 * k, rand(4, 30) * k);
+      if (onFoe && o.z < 200 * k) {
+        this.strike(f, o, "s3", (o.x - f.x) / (d || 1), (o.y - f.y) / (d || 1), 200);
+        if (Math.random() < 0.3) this.inflict(o, "par");
+      }
+    }
+  }
+
+  /** Psychic (the grab and the throw), Teleport, and Zen Headbutt. */
+  private mewtwoAct(f: Fighter, o: Fighter, dt: number) {
+    const k = this.k;
+    switch (f.state) {
+      case "psy": {
+        // reach out with the mind: anything in front, in range, is lifted, then hurled
+        if (!f.fired && f.t >= 0.15) {
+          f.fired = true;
+          const d = Math.hypot(o.x - f.x, o.y - f.y);
+          const to = Math.atan2(o.y - f.y, o.x - f.x);
+          const inFront = Math.abs(wrap(to - f.aimAngle)) < 1.1;
+          if (d < 240 * k && inFront && o.invuln <= 0 && o.state !== "lurk" && o.z < HIGH * k && o.barrier <= 0) {
+            f.landed = true;
+            o.held = 0.6;
+            o.state = "hurt";
+            o.t = -0.5;
+            this.wreck.knock(o.x, o.y, 34 * k, o.x, o.y + 30, 320, 30);
+          } else {
+            // nothing to grab: the psychic wave tears up the page where it was aimed
+            const x = f.x + Math.cos(f.aimAngle) * 130 * k;
+            const y = f.y + Math.sin(f.aimAngle) * 130 * k;
+            this.wreck.knock(x, y, 30 * k, x, y + 30, 360, 30);
+            this.flashes.push({ x, y, t: 0, r: 40 * k, colour: PINK[1] });
+          }
+        }
+        if (f.landed && f.t < 0.55) o.z = Math.min(44 * k, o.z + 140 * k * dt);
+        if (f.landed && !f.hits && f.t >= 0.55) {
+          // and thrown, hard, the way Mewtwo is facing
+          f.hits = 1;
+          o.z = 0;
+          o.held = 0;
+          o.state = "free";
+          const dx = Math.cos(f.aimAngle);
+          const dy = Math.sin(f.aimAngle);
+          this.strike(f, o, "s1", dx, dy, 520);
+          this.wreck.crater(o.x, o.y, 8 * k);
+          this.dust(o.x, o.y, 14);
+        }
+        if (f.t >= 0.75) this.toFree(f);
+        break;
+      }
+      case "blink":
+        // Teleport: gone, and back somewhere else
+        if (!f.fired && f.t >= 0.1) {
+          f.fired = true;
+          const a = this.arena();
+          const ang =
+            f.input.x || f.input.y
+              ? Math.atan2(f.input.y, f.input.x)
+              : Math.atan2(f.y - o.y, f.x - o.x) + rand(-0.6, 0.6);
+          f.x = Math.max(a.l, Math.min(a.r, f.x + Math.cos(ang) * 150 * k));
+          f.y = Math.max(a.t, Math.min(a.b, f.y + Math.sin(ang) * 150 * k));
+          f.vx = f.vy = f.kx = f.ky = 0;
+          this.psyPuff(f.x, f.y);
+        }
+        if (f.t >= 0.25) this.toFree(f);
+        break;
+      case "zen": {
+        // Zen Headbutt: a short, psychic-charged lunge
+        if (Math.random() < 0.8) this.spawn("psy", f.x, f.y, -f.vx * 0.2, -f.vy * 0.2, 0.35, 3 * k, rand(8, 26) * k);
+        if (f.t < 0.08) break;
+        if (f.t - dt < 0.08) {
+          f.vx = Math.cos(f.aimAngle) * 400 * k;
+          f.vy = Math.sin(f.aimAngle) * 400 * k;
+        }
+        f.trail.push({ x: f.x, y: f.y, z: f.z, a: 0.45 });
+        if (
+          !f.landed &&
+          Math.hypot(o.x - f.x, o.y - f.y) < (BODY * 2 + 4) * k &&
+          o.z < HIGH * k &&
+          o.state !== "lurk"
+        ) {
+          f.landed = true;
+          const sp = Math.hypot(f.vx, f.vy) || 1;
+          this.strike(f, o, "melee", f.vx / sp, f.vy / sp, 380);
+          this.wreck.blast(o.x, o.y, 22 * k, 3, f.x, f.y, 30);
+          // it may flinch
+          if (Math.random() < 0.2 && o.state === "hurt") o.t = -0.3;
+        }
+        if (f.t >= 0.35) {
+          f.vx *= 0.2;
+          f.vy *= 0.2;
+          this.toFree(f);
+        }
+        break;
+      }
+    }
+  }
+
+  /** Mewtwo's Burst: waves of psychic power roll over the screen, then one crushing blow. */
+  private psystrike(
+    fin: NonNullable<BattleGame["finale"]>,
+    f: Fighter,
+    o: Fighter,
+    dt: number,
+    reachable: () => boolean
+  ) {
+    const k = this.k;
+    const t = fin.t;
+    f.z = Math.min(26 * k, f.z + 80 * k * dt);
+    // a psychic ring every quarter second, sweeping out to the edges of the screen
+    const wave = Math.floor(t / 0.25);
+    if (t < 1.4 && wave > fin.next) {
+      fin.next = wave;
+      this.bursts.push({
+        kind: "psywave",
+        owner: f.id,
+        x: f.x,
+        y: f.y,
+        t: 0,
+        max: this.farthest(f.x, f.y),
+        hit: true,
+        wreckT: 0,
+      });
+      this.sound.psychic(0.25);
+    }
+    // the foe is caught and held, frozen in the air
+    if (t >= 0.5 && !fin.hit) {
+      fin.hit = true;
+      if (reachable()) {
+        o.held = 1.1;
+        o.state = "hurt";
+        o.t = -1.1;
+        fin.x = o.x;
+        fin.y = o.y;
+      } else {
+        fin.hits = -1;
+        this.say(`${this.name(o)} slipped free!`);
+      }
+    }
+    if (fin.hit && fin.hits === 0 && t < 1.5) o.z = Math.min(50 * k, o.z + 120 * k * dt);
+    if (t >= 1.5 && fin.hits === 0) {
+      // the blow: a sphere of psychic force crushes it into the page
+      fin.hits = 1;
+      o.z = 0;
+      o.held = 0;
+      o.state = "free";
+      this.strike(f, o, "burst", 0, 0, 0, false, 0, 1);
+      this.wreck.crater(o.x, o.y, 22 * k);
+      this.wreck.blast(o.x, o.y, 70 * k, 8, o.x, o.y, 220);
+      this.flashes.push({ x: o.x, y: o.y, t: 0, r: 120 * k, colour: PINK[1] });
+      this.sound.boom();
+      this.onShake(24);
+      this.screenFlash = 0.6;
+      for (let i = 0; i < 50; i++) {
+        const a = rand(0, Math.PI * 2);
+        const sp = rand(100, 320) * k;
+        this.spawn("psy", o.x, o.y, Math.cos(a) * sp, Math.sin(a) * sp, 0.6, 3 * k, 8 * k);
+      }
+    }
+    if (t > 2) f.z = Math.max(0, f.z - 120 * k * dt);
+  }
+
+  /** Mega Mewtwo Y's Burst: the page warps, every letter is torn up, and the foe is smashed down. */
+  private shatteredPsyche(
+    fin: NonNullable<BattleGame["finale"]>,
+    f: Fighter,
+    o: Fighter,
+    dt: number,
+    reachable: () => boolean,
+    sweep: (from: number, dur: number) => number
+  ) {
+    const k = this.k;
+    const t = fin.t;
+    const len = MEGA_FINALE.mewtwo;
+    // the real page shifts into psychedelic colour, cycling
+    if (t < len - 0.25) this.pageFilterTo(`hue-rotate(${Math.round(200 + t * 120)}deg) saturate(2)`);
+    else this.pageFilterTo(null);
+    f.z = Math.min(34 * k, f.z + 100 * k * dt);
+    if (t < 0.4) {
+      fin.x = f.x;
+      fin.y = f.y;
+    }
+    // every letter and image on the screen is ripped up into the air
+    if (t > 0.4 && t < 1.7) {
+      const rad = sweep(0.4, 1.1);
+      fin.wreckT -= dt;
+      if (fin.wreckT <= 0) {
+        fin.wreckT = 0.04;
+        this.wreck.knock(fin.x, fin.y, rad, fin.x, fin.y + 60 * k, 620, 600);
+        this.wreck.blast(fin.x, fin.y, rad, 9, fin.x, fin.y, 0);
+      }
+      if (Math.random() < 0.8) {
+        const v = this.view();
+        this.spawn("psy", v.x + rand(0, v.w), v.y + rand(0, v.h), 0, 0, 0.6, 3 * k, 0, rand(80, 200) * k);
+      }
+    }
+    // caught, then smashed into the page, here, there, and there
+    if (t >= 0.6 && !fin.hit) {
+      fin.hit = true;
+      if (!reachable()) {
+        fin.hits = -1;
+        this.say(`${this.name(o)} slipped free!`);
+      } else {
+        o.held = 2.4;
+        o.state = "hurt";
+        o.t = -2.4;
+      }
+    }
+    if (fin.hits >= 0 && fin.hit) {
+      const slams = [1.5, 1.9, 2.3];
+      if (fin.hits < slams.length && t >= slams[fin.hits]) {
+        fin.hits++;
+        const a = this.arena();
+        o.x = rand(a.l + 60 * k, a.r - 60 * k);
+        o.y = rand(a.t + 40 * k, a.b - 40 * k);
+        o.z = 0;
+        this.strike(f, o, "burst", 0, 0, 0, false, 0, 0.18);
+        o.state = "hurt";
+        o.t = -1;
+        this.wreck.crater(o.x, o.y, 16 * k);
+        this.wreck.blast(o.x, o.y, 50 * k, 8, o.x, o.y, 160);
+        this.flashes.push({ x: o.x, y: o.y, t: 0, r: 80 * k, colour: PINK[1] });
+        this.sound.slam();
+        this.onShake(18);
+      } else if (fin.hits < slams.length) {
+        o.z = Math.min(60 * k, o.z + 200 * k * dt);
+      }
+      if (fin.hits === slams.length && t >= 2.8) {
+        // and one last time, into the middle of the screen
+        fin.hits++;
+        const v = this.view();
+        o.x = v.x + v.w / 2;
+        o.y = v.y + v.h * 0.55;
+        o.z = 0;
+        o.held = 0;
+        o.state = "free";
+        this.strike(f, o, "burst", 0, 0, 0, false, 0, 0.5);
+        this.wreck.crater(o.x, o.y, 26 * k);
+        this.wreck.blast(o.x, o.y, 90 * k, 9, o.x, o.y, 300);
+        this.flashes.push({ x: o.x, y: o.y, t: 0, r: 160 * k, colour: "#fff" });
+        this.sound.boom();
+        this.onShake(30);
+        this.screenFlash = 1;
+      }
+    }
+    if (t > 3) f.z = Math.max(0, f.z - 160 * k * dt);
   }
 
   // ---------- the CPU ----------
@@ -3118,6 +3625,14 @@ export class BattleGame {
     if (f.mega) return this.cpuMegaMove(f, o, d, away);
     if (d < 52 * k && ready("melee") && eff("melee") > 0 && chance(0.75)) return "melee";
     if (away) return null;
+    if (f.species === "mewtwo") {
+      // Barrier up when something's coming, Teleport out of a tight spot
+      if (ready("s4") && this.threatened(f) && chance(0.5)) return "s4";
+      if (d < 220 * k && ready("s1") && chance(0.45)) return "s1";
+      if (d < 260 * k && ready("s3") && chance(0.35)) return "s3";
+      if (d < 70 * k && ready("s2") && chance(0.25)) return "s2";
+      return null;
+    }
     if (f.species === "charizard") {
       if (d < 120 * k && ready("s1") && chance(eff("s1") < 1 ? 0.2 : 0.5)) return "s1";
       if (d > 80 * k && d < 230 * k && ready("s3") && chance(eff("s3") < 1 ? 0.12 : 0.35)) return "s3";
@@ -3199,6 +3714,7 @@ export class BattleGame {
         unlock("poke-win");
         if (me.species === "charizard" && foe.species === "blastoise") unlock("poke-underdog");
         if (me.species === "gengar") unlock("poke-haunted");
+        if (me.species === "mewtwo") unlock("poke-mewtwo");
         if (stats.hpLeft > 0.5) unlock("poke-untouchable");
         record("pokemon", this.time);
       }
@@ -3259,17 +3775,20 @@ export class BattleGame {
       const tt = fin.t;
       const env = Math.min(1, tt / 0.3) * Math.min(1, (len - tt) / 0.4);
       const pulse = 0.85 + Math.sin(tt * 18) * 0.15;
-      ctx.fillStyle = fin.mega
-        ? fin.kind === "gengar"
-          ? `rgba(40,0,60,${env * 0.4})`
-          : fin.kind === "charizard"
-            ? `rgba(0,12,48,${env * 0.55 * pulse})`
-            : `rgba(0,24,70,${env * 0.35})`
-        : fin.kind === "gengar"
-          ? `rgba(10,2,22,${env * 0.86})`
-          : fin.kind === "charizard"
-            ? `rgba(120,24,0,${env * 0.35 * pulse})`
-            : `rgba(4,30,70,${env * 0.3})`;
+      ctx.fillStyle =
+        fin.kind === "mewtwo"
+          ? `rgba(${fin.mega ? 70 : 60},0,${fin.mega ? 90 : 70},${env * (fin.mega ? 0.3 : 0.45) * pulse})`
+          : fin.mega
+            ? fin.kind === "gengar"
+              ? `rgba(40,0,60,${env * 0.4})`
+              : fin.kind === "charizard"
+                ? `rgba(0,12,48,${env * 0.55 * pulse})`
+                : `rgba(0,24,70,${env * 0.35})`
+            : fin.kind === "gengar"
+              ? `rgba(10,2,22,${env * 0.86})`
+              : fin.kind === "charizard"
+                ? `rgba(120,24,0,${env * 0.35 * pulse})`
+                : `rgba(4,30,70,${env * 0.3})`;
       ctx.fillRect(0, 0, vw, vh);
     }
     ctx.save();
@@ -3315,7 +3834,9 @@ export class BattleGame {
           : { band: "#7c1408", light: "#f86818", text: "#ffe25c" }
         : f.species === "blastoise"
           ? { band: "#0c2c70", light: "#2890e8", text: "#c8f0ff" }
-          : { band: "#1c0838", light: "#9050e0", text: "#f4dcff" };
+          : f.species === "mewtwo"
+            ? { band: f.mega ? "#2a0850" : "#3a1060", light: f.mega ? "#ff7af0" : "#e070f0", text: "#ffe0ff" }
+            : { band: "#1c0838", light: "#9050e0", text: "#f4dcff" };
     ctx.save();
     ctx.fillStyle = `rgba(0,0,0,${0.55 * (1 - outT)})`;
     ctx.fillRect(0, 0, vw, vh);
@@ -3562,6 +4083,7 @@ export class BattleGame {
     // a form without an animation (Mega Gengar has no Lick) falls back to Idle
     const a = new Proxy(f.mon.anims, { get: (t, n: string) => t[n] ?? t.Idle });
     if (f.state === "sneak" && f.t < 0.15) return;
+    if (f.state === "blink" && f.t < 0.1) return;
     let d: Dir = dirOf(Math.cos(f.face), Math.sin(f.face));
     let anim = "Idle";
     let frame = 0;
@@ -3653,6 +4175,14 @@ export class BattleGame {
         anim = "Attack";
         frame = frameAt(a.Attack, (f.t - 0.15) * 1.4, false);
         break;
+      case "psy":
+        anim = f.t < 0.55 ? "Charge" : "Attack";
+        frame = f.t < 0.55 ? frameAt(a.Charge, f.t) : frameAt(a.Attack, (f.t - 0.55) * 2, false);
+        break;
+      case "zen":
+        anim = "Attack";
+        frame = frameAt(a.Attack, f.t, false);
+        break;
       case "hurt":
         anim = "Hurt";
         frame = frameAt(a.Hurt, f.t);
@@ -3664,7 +4194,15 @@ export class BattleGame {
         break;
     }
     const trailColour =
-      f.species === "charizard" ? (f.mega ? BLUEFIRE[2] : FIRE[3]) : f.species === "blastoise" ? WATER[3] : GHOST[2];
+      f.species === "charizard"
+        ? f.mega
+          ? BLUEFIRE[2]
+          : FIRE[3]
+        : f.species === "blastoise"
+          ? WATER[3]
+          : f.species === "mewtwo"
+            ? PINK[2]
+            : GHOST[2];
     for (const p of f.trail) {
       drawMon(ctx, f.mon, anim, d, frame, p.x, p.y - p.z, k, { alpha: p.a * 0.6, tint: 1, tintColour: trailColour });
     }
@@ -3755,6 +4293,7 @@ export class BattleGame {
       this.drawGrin(g, this.finale.t);
       this.drawHands(g, this.finale);
     }
+    this.drawPsychic(g);
     this.drawMega(g);
     for (const b of this.balls) this.drawBall(g, b);
   }
@@ -3811,6 +4350,9 @@ export class BattleGame {
         }
         break;
       }
+      case "psy":
+        g.disc(p.x, y, p.r * (1 - age * 0.5), ramp(PINK, age));
+        break;
       case "wisp":
         g.disc(p.x, y, p.r * (1 - age * 0.5), ramp(GHOST, 0.2 + age * 0.8));
         break;
@@ -3828,6 +4370,19 @@ export class BattleGame {
   private drawSwipe(g: PixelLayer, s: Swipe) {
     const k = this.k;
     const p = s.t / 0.22;
+    if (s.kind === "psycut") {
+      // Psycho Cut: a glowing crescent blade of psychic power
+      const n = 13;
+      const sweep = Math.min(1, p * 3);
+      for (let i = 0; i < n * sweep; i++) {
+        const a = s.angle - 1.2 + (i / (n - 1)) * 2.4;
+        const r = 20 * k;
+        const x = s.fromX + Math.cos(a) * r * 1.3;
+        const y = s.fromY - 12 * k + Math.sin(a) * r;
+        g.dot(x, y, i % 3 ? PINK[1] : PINK[0], i > 2 && i < n - 3 ? 3 : 2);
+      }
+      return;
+    }
     if (s.kind === "tail") {
       // Dragon Tail: a sweep of dragon-blue streaks all the way round
       const sweep = Math.min(1, p * 2.5) * Math.PI * 2;
@@ -3949,6 +4504,26 @@ export class BattleGame {
       g.dot(s.x, y - 11 * k, GHOST[0], 2);
       return;
     }
+    if (s.kind === "psyshard") {
+      // a psychic crystal: a little diamond, glinting
+      const dx = Math.cos(s.angle);
+      const dy = Math.sin(s.angle);
+      g.line(s.x - dx * 7 * k, y - dy * 7 * k, s.x + dx * 7 * k, y + dy * 7 * k, PINK[3], 4);
+      g.line(s.x - dx * 6 * k, y - dy * 6 * k, s.x + dx * 6 * k, y + dy * 6 * k, PINK[1], 2);
+      g.dot(s.x + dx * 3 * k, y + dy * 3 * k, "#fff", 1);
+      return;
+    }
+    if (s.kind === "star") {
+      // Swift: a spinning five-pointed star
+      const spin = t * 12;
+      for (let i = 0; i < 5; i++) {
+        const a = spin + (i / 5) * Math.PI * 2;
+        g.line(s.x, y, s.x + Math.cos(a) * 7 * k, y + Math.sin(a) * 7 * k, "#d8b020", 3);
+        g.line(s.x, y, s.x + Math.cos(a) * 6 * k, y + Math.sin(a) * 6 * k, "#fde047", 1);
+      }
+      g.disc(s.x, y, 3 * k, "#fef9c3");
+      return;
+    }
     if (s.kind === "waterpulse") {
       const r = (6 + s.t * 18) * k;
       g.ring(s.x, y, r, ramp(WATER, 0.2 + (s.t / s.life) * 0.6), 0.6, 2);
@@ -3993,12 +4568,28 @@ export class BattleGame {
     const k = this.k;
     const t = this.clock;
     const flick = Math.floor(t * 30);
-    if (b.kind === "darkpulse" || b.kind === "sludgewave") {
+    if (b.kind === "futuresight") {
+      // eight psychic orbs, circling in tighter and tighter until they meet
+      if (b.t > 1.05) return;
+      const p = Math.min(1, b.t);
+      const r = b.max * (1 - p * p);
+      g.ring(b.x, b.y, b.max * 0.55, PINK[3], 0.5, 1, 0.5, Math.floor(t * 10));
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + b.t * 6;
+        const x = b.x + Math.cos(a) * r;
+        const y = b.y - 10 * k + Math.sin(a) * r * 0.6;
+        g.disc(x, y, 5 * k, PINK[3]);
+        g.disc(x, y, 3 * k, PINK[1]);
+        g.dot(x - k, y - k, "#fff", 1);
+      }
+      return;
+    }
+    if (b.kind === "darkpulse" || b.kind === "sludgewave" || b.kind === "psywave") {
       const p = Math.min(1, b.t / 0.45);
       const rad = p * b.max;
       const fade = b.t < 0.45 ? 1 : 1 - (b.t - 0.45) / 0.45;
       if (fade <= 0) return;
-      const pal = b.kind === "darkpulse" ? DARK : SLUDGE;
+      const pal = b.kind === "darkpulse" ? DARK : b.kind === "psywave" ? PINK : SLUDGE;
       g.alpha = fade;
       g.ring(b.x, b.y, rad, pal[3], 0.8, 6, 0.08, flick);
       g.ring(b.x, b.y, rad * 0.97, pal[1], 0.8, 3, 0.2, flick + 1);
@@ -4038,6 +4629,80 @@ export class BattleGame {
       const p = b.t / 0.4;
       g.ring(b.x, b.y - 8 * k, b.max * (0.4 + p), ramp(GHOST, p), 0.8, 3, 0.2, flick);
       if (p < 0.4) g.disc(b.x, b.y - 8 * k, b.max * 0.5 * (1 - p), GHOST[5]);
+    }
+  }
+
+  /** Mewtwo's powers: the Barrier, things held in the air, Psychic's link, Thunderbolt. */
+  private drawPsychic(g: PixelLayer) {
+    const k = this.k;
+    const t = this.clock;
+    for (const f of this.f!) {
+      if (f.state === "hidden" || f.state === "gone") continue;
+      const cy = f.y - f.z - 16 * k;
+      if (f.barrier > 0) {
+        // a hexagonal shield, shimmering
+        const r = 30 * k;
+        const fade = Math.min(1, f.barrier / 0.3);
+        g.alpha = fade;
+        for (let i = 0; i < 6; i++) {
+          const a0 = (i / 6) * Math.PI * 2 + Math.PI / 6;
+          const a1 = ((i + 1) / 6) * Math.PI * 2 + Math.PI / 6;
+          const c = (Math.floor(t * 12) + i) % 3 === 0 ? "#ffffff" : i % 2 ? PINK[1] : "#a0e8f8";
+          g.line(f.x + Math.cos(a0) * r, cy + Math.sin(a0) * r, f.x + Math.cos(a1) * r, cy + Math.sin(a1) * r, c, 2);
+        }
+        g.alpha = 1;
+      }
+      if (f.held > 0) {
+        // held by the mind: a pulsing pink outline of light
+        const pulse = 1 + Math.sin(t * 20) * 0.1;
+        g.ring(f.x, cy, 22 * k * pulse, PINK[1], 1.1, 2, 0.2, Math.floor(t * 16));
+        g.ring(f.x, cy, 26 * k * pulse, PINK[2], 1.1, 1, 0.5, Math.floor(t * 16) + 3);
+      }
+      if (f.state === "psy" && f.landed && f.t < 0.6) {
+        // Psychic's link from Mewtwo to what it holds: a wavering line of force
+        const o = this.other(f);
+        const ox = o.x;
+        const oy = o.y - o.z - 16 * k;
+        let px = f.x;
+        let py = f.y - 20 * k;
+        for (let i = 1; i <= 10; i++) {
+          const q = i / 10;
+          const x = f.x + (ox - f.x) * q + Math.sin(q * 12 + t * 30) * 4 * k;
+          const y = f.y - 20 * k + (oy - f.y + 20 * k) * q + Math.cos(q * 10 + t * 25) * 4 * k;
+          g.line(px, py, x, y, i % 2 ? PINK[1] : PINK[0], 2);
+          px = x;
+          py = y;
+        }
+      }
+    }
+    for (const b of this.bolts) {
+      // Thunderbolt: a jagged bolt with a white-hot core, flickering
+      if (Math.floor(b.t * 30) % 3 === 2) continue;
+      const n = 9;
+      let px = b.x0;
+      let py = b.y0;
+      for (let i = 1; i <= n; i++) {
+        const q = i / n;
+        const j = i === n ? 0 : (hash(i + b.seed + Math.floor(b.t * 20)) - 0.5) * 22 * k;
+        const x = b.x0 + (b.x1 - b.x0) * q + j;
+        const y = b.y0 + (b.y1 - b.y0) * q + j * 0.5;
+        g.line(px, py, x, y, "#d8b020", 5);
+        g.line(px, py, x, y, "#fde047", 3);
+        g.line(px, py, x, y, "#ffffff", 1);
+        px = x;
+        py = y;
+      }
+      g.disc(b.x1, b.y1, 9 * k * (1 - b.t / 0.3), "#fef9c3");
+    }
+    const fin = this.finale;
+    if (fin?.kind === "mewtwo") {
+      // Mewtwo's eyes blaze, and psychic energy spirals round it
+      const m = this.f![fin.owner];
+      for (let i = 0; i < 10; i++) {
+        const a = t * 5 + (i / 10) * Math.PI * 2;
+        const r = (20 + Math.sin(t * 6 + i) * 4) * k;
+        g.disc(m.x + Math.cos(a) * r, m.y - m.z - 16 * k + Math.sin(a) * r * 0.6, 2 * k, i % 2 ? PINK[0] : PINK[2]);
+      }
     }
   }
 

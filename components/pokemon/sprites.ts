@@ -6,7 +6,7 @@
 // frame durations in 1/60 s ticks; the timings are in anims.json, made from each AnimData.xml.
 // ==========================================
 
-export type Species = "charizard" | "blastoise" | "gengar";
+export type Species = "charizard" | "blastoise" | "gengar" | "mewtwo";
 
 /** Facing, as a sheet row: 0 down, 1 down-right, 2 right … 7 down-left. */
 export type Dir = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;

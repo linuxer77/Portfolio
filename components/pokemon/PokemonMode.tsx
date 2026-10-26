@@ -35,6 +35,12 @@ const ROSTER: { species: Species; label: string; types: string; blurb: string }[
     types: "GHOST · POISON",
     blurb: "Tricky and quick. Sinks into the shadows, puts foes to sleep, and Rapid Spin passes right through it.",
   },
+  {
+    species: "mewtwo",
+    label: "MEWTWO",
+    types: "PSYCHIC",
+    blurb: "Fast and frightening. Throws foes with its mind, teleports, and its Barrier sends attacks right back.",
+  },
 ];
 
 const KEYS: [string, string][] = [
@@ -122,11 +128,13 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
       loadMon("charizard", "charizard-mega"),
       loadMon("gengar", "gengar-mega"),
       loadMon("blastoise", "blastoise-mega"),
+      loadMon("mewtwo"),
+      loadMon("mewtwo", "mewtwo-mega"),
     ])
-      .then(([charizard, blastoise, gengar, megaCharizard, megaGengar, megaBlastoise]) => {
+      .then(([charizard, blastoise, gengar, megaCharizard, megaGengar, megaBlastoise, mewtwo, megaMewtwo]) => {
         if (cancelled) return;
-        const megas = { charizard: megaCharizard, gengar: megaGengar, blastoise: megaBlastoise };
-        gameRef.current = new BattleGame(canvas, { charizard, blastoise, gengar }, megas, sound, setEnd, shake);
+        const megas = { charizard: megaCharizard, gengar: megaGengar, blastoise: megaBlastoise, mewtwo: megaMewtwo };
+        gameRef.current = new BattleGame(canvas, { charizard, blastoise, gengar, mewtwo }, megas, sound, setEnd, shake);
         gameRef.current.setTouch(window.matchMedia("(pointer: coarse)").matches);
         gameRef.current.onMega = (id) => {
           if (id === 0) setMegaOn(true);
@@ -321,7 +329,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
           data-menu
           className="fixed inset-0 z-[48] flex items-center justify-center overflow-y-auto bg-black/60 p-4"
         >
-          <div className="m-auto w-full max-w-3xl space-y-5 border border-dotted border-zinc-700 bg-black p-6">
+          <div className="m-auto w-full max-w-6xl space-y-5 border border-dotted border-zinc-700 bg-black p-6">
             {end ? (
               <>
                 <div className="space-y-1 text-center">
@@ -399,7 +407,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
                     </span>
                   </div>
                 )}
-                <div className={`grid gap-3 ${choice ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+                <div className={`grid gap-3 sm:grid-cols-2 ${choice ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
                   {(choice ? rivals : ROSTER).map((r, i) => (
                     <button
                       key={r.species}

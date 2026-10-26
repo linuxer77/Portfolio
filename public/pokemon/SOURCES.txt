@@ -18,3 +18,9 @@ Mega gengar (0094/0001):
 2024-10-22 02:17:17.065530	<@!237286997645983744>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Charge,Swing,Double,Rotate
 2024-12-21 22:32:40.814474	<@!544245909639397378>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Lick,Twirl,Swing,Double,Rotate,Hop
 Mega Blastoise (generated): Blastoise (0009) sheets above with a shell cannon painted on by scripts/mega-blastoise.py; portrait 0009/0001 (Mega) from SpriteCollab.
+mewtwo (0150):
+2020-10-07 17:58:43.755287	CHUNSOFT	CUR	Unspecified	Attack,Charge,Double,Hop,Hover,Hurt,Idle,Punch,Rotate,Shoot,Sleep,Swing,Walk
+2022-04-14 00:56:01.712419	<@!702275233125630042>	CUR	PMDCollab_1	Attack,Charge,Cringe,DeepBreath,Double,Eat,EventSleep,Faint,Float,Head,HitGround,Hop,Hover,Hurt,Idle,Laying,LeapForth,LookUp,LostBalance,Nod,Pain,Pose,Pull,Punch,Rotate,Shoot,Sink,Sit,Sleep,Swing,Trip,Tumble,TumbleBack,Wake,Walk
+mewtwo-mega (0150/0002):
+2021-01-26 00:31:23.245153	<@!702275233125630042>	CUR	PMDCollab_1	Attack,Charge,Double,Hop,Hurt,Idle,Pose,Rotate,Shoot,Sleep,Swing,Walk
+2021-10-11 02:41:52.936504	<@!702275233125630042>	CUR	PMDCollab_1	Attack,Charge,Double,Hop,Idle,Pose,Rotate,Shoot,Walk

@@ -18,7 +18,9 @@ export type Kind =
   | "normal"
   | "ghost"
   | "poison"
-  | "fighting";
+  | "fighting"
+  | "psychic"
+  | "electric";
 
 /** J, K, L, U, O and I on the keyboard. */
 export type Slot = "melee" | "s1" | "s2" | "s3" | "s4" | "burst";
@@ -61,6 +63,14 @@ export const MOVES: Record<Species, Record<Slot, Move>> = {
     s4: { name: "HYPNOSIS", short: "HYPNO", kind: "ghost", power: 0, cooldown: 7.5 },
     burst: { name: "NIGHT SHADE", short: "N.SHADE", kind: "ghost", power: 32, cooldown: 0 },
   },
+  mewtwo: {
+    melee: { name: "PSYCHO CUT", short: "P.CUT", kind: "psychic", power: 11, cooldown: 0.5 },
+    s1: { name: "PSYCHIC", short: "PSYCHIC", kind: "psychic", power: 17, cooldown: 3.2 },
+    s2: { name: "TELEPORT", short: "TELEPORT", kind: "psychic", power: 0, cooldown: 2.2 },
+    s3: { name: "FUTURE SIGHT", short: "FUTURE", kind: "psychic", power: 22, cooldown: 4 },
+    s4: { name: "BARRIER", short: "BARRIER", kind: "psychic", power: 0, cooldown: 6 },
+    burst: { name: "PSYSTRIKE", short: "PSYSTRK", kind: "psychic", power: 55, cooldown: 0 },
+  },
 };
 
 /** After Mega Evolution, the same buttons do these. */
@@ -89,18 +99,28 @@ export const MEGA_MOVES: Record<Species, Record<Slot, Move>> = {
     s4: { name: "CURSE", short: "CURSE", kind: "ghost", power: 0, cooldown: 12 },
     burst: { name: "NEVER-ENDING NIGHTMARE", short: "N.MARE", kind: "ghost", power: 70, cooldown: 0 },
   },
+  mewtwo: {
+    melee: { name: "ZEN HEADBUTT", short: "ZEN", kind: "psychic", power: 14, cooldown: 0.7 },
+    s1: { name: "PSYSHOCK", short: "PSYSHOCK", kind: "psychic", power: 6, cooldown: 2.4 },
+    s2: { name: "SWIFT", short: "SWIFT", kind: "normal", power: 5, cooldown: 2.8 },
+    s3: { name: "THUNDERBOLT", short: "T.BOLT", kind: "electric", power: 19, cooldown: 3.2 },
+    s4: { name: "RECOVER", short: "RECOVER", kind: "normal", power: 0, cooldown: 14 },
+    burst: { name: "SHATTERED PSYCHE", short: "PSYCHE", kind: "psychic", power: 72, cooldown: 0 },
+  },
 };
 
 export const MEGA_NAME: Record<Species, string> = {
   charizard: "MEGA CHARIZARD X",
   blastoise: "MEGA BLASTOISE",
   gengar: "MEGA GENGAR",
+  mewtwo: "MEGA MEWTWO Y",
 };
 
 export const STATS: Record<Species, { hp: number; speed: number }> = {
   charizard: { hp: 153, speed: 108 },
   blastoise: { hp: 185, speed: 92 },
   gengar: { hp: 135, speed: 116 },
+  mewtwo: { hp: 160, speed: 120 },
 };
 
 /** Mega Charizard X turns Fire/Dragon; the others keep their types. */
@@ -108,12 +128,14 @@ export const MEGA_TYPES: Record<Species, Kind[]> = {
   charizard: ["fire", "dragon"],
   blastoise: ["water"],
   gengar: ["ghost", "poison"],
+  mewtwo: ["psychic"],
 };
 
 export const TYPES: Record<Species, Kind[]> = {
   charizard: ["fire", "flying"],
   blastoise: ["water"],
   gengar: ["ghost", "poison"],
+  mewtwo: ["psychic"],
 };
 
 /** attacker kind → defender type → multiplier (1 when missing) */
@@ -122,10 +144,12 @@ const CHART: Partial<Record<Kind, Partial<Record<Kind, number>>>> = {
   water: { fire: 2, water: 0.5, dragon: 0.5 },
   ice: { flying: 2, fire: 0.5, water: 0.5, dragon: 2 },
   ground: { fire: 2, poison: 2, flying: 0 },
-  dark: { ghost: 2 },
+  dark: { ghost: 2, psychic: 2 },
   dragon: { dragon: 2 },
-  fighting: { ghost: 0, flying: 0.5, poison: 0.5 },
-  ghost: { ghost: 2 },
+  fighting: { ghost: 0, flying: 0.5, poison: 0.5, psychic: 0.5 },
+  ghost: { ghost: 2, psychic: 2 },
+  psychic: { poison: 2, psychic: 0.5 },
+  electric: { water: 2, flying: 2, dragon: 0.5, electric: 0.5 },
   normal: { ghost: 0 },
   poison: { poison: 0.5, ghost: 0.5 },
 };

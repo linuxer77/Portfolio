@@ -225,6 +225,43 @@ export class Sound {
     this.tone(1200, 1200, 0.1, "triangle", 0.06, 0.05);
   }
 
+  /** Mewtwo's cry: low, eerie, rising. */
+  mewtwoCry() {
+    this.tone(180, 420, 0.8, "sawtooth", 0.1, 0, 0.1);
+    this.tone(184, 410, 0.8, "sine", 0.12, 0, 0.1);
+    this.hiss(0.8, "bandpass", 800, 1800, 0.12, 0, 3, 0.1);
+  }
+
+  /** Psychic power: a warbling, wobbling hum. */
+  psychic(dur = 0.6) {
+    for (let i = 0; i < 6; i++) this.tone(380 + (i % 2) * 90, 380 + (i % 2) * 90, dur / 6, "sine", 0.1, (i * dur) / 6);
+    this.tone(120, 240, dur, "triangle", 0.08);
+  }
+
+  teleport() {
+    this.tone(1800, 300, 0.12, "sine", 0.1);
+    this.tone(300, 1800, 0.12, "sine", 0.08, 0.12);
+  }
+
+  thunder() {
+    this.hiss(0.08, "highpass", 6000, 3000, 0.4);
+    this.tone(2400, 200, 0.18, "sawtooth", 0.12);
+    this.hiss(0.9, "lowpass", 1400, 90, 0.45, 0.06, 0.7, 0.01);
+  }
+
+  barrier() {
+    [1568, 2093, 2637].forEach((f, i) => this.tone(f, f * 0.98, 0.5, "triangle", 0.06, i * 0.04));
+  }
+
+  /** A projectile ringing off Mewtwo's Barrier. */
+  ping() {
+    this.tone(2600, 2400, 0.12, "triangle", 0.08);
+  }
+
+  heal() {
+    [523, 659, 784, 1047].forEach((f, i) => this.tone(f, f, 0.3, "sine", 0.07, i * 0.1));
+  }
+
   /** Mega Evolution: a shimmering arpeggio climbing up, then a burst. */
   megaEvolve() {
     [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => this.tone(f, f, 0.22, "triangle", 0.07, i * 0.09));

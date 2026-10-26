@@ -1,0 +1,585 @@
+{
+ "name": "mewtwo",
+ "anims": {
+  "Walk": {
+   "w": 48,
+   "h": 56,
+   "dirs": 8,
+   "durations": [
+    12,
+    6,
+    6,
+    12,
+    6,
+    6
+   ],
+   "sheet": "Walk"
+  },
+  "Attack": {
+   "w": 80,
+   "h": 88,
+   "dirs": 8,
+   "durations": [
+    2,
+    3,
+    4,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 4,
+   "rushFrame": 2,
+   "returnFrame": 7,
+   "sheet": "Attack"
+  },
+  "Punch": {
+   "w": 80,
+   "h": 88,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 7,
+   "rushFrame": 3,
+   "returnFrame": 10,
+   "sheet": "Punch"
+  },
+  "Shoot": {
+   "w": 56,
+   "h": 64,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 4,
+   "returnFrame": 8,
+   "sheet": "Shoot"
+  },
+  "Hover": {
+   "w": 48,
+   "h": 72,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    6,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    6,
+    2,
+    2
+   ],
+   "hitFrame": 4,
+   "returnFrame": 9,
+   "sheet": "Hover"
+  },
+  "Sleep": {
+   "w": 32,
+   "h": 40,
+   "dirs": 1,
+   "durations": [
+    30,
+    35
+   ],
+   "sheet": "Sleep"
+  },
+  "Hurt": {
+   "w": 48,
+   "h": 72,
+   "dirs": 8,
+   "durations": [
+    2,
+    8
+   ],
+   "sheet": "Hurt"
+  },
+  "Idle": {
+   "w": 32,
+   "h": 64,
+   "dirs": 8,
+   "durations": [
+    40,
+    2,
+    4,
+    6,
+    8,
+    6,
+    4,
+    2
+   ],
+   "sheet": "Idle"
+  },
+  "Swing": {
+   "w": 80,
+   "h": 88,
+   "dirs": 8,
+   "durations": [
+    2,
+    1,
+    2,
+    2,
+    3,
+    2,
+    2,
+    1,
+    1
+   ],
+   "hitFrame": 5,
+   "returnFrame": 5,
+   "sheet": "Swing"
+  },
+  "Double": {
+   "w": 64,
+   "h": 80,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    2,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "sheet": "Double"
+  },
+  "Hop": {
+   "w": 40,
+   "h": 104,
+   "dirs": 8,
+   "durations": [
+    2,
+    1,
+    2,
+    3,
+    4,
+    4,
+    3,
+    2,
+    1,
+    2
+   ],
+   "hitFrame": 9,
+   "sheet": "Hop"
+  },
+  "Charge": {
+   "w": 32,
+   "h": 56,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 5,
+   "returnFrame": 9,
+   "sheet": "Charge"
+  },
+  "Rotate": {
+   "w": 32,
+   "h": 48,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 8,
+   "sheet": "Rotate"
+  },
+  "EventSleep": {
+   "w": 40,
+   "h": 24,
+   "dirs": 8,
+   "durations": [
+    30,
+    35
+   ],
+   "sheet": "EventSleep"
+  },
+  "Wake": {
+   "w": 40,
+   "h": 48,
+   "dirs": 8,
+   "durations": [
+    8,
+    6,
+    14,
+    4,
+    10
+   ],
+   "sheet": "Wake"
+  },
+  "Eat": {
+   "w": 32,
+   "h": 48,
+   "dirs": 1,
+   "durations": [
+    6,
+    8,
+    6,
+    8
+   ],
+   "sheet": "Eat"
+  },
+  "Tumble": {
+   "w": 32,
+   "h": 48,
+   "dirs": 1,
+   "durations": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "sheet": "Tumble"
+  },
+  "Pose": {
+   "w": 32,
+   "h": 56,
+   "dirs": 8,
+   "durations": [
+    12,
+    2,
+    8
+   ],
+   "sheet": "Pose"
+  },
+  "Pull": {
+   "w": 24,
+   "h": 48,
+   "dirs": 1,
+   "durations": [
+    10,
+    12,
+    10,
+    12,
+    10,
+    12,
+    10
+   ],
+   "sheet": "Pull"
+  },
+  "Pain": {
+   "w": 32,
+   "h": 48,
+   "dirs": 8,
+   "durations": [
+    4,
+    1,
+    1,
+    1,
+    2,
+    1,
+    4,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "sheet": "Pain"
+  },
+  "Float": {
+   "w": 40,
+   "h": 24,
+   "dirs": 8,
+   "durations": [
+    9,
+    18,
+    9,
+    14
+   ],
+   "sheet": "Float"
+  },
+  "DeepBreath": {
+   "w": 32,
+   "h": 48,
+   "dirs": 1,
+   "durations": [
+    12,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    10,
+    4
+   ],
+   "sheet": "DeepBreath"
+  },
+  "Nod": {
+   "w": 32,
+   "h": 48,
+   "dirs": 8,
+   "durations": [
+    6,
+    8,
+    6
+   ],
+   "sheet": "Nod"
+  },
+  "Sit": {
+   "w": 32,
+   "h": 48,
+   "dirs": 1,
+   "durations": [
+    8,
+    8,
+    8
+   ],
+   "sheet": "Sit"
+  },
+  "LookUp": {
+   "w": 32,
+   "h": 48,
+   "dirs": 1,
+   "durations": [
+    6,
+    6,
+    6
+   ],
+   "sheet": "LookUp"
+  },
+  "Sink": {
+   "w": 32,
+   "h": 40,
+   "dirs": 1,
+   "durations": [
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6
+   ],
+   "sheet": "Sink"
+  },
+  "Trip": {
+   "w": 48,
+   "h": 48,
+   "dirs": 8,
+   "durations": [
+    4,
+    6,
+    4,
+    4,
+    4
+   ],
+   "sheet": "Trip"
+  },
+  "Laying": {
+   "w": 40,
+   "h": 24,
+   "dirs": 8,
+   "durations": [
+    12
+   ],
+   "sheet": "Laying"
+  },
+  "LeapForth": {
+   "w": 32,
+   "h": 80,
+   "dirs": 1,
+   "durations": [
+    6,
+    1,
+    1,
+    2,
+    2,
+    2
+   ],
+   "sheet": "LeapForth"
+  },
+  "Head": {
+   "w": 24,
+   "h": 32,
+   "dirs": 8,
+   "durations": [
+    4
+   ],
+   "sheet": "Head"
+  },
+  "Cringe": {
+   "w": 32,
+   "h": 64,
+   "dirs": 1,
+   "durations": [
+    2,
+    8
+   ],
+   "sheet": "Cringe"
+  },
+  "LostBalance": {
+   "w": 32,
+   "h": 48,
+   "dirs": 1,
+   "durations": [
+    8,
+    8
+   ],
+   "sheet": "LostBalance"
+  },
+  "TumbleBack": {
+   "w": 32,
+   "h": 40,
+   "dirs": 1,
+   "durations": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "sheet": "TumbleBack"
+  },
+  "Faint": {
+   "w": 40,
+   "h": 48,
+   "dirs": 8,
+   "durations": [
+    8,
+    12,
+    4,
+    10
+   ],
+   "sheet": "Faint"
+  },
+  "HitGround": {
+   "w": 32,
+   "h": 56,
+   "dirs": 1,
+   "durations": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    6,
+    4,
+    4
+   ],
+   "sheet": "HitGround"
+  },
+  "SpAttack": {
+   "w": 48,
+   "h": 72,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    6,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    6,
+    2,
+    2
+   ],
+   "hitFrame": 4,
+   "returnFrame": 9,
+   "sheet": "Hover"
+  },
+  "Appeal": {
+   "w": 48,
+   "h": 72,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    6,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    6,
+    2,
+    2
+   ],
+   "hitFrame": 4,
+   "returnFrame": 9,
+   "sheet": "Hover"
+  }
+ }
+}
