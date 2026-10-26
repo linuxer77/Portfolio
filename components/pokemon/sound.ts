@@ -207,6 +207,24 @@ export class Sound {
     this.tone(1800, 600, 0.25, "square", 0.05, 0.3);
   }
 
+  /** Two attacks meeting head-on: a hard metallic crack. */
+  clash() {
+    this.tone(1800, 700, 0.12, "square", 0.1);
+    this.hiss(0.15, "highpass", 4000, 1500, 0.3);
+    this.tone(140, 70, 0.18, "sine", 0.25);
+  }
+
+  /** Fire meeting water: a hiss of steam. */
+  steam() {
+    this.hiss(0.45, "highpass", 3500, 2200, 0.22, 0, 0.7, 0.02);
+  }
+
+  /** A projectile bouncing off a spinning shell. */
+  ricochet() {
+    this.tone(2400, 3600, 0.08, "square", 0.08);
+    this.tone(1200, 1200, 0.1, "triangle", 0.06, 0.05);
+  }
+
   /** A Burst's cut-in: a rising swoosh and a stab. */
   cutin() {
     this.hiss(0.45, "bandpass", 600, 6000, 0.3, 0, 2, 0.02);

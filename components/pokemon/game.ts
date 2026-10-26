@@ -17,6 +17,8 @@ import type { Sound } from "./sound";
 // a faint and a recall. Every move is drawn in pixels on the sprites' own grid (pixels.ts),
 // and each Pokémon's Burst is a full-screen finale with a cut-in: Blast Burn erupts the whole
 // page in fire, Surf floods the screen, Night Shade turns out the lights and reaches for you.
+// Moves collide, too: projectiles knock each other out of the air, water and fire meet in a
+// cloud of steam, Surf sweeps everything away, and a spinning shell sends shots back.
 // You can fight the CPU, or sit back and watch two CPUs fight it out. Exit and the page flies
 // back together.
 // ==========================================
@@ -89,13 +91,24 @@ interface Fighter {
   hits: number;
   wreckT: number;
   slow: number; // standing in sludge
+  /** how far a beam actually reaches this frame, once something has blocked it */
+  reach: number;
   input: { x: number; y: number };
   trail: { x: number; y: number; z: number; a: number }[];
   ai: { think: number; strafe: number; strafeT: number; react: number; dive: number };
   stats: { dealt: number; supers: number };
 }
 
-type PKind = "flame" | "spark" | "drop" | "foam" | "smoke" | "rock" | "ice" | "wisp" | "bubble" | "zap";
+type PKind = "flame" | "spark" | "drop" | "foam" | "smoke" | "rock" | "ice" | "wisp" | "bubble" | "zap" | "steam";
+
+/** How much a projectile weighs in a collision: the lighter one is destroyed, equals both go. */
+const MASS: Record<"fireblast" | "slash" | "shadowball" | "sludge" | "hypno", number> = {
+  fireblast: 3,
+  shadowball: 3,
+  sludge: 2,
+  slash: 1,
+  hypno: 0,
+};
 
 interface Particle {
   kind: PKind;
@@ -277,6 +290,8 @@ export class BattleGame {
   private raf = 0;
   private last = 0;
   private screenFlash = 0;
+  private clashSound = 0;
+  private clashSaid = 0;
   private sentOut = false;
   /** CPU vs CPU: both sides play themselves */
   private watch = false;
@@ -423,6 +438,7 @@ export class BattleGame {
       hits: 0,
       wreckT: 0,
       slow: 0,
+      reach: Infinity,
       input: { x: 0, y: 0 },
       trail: [],
       ai: { think: 0.5, strafe: 1, strafeT: 1, react: 0, dive: 0 },
@@ -511,6 +527,9 @@ export class BattleGame {
     for (const f of this.f) this.updateFighter(f, dt);
     this.collide();
     this.updateShots(dt);
+    this.collideMoves();
+    this.clashSound -= dt;
+    this.clashSaid -= dt;
     this.updateBursts(dt);
     this.updateZones(dt);
     this.updateWaves(dt);
@@ -827,6 +846,14 @@ export class BattleGame {
             fromY: f.y,
           });
           this.wreck.blast(px, py, 16 * k, 2, f.x, f.y, 30);
+          // a well-timed swipe knocks an incoming projectile out of the air
+          for (const s of this.shots) {
+            if (s.owner === f.id || s.t < 0 || s.life < 0 || this.lofted(s)) continue;
+            if (Math.hypot(s.x - px, s.y - py) > 24 * k + this.shotRadius(s)) continue;
+            this.pop(s, s.x, s.y);
+            this.clashFx(s.x, s.y, "spark");
+            this.tell(`${this.name(f)} knocked it away!`);
+          }
           if (Math.hypot(o.x - px, o.y - py) < (BODY + 18) * k && o.z < HIGH * k && o.state !== "lurk") {
             this.strike(f, o, "melee", Math.cos(f.aimAngle), Math.sin(f.aimAngle), 220);
             // a Lick can leave the foe paralyzed
@@ -863,6 +890,23 @@ export class BattleGame {
         }
         break;
       case "spin": {
+        // the spinning shell sends projectiles straight back at whoever threw them
+        if (f.t > 0.14) {
+          for (const s of this.shots) {
+            if (s.owner === f.id || s.t < 0 || s.life < 0 || this.lofted(s)) continue;
+            if (Math.hypot(s.x - f.x, s.y - f.y) > (BODY + 6) * k + this.shotRadius(s)) continue;
+            const a = Math.atan2(s.y - f.y, s.x - f.x);
+            const sp = Math.max(260 * k, Math.hypot(s.vx, s.vy));
+            s.owner = f.id;
+            s.vx = Math.cos(a) * sp;
+            s.vy = Math.sin(a) * sp;
+            s.angle = a;
+            s.t = Math.min(s.t, 0.1);
+            this.sound.ricochet();
+            this.sparks(s.x, s.y, 6, "#fff");
+            this.tell("It bounced off the shell!");
+          }
+        }
         // into the shell, then a spinning dash that bounces off the edges of the arena
         if (f.t < 0.14) break;
         if (f.t - dt < 0.14) {
@@ -1010,13 +1054,15 @@ export class BattleGame {
       if (f.t >= len + 0.2) this.toFree(f);
       return;
     }
-    // Hydro Pump and Ice Beam: a beam that hits whatever stands on its line
+    // Hydro Pump and Ice Beam: a beam that hits whatever stands on its line (unless the foe's
+    // own attack is in the way)
     const ice = f.move === "s3";
-    const beam = this.beamLength(f);
     const dx = Math.cos(f.aimAngle);
     const dy = Math.sin(f.aimAngle);
     const sx = f.x + dx * 14 * k;
     const sy = f.y + dy * 14 * k;
+    const beam = f.t < len ? this.beamClash(f, sx, sy, dx, dy, this.beamLength(f)) : this.beamLength(f);
+    f.reach = beam;
     if (f.t < len) {
       const rx = o.x - sx;
       const ry = o.y - sy;
@@ -1076,6 +1122,149 @@ export class BattleGame {
         : f.aimAngle;
     f.aimAngle += Math.max(-turn, Math.min(turn, wrap(want - f.aimAngle)));
     f.face = f.aimAngle;
+  }
+
+  // ---------- collisions between moves ----------
+
+  /** How big a projectile is for hitting things (doc px). */
+  private shotRadius(s: Shot) {
+    const k = this.k;
+    if (s.kind === "hypno") return (6 + s.t * 18) * k * 0.7;
+    return (s.kind === "shadowball" ? 10 : s.kind === "fireblast" ? 8 : 7) * k;
+  }
+
+  /** A lobbed Sludge Bomb high in the air passes over everything until it comes down. */
+  private lofted(s: Shot) {
+    return s.kind === "sludge" && s.z > 30 * this.k;
+  }
+
+  /** A projectile destroyed in a collision: some go off where they are, the rest just break. */
+  private pop(s: Shot, x: number, y: number, doused = false) {
+    if (s.life < 0) return;
+    s.life = -1;
+    const k = this.k;
+    const f = this.f![s.owner];
+    if (doused) {
+      // water puts the fire out
+      this.clashFx(x, y, "steam");
+      for (let i = 0; i < 8; i++) this.spawn("steam", x, y, rand(-60, 60) * k, rand(-60, 60) * k, 0.8, 5 * k, 6 * k);
+    } else if (s.kind === "fireblast") {
+      this.bursts.push({ kind: "daikanji", owner: s.owner, x, y, t: 0, max: 50 * k, hit: false, wreckT: 0 });
+      this.sound.fireBlast();
+      this.onShake(8);
+    } else if (s.kind === "shadowball") {
+      this.bursts.push({ kind: "shadow", owner: s.owner, x, y, t: 0, max: 32 * k, hit: false, wreckT: 0 });
+      this.sound.burstDark();
+    } else if (s.kind === "sludge") {
+      this.splat(f, this.other(f), x, y);
+    } else {
+      this.clashFx(x, y, s.kind === "hypno" ? "dark" : "spark");
+    }
+  }
+
+  /** Where two attacks meet: sparks, steam or dark energy, a crack, and a dent in the page. */
+  private clashFx(x: number, y: number, kind: "spark" | "steam" | "dark") {
+    const k = this.k;
+    if (this.clashSound <= 0) {
+      this.clashSound = 0.08;
+      if (kind === "steam") this.sound.steam();
+      else this.sound.clash();
+    }
+    if (kind === "steam") {
+      for (let i = 0; i < 3; i++) this.spawn("steam", x, y, rand(-40, 40) * k, rand(-40, 40) * k, 0.7, 4 * k, 8 * k);
+    } else {
+      this.sparks(x, y - 8 * k, 10, kind === "dark" ? GHOST[1] : "#fde047");
+      if (kind === "dark")
+        for (let i = 0; i < 8; i++) {
+          const a = rand(0, Math.PI * 2);
+          this.spawn("wisp", x, y, Math.cos(a) * 140 * k, Math.sin(a) * 140 * k, 0.35, 2 * k, 8 * k);
+        }
+    }
+    this.wreck.knock(x, y, 12 * k, x, y, 240, 6);
+  }
+
+  /** A battle message for collisions, at most every few seconds. */
+  private tell(text: string) {
+    if (this.clashSaid > 0) return;
+    this.clashSaid = 3;
+    this.say(text);
+  }
+
+  /**
+   * A beam (Hydro Pump, Ice Beam) against whatever the foe has in its path: flames die in a
+   * cloud of steam and hold the beam back where they meet; projectiles burst on it, except
+   * Fire Blast, which water puts out but which melts straight through ice. Returns how far
+   * the beam gets.
+   */
+  private beamClash(f: Fighter, sx: number, sy: number, dx: number, dy: number, len: number) {
+    const k = this.k;
+    const ice = f.move === "s3";
+    let reach = len;
+    const along = (x: number, y: number) => (x - sx) * dx + (y - sy) * dy;
+    const off = (x: number, y: number) => Math.abs((x - sx) * dy - (y - sy) * dx);
+    let clashed = false;
+    for (const p of this.particles) {
+      if (p.kind !== "flame" || p.owner === undefined || p.owner === f.id || p.life <= 0) continue;
+      const a = along(p.x, p.y);
+      if (a < 0 || a > reach + p.r || off(p.x, p.y) > 9 * k + p.r * 0.6) continue;
+      p.life = 0;
+      reach = Math.max(0, Math.min(reach, a - p.r * 0.5));
+      clashed = true;
+      if (Math.random() < 0.3) this.clashFx(p.x, p.y, "steam");
+    }
+    if (clashed) this.tell("The attacks collided!");
+    for (const s of this.shots) {
+      if (s.owner === f.id || s.t < 0 || s.life < 0 || this.lofted(s)) continue;
+      const a = along(s.x, s.y);
+      if (a < 0 || a > reach || off(s.x, s.y) > 9 * k + this.shotRadius(s)) continue;
+      if (s.kind === "fireblast" && ice) {
+        // fire melts through the ice: the beam is cut off
+        this.pop(s, s.x, s.y);
+        f.t = Math.max(f.t, this.streamLength(f));
+        reach = Math.min(reach, a);
+        this.tell("The fire melted the ice!");
+      } else {
+        this.pop(s, s.x, s.y, s.kind === "fireblast");
+        this.tell(s.kind === "fireblast" ? "The water put out the fire!" : "The attacks collided!");
+      }
+    }
+    return reach;
+  }
+
+  /** Projectiles against each other, and against the foe's flames. */
+  private collideMoves() {
+    const live = this.shots.filter((s) => s.t >= 0 && s.life > 0 && !this.lofted(s));
+    for (let i = 0; i < live.length; i++) {
+      for (let j = i + 1; j < live.length; j++) {
+        const a = live[i];
+        const b = live[j];
+        if (a.owner === b.owner || a.life < 0 || b.life < 0) continue;
+        if (Math.hypot(a.x - b.x, a.y - b.y) > this.shotRadius(a) + this.shotRadius(b)) continue;
+        const x = (a.x + b.x) / 2;
+        const y = (a.y + b.y) / 2;
+        // the heavier one carries on; equals knock each other out
+        if (MASS[a.kind] >= MASS[b.kind]) this.pop(b, x, y);
+        if (MASS[b.kind] >= MASS[a.kind]) this.pop(a, x, y);
+        this.clashFx(x, y, a.kind === "shadowball" || b.kind === "shadowball" ? "dark" : "spark");
+        this.onShake(5);
+        this.tell("The attacks collided!");
+      }
+    }
+    // flames burn up light projectiles; heavy ones push through and eat the flames
+    for (const s of live) {
+      if (s.life < 0) continue;
+      const r = this.shotRadius(s);
+      for (const p of this.particles) {
+        if (p.kind !== "flame" || p.owner === undefined || p.owner === s.owner || p.life <= 0) continue;
+        if (Math.hypot(p.x - s.x, p.y - s.y) > r + p.r * 0.6) continue;
+        if (MASS[s.kind] <= 2) {
+          this.pop(s, s.x, s.y);
+          this.tell("The flames burned it up!");
+          break;
+        }
+        p.life = 0;
+      }
+    }
   }
 
   private beamLength(f: Fighter) {
@@ -1651,6 +1840,21 @@ export class BattleGame {
       }
       // behind the front it's all water: the undertow drags at anyone in it
       if ((p - w.pos) * w.sign < 0 && o.z < HIGH * k) o.slow = 0.25;
+      // and the wave sweeps away the foe's attacks in its path
+      const inBand = (x: number, y: number) => {
+        const q = ((w.axis === "x" ? x : y) - w.pos) * w.sign;
+        return q < 0 && q > -thick * 1.5;
+      };
+      for (const s of this.shots) {
+        if (s.owner === w.owner || s.t < 0 || s.life < 0 || this.lofted(s) || !inBand(s.x, s.y)) continue;
+        this.pop(s, s.x, s.y, s.kind === "fireblast");
+        if (s.kind !== "fireblast") this.clashFx(s.x, s.y, "spark");
+      }
+      for (const fp of this.particles) {
+        if (fp.kind !== "flame" || fp.owner === undefined || fp.owner === w.owner || !inBand(fp.x, fp.y)) continue;
+        fp.life = 0;
+        if (Math.random() < 0.15) this.clashFx(fp.x, fp.y, "steam");
+      }
       // the wave washes the page along with it
       w.wreckT -= dt;
       if (w.wreckT <= 0) {
@@ -1904,6 +2108,11 @@ export class BattleGame {
             this.wreck.ignite(p.x, p.y, 12 * k, 5);
           }
         }
+      } else if (p.kind === "steam") {
+        p.vx *= Math.exp(-3 * dt);
+        p.vy *= Math.exp(-3 * dt);
+        p.z += dt * 40 * k;
+        p.r += dt * 14 * k;
       } else if (p.kind === "smoke" || p.kind === "wisp") {
         p.vx *= Math.exp(-3 * dt);
         p.vy *= Math.exp(-3 * dt);
@@ -2483,7 +2692,7 @@ export class BattleGame {
     for (const f of this.f!) {
       if (f.state !== "stream" || f.species === "charizard" || f.t >= this.streamLength(f)) continue;
       const ice = f.move === "s3";
-      const len = this.beamLength(f);
+      const len = Math.min(this.beamLength(f), f.reach);
       const dx = Math.cos(f.aimAngle);
       const dy = Math.sin(f.aimAngle);
       const lift = 10 * k;
@@ -2571,6 +2780,10 @@ export class BattleGame {
         if (age < 0.25) g.disc(p.x, y, r * 0.3, FIRE[0]);
         break;
       }
+      case "steam":
+        g.ditherDisc(p.x, y, p.r, life > 0.5 ? "#f4f4f5" : "#a1a1aa", 0.9, Math.floor(this.clock * 12) % 2);
+        if (life > 0.6) g.disc(p.x, y, p.r * 0.4, "#ffffff");
+        break;
       case "smoke":
         g.ditherDisc(p.x, y, p.r, life > 0.5 ? "#71717a" : "#3f3f46", 0.8, Math.floor(this.clock * 10) % 2);
         break;
