@@ -6,7 +6,7 @@
 // frame durations in 1/60 s ticks; the timings are in anims.json, made from each AnimData.xml.
 // ==========================================
 
-export type Species = "charizard" | "blastoise" | "gengar" | "mewtwo";
+export type Species = "charizard" | "blastoise" | "gengar" | "mewtwo" | "rayquaza" | "groudon" | "kyogre";
 
 /** Facing, as a sheet row: 0 down, 1 down-right, 2 right … 7 down-left. */
 export type Dir = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -29,6 +29,8 @@ export interface Mon {
   portrait: HTMLImageElement;
   /** how far below a frame's centre the feet are, sprite px */
   feet: number;
+  /** drawn at this fraction of the usual size: the legendaries' sheets are twice as big */
+  scale: number;
 }
 
 const image = (src: string) =>
@@ -55,7 +57,7 @@ export async function loadMon(species: Species, form: string = species): Promise
     })
   );
   const portrait = await image(`${base}/portrait.png`);
-  return { species, anims, portrait, feet: feetOf(anims.Idle) };
+  return { species, anims, portrait, feet: feetOf(anims.Idle), scale: scaleOf(anims.Idle) };
 }
 
 /** Where the feet are in the idle frame facing down: the lowest solid row. */
@@ -70,6 +72,33 @@ function feetOf(a: Anim) {
     for (let x = 0; x < a.w; x++) if (data[(y * a.w + x) * 4 + 3] > 0) return y - a.h / 2 - 1;
   }
   return 0;
+}
+
+/** Big Pokémon (the legendaries) are drawn smaller, so they loom at about 1.4× the others. */
+function scaleOf(a: Anim) {
+  const c = document.createElement("canvas");
+  c.width = a.w;
+  c.height = a.h * a.dirs;
+  const ctx = c.getContext("2d", { willReadFrequently: true })!;
+  ctx.drawImage(a.img, 0, 0, a.w, a.h * a.dirs, 0, 0, a.w, a.h * a.dirs);
+  let size = 0;
+  for (let r = 0; r < a.dirs; r++) {
+    const { data } = ctx.getImageData(0, r * a.h, a.w, a.h);
+    let top = a.h;
+    let bottom = 0;
+    let left = a.w;
+    let right = 0;
+    for (let y = 0; y < a.h; y++)
+      for (let x = 0; x < a.w; x++)
+        if (data[(y * a.w + x) * 4 + 3] > 0) {
+          top = Math.min(top, y);
+          bottom = Math.max(bottom, y);
+          left = Math.min(left, x);
+          right = Math.max(right, x);
+        }
+    size = Math.max(size, bottom - top, (right - left) * 0.8);
+  }
+  return size > 40 ? 42 / size : 1;
 }
 
 /** The frame showing t seconds into an animation; it loops, or holds its last frame. */
@@ -150,7 +179,7 @@ export function drawMon(
 ) {
   const a = mon.anims[anim] ?? mon.anims.Idle;
   const row = a.dirs > 1 ? dir : 0;
-  const s = k * (opts.grow ?? 1);
+  const s = k * (opts.grow ?? 1) * mon.scale;
   const dw = a.w * s;
   const dh = a.h * s;
   const dx = x - dw / 2;

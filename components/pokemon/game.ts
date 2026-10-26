@@ -2,7 +2,18 @@ import { PageWreck } from "../streetfighter/wreck";
 import { playRewind } from "../arcade/rewindSound";
 import { record, unlock } from "@/lib/arcade";
 import { dirOf, drawMon, frameAt, timeOfFrame, type Dir, type Mon, type Species } from "./sprites";
-import { effectiveness, MEGA_MOVES, MEGA_NAME, MOVES, SLOT_KEY, STATS, type Kind, type Slot } from "./moves";
+import {
+  effectiveness,
+  LEGENDS,
+  MEGA_MOVES,
+  MEGA_NAME,
+  MOVES,
+  PRIMAL,
+  SLOT_KEY,
+  STATS,
+  type Kind,
+  type Slot,
+} from "./moves";
 import {
   AIR,
   BLUEFIRE,
@@ -45,8 +56,52 @@ const BODY = 15; // body radius, sprite px
 const HIGH = 35; // above this (sprite px) a flyer is out of reach of ground moves
 const DAMAGE = 0.6; // scales every move, so a battle lasts long enough to read
 const CUTIN = 0.95; // how long a Burst's cut-in holds the battle, s
-const FINALE: Record<Species, number> = { charizard: 2.2, blastoise: 2.7, gengar: 2.3, mewtwo: 2.6 };
-const MEGA_FINALE: Record<Species, number> = { charizard: 3.0, blastoise: 3.3, gengar: 3.3, mewtwo: 3.4 };
+const FINALE: Record<Species, number> = {
+  charizard: 2.2,
+  blastoise: 2.7,
+  gengar: 2.3,
+  mewtwo: 2.6,
+  rayquaza: 2.8,
+  groudon: 2.8,
+  kyogre: 2.8,
+};
+/** Tectonic Rage: the Ω's radius, sprite px */
+const OMEGA = 120;
+
+const MEGA_FINALE: Record<Species, number> = {
+  charizard: 3.0,
+  blastoise: 3.3,
+  gengar: 3.3,
+  mewtwo: 3.4,
+  rayquaza: 3.4,
+  groudon: 3.4,
+  kyogre: 3.4,
+};
+// beam colours, brightest first
+const HYPER = ["#ffffff", "#fff1c0", "#ffc060", "#ff8030", "#c04010"];
+const SOLAR = ["#ffffff", "#f8ffc0", "#c8f060", "#78d038", "#2f8a20"];
+const JADE = ["#f0fff4", "#9cf0b0", "#3cc870", "#1c8a48", "#0c4a28"];
+const MAGMA = ["#fff4c0", "#ffb030", "#f05010", "#a01808", "#400804"];
+const RAGE = ["#fff0f0", "#ff9090", "#e02848", "#8a1040", "#3a0828"];
+/** The colour a legendary's lunge streams off its body. */
+const LUNGE_PAL: Record<string, string[]> = {
+  "AERIAL ACE": ["#ffffff", "#e8f4ff", "#b8d8f0", "#7898b8", "#405870"],
+  "EXTREME SPEED": ["#ffffff", "#fff8e0", "#f0e0b0", "#b8a070", "#605030"],
+  OUTRAGE: RAGE,
+  "DRAGON RUSH": ["#e0f0ff", "#90b8ff", "#4870f0", "#2838a8", "#101850"],
+  "FIRE PUNCH": MAGMA,
+  "HAMMER ARM": MAGMA,
+  WATERFALL: ["#ffffff", "#b0e8ff", "#50b0f0", "#2060c0", "#0c2a68"],
+  LIQUIDATION: ["#ffffff", "#b0e8ff", "#50b0f0", "#2060c0", "#0c2a68"],
+};
+/** The legendaries' beams, by move. */
+const BEAM_OF: Record<string, "hyper" | "solar" | "fire" | "water" | "ice"> = {
+  "HYPER BEAM": "hyper",
+  "SOLAR BEAM": "solar",
+  OVERHEAT: "fire",
+  SCALD: "water",
+  "ICE BEAM": "ice",
+};
 const MEGA_AT = 0.4; // Mega Evolution unlocks below this much HP
 
 type State =
@@ -71,6 +126,7 @@ type State =
   | "psy"
   | "blink"
   | "zen"
+  | "legend"
   | "dodge"
   | "hurt"
   | "faint"
@@ -135,6 +191,13 @@ interface Fighter {
   barrier: number;
   /** held in the air by psychic power (Psychic, Psystrike, Shattered Psyche), s */
   held: number;
+  /** a legendary's beam in progress (Hyper Beam, Solar Beam, Overheat, Scald, Ice Beam) */
+  beam: "hyper" | "solar" | "fire" | "water" | "ice" | null;
+  /** Aqua Ring: healing a little at a time, s */
+  regen: number;
+  /** where a move is headed (Dragon Ascent's dive) */
+  tx: number;
+  ty: number;
   input: { x: number; y: number };
   trail: { x: number; y: number; z: number; a: number }[];
   ai: { think: number; strafe: number; strafeT: number; react: number; dive: number };
@@ -163,6 +226,9 @@ const MASS: Record<Shot["kind"], number> = {
   waterpulse: 2,
   psyshard: 1,
   star: 1,
+  twister: 3,
+  laser: 2,
+  ancient: 2,
   fireblast: 3,
   shadowball: 3,
   sludge: 2,
@@ -199,7 +265,10 @@ interface Shot {
     | "hex"
     | "waterpulse"
     | "psyshard"
-    | "star";
+    | "star"
+    | "twister"
+    | "laser"
+    | "ancient";
   owner: 0 | 1;
   x: number;
   y: number;
@@ -211,6 +280,8 @@ interface Shot {
   life: number;
   // a lobbed Sludge Bomb flies from (x0, y0) to (tx, ty)
   x0: number;
+  /** a Twister's clock between hits */
+  hitT?: number;
   y0: number;
   tx: number;
   ty: number;
@@ -218,7 +289,20 @@ interface Shot {
 
 /** Explosions and shockwaves that play out over time. */
 interface Burst {
-  kind: "blastburn" | "daikanji" | "quake" | "shadow" | "darkpulse" | "sludgewave" | "futuresight" | "psywave";
+  kind:
+    | "blastburn"
+    | "daikanji"
+    | "quake"
+    | "shadow"
+    | "darkpulse"
+    | "sludgewave"
+    | "futuresight"
+    | "psywave"
+    | "lava"
+    | "frost"
+    | "dragonring";
+  /** whose move a shockwave is, if not its kind's usual (Groudon's Earthquake) */
+  slot?: Slot;
   owner: 0 | 1;
   x: number;
   y: number;
@@ -228,8 +312,39 @@ interface Burst {
   wreckT: number;
 }
 
+/** Something falling out of the sky onto (x, y): t counts up from a negative delay. */
+interface Skyfall {
+  kind: "meteor" | "bomb" | "thunder" | "volcano";
+  owner: 0 | 1;
+  x: number;
+  y: number;
+  t: number;
+  fall: number;
+  r: number;
+  slot: Slot;
+  mult: number;
+  hit: boolean;
+  /** a volley shares a cap on how many times it can hit */
+  group: { hits: number; max: number };
+}
+
+/** A rock spike bursting up out of the page; t counts up from a negative delay. */
+interface Spike {
+  kind: "stone" | "blade" | "earth";
+  owner: 0 | 1;
+  x: number;
+  y: number;
+  t: number;
+  r: number;
+  slot: Slot;
+  hit: boolean;
+  group: { hits: number; max: number };
+}
+
 /** Sludge puddles left on the page. */
 interface Zone {
+  /** a sludge puddle, or Primal Kyogre's whirlpool */
+  kind?: "sludge" | "whirl";
   owner: 0 | 1;
   x: number;
   y: number;
@@ -286,6 +401,8 @@ export interface BattleStats {
   hpLeft: number;
   /** CPU vs CPU: nobody's "you", so it's just who won */
   watch: boolean;
+  team: Species[];
+  foeTeam: Species[];
 }
 
 const STATUS_NAME: Record<Status, string> = { brn: "BRN", psn: "PSN", par: "PAR", slp: "SLP", frz: "FRZ" };
@@ -312,7 +429,7 @@ const distToSegment = (px: number, py: number, ax: number, ay: number, bx: numbe
 export class BattleGame {
   private ctx: CanvasRenderingContext2D;
   private wreck: PageWreck;
-  private mons: Record<Species, Mon>;
+  private mons: Partial<Record<Species, Mon>>;
   private f: [Fighter, Fighter] | null = null;
   private particles: Particle[] = [];
   private shots: Shot[] = [];
@@ -351,6 +468,14 @@ export class BattleGame {
   private geysers: { x: number; y: number; t: number }[] = [];
   /** Thunderbolt's lightning, for the moment it's on screen */
   private bolts: { x0: number; y0: number; x1: number; y1: number; t: number; seed: number }[] = [];
+  /** things falling out of the sky: Draco Meteor, water bombs, Thunder, volcanic bombs */
+  private skyfalls: Skyfall[] = [];
+  /** rock spikes bursting out of the page: Stone Edge, Precipice Blades, Earth Power */
+  private spikes: Spike[] = [];
+  /** the weather: Groudon's sun, Kyogre's rain, and their Primal extremes */
+  private weather: { kind: "sun" | "rain" | "harsh" | "heavy"; t: number } | null = null;
+  /** Delta Stream's ribbon of wind, newest point last */
+  private ribbon: { x: number; y: number }[] = [];
   /** how flooded the screen is after Surf, 0 to 1 */
   private flood = 0;
   private ground = new PixelLayer();
@@ -358,7 +483,10 @@ export class BattleGame {
   private keys = new Set<string>();
   private queued: Slot | "dodge" | "mega" | null = null;
   private queuedT = 0;
-  private phase: "menu" | "intro" | "battle" | "ko" | "over" = "menu";
+  private phase: "menu" | "intro" | "battle" | "ko" | "send" | "over" = "menu";
+  /** each side's team, in the order they're sent out, and how many of each have fainted */
+  private teams: [Species[], Species[]] = [[], []];
+  private fainted: [number, number] = [0, 0];
   private phaseT = 0;
   private time = 0;
   private clock = 0;
@@ -384,7 +512,7 @@ export class BattleGame {
 
   constructor(
     private canvas: HTMLCanvasElement,
-    mons: Record<Species, Mon>,
+    mons: Partial<Record<Species, Mon>>,
     private megas: Partial<Record<Species, Mon>>,
     private sound: Sound,
     private onEnd: (stats: BattleStats) => void,
@@ -421,8 +549,24 @@ export class BattleGame {
     cancelAnimationFrame(this.raf);
   }
 
-  /** A battle: you send out `species`, the CPU sends out `foe` (or, watching, a CPU sends out each). */
-  start(species: Species, foe: Species, watch = false) {
+  /** Adds a Pokémon's sprites (and its Mega or Primal form's) once they've loaded. */
+  addMon(species: Species, mon: Mon, mega: Mon) {
+    this.mons[species] = mon;
+    this.megas[species] = mega;
+  }
+
+  /** A new Pokémon of yours is out (after one faints, in 3 v 3): its regular moves are back on the buttons. */
+  onSwitch?: (id: 0 | 1, species: Species) => void;
+
+  /**
+   * A battle: you send out `team` one at a time, the CPU sends out `foes` (or, watching, a CPU
+   * sends out each). 1 v 1 is a team of one each.
+   */
+  start(team: Species[], foes: Species[], watch = false) {
+    const species = team[0];
+    const foe = foes[0];
+    this.teams = [team, foes];
+    this.fainted = [0, 0];
     this.watch = watch;
     this.sound.unlock();
     this.wreck.reset();
@@ -438,6 +582,10 @@ export class BattleGame {
     this.finale = null;
     this.geysers = [];
     this.bolts = [];
+    this.skyfalls = [];
+    this.spikes = [];
+    this.weather = null;
+    this.ribbon = [];
     this.flood = 0;
     this.megaHint = false;
     this.invertPage(false);
@@ -497,7 +645,7 @@ export class BattleGame {
     return {
       id,
       species,
-      mon: this.mons[species],
+      mon: this.mons[species]!,
       cpu: id === 1,
       x,
       y,
@@ -540,6 +688,10 @@ export class BattleGame {
       confused: 0,
       barrier: 0,
       held: 0,
+      beam: null,
+      regen: 0,
+      tx: 0,
+      ty: 0,
       input: { x: 0, y: 0 },
       trail: [],
       ai: { think: 0.5, strafe: 1, strafeT: 1, react: 0, dive: 0 },
@@ -637,6 +789,7 @@ export class BattleGame {
     this.updateZones(dt);
     this.updateWaves(dt);
     this.updateFinale(dt);
+    this.updateLegends(dt);
     this.updateParticles(dt);
     for (const b of this.bolts) b.t += dt;
     this.bolts = this.bolts.filter((b) => b.t < 0.3);
@@ -667,13 +820,20 @@ export class BattleGame {
   private appear(f: Fighter) {
     f.state = "free";
     f.t = 0;
+    if (this.phase === "send") {
+      this.phase = "battle";
+      this.phaseT = 0;
+    }
     f.grow = 0.2;
     f.tint = 1;
     f.tintColour = "#fff";
     this.sound.ballOpen();
     if (f.species === "gengar") this.sound.cackle();
     else if (f.species === "mewtwo") this.sound.mewtwoCry();
-    else this.sound.roar(f.species === "blastoise");
+    else if (LEGENDS.has(f.species)) {
+      this.sound.roar(f.species !== "rayquaza");
+      this.legendArrives(f);
+    } else this.sound.roar(f.species === "blastoise");
     this.flashes.push({ x: f.x, y: f.y, t: 0, r: 40 * this.k, colour: "#fff" });
     for (let i = 0; i < 18; i++) {
       const a = (i / 18) * Math.PI * 2;
@@ -865,6 +1025,10 @@ export class BattleGame {
     f.aimAngle = this.aim(f);
     f.face = f.aimAngle;
     if (slot !== "melee") this.say(`${this.name(f)} used ${move.name}!`);
+    if (LEGENDS.has(f.species) && slot !== "burst") {
+      this.legendMove(f, slot);
+      return true;
+    }
     if (f.mega && slot !== "burst") {
       this.megaMove(f, slot);
       return true;
@@ -1010,6 +1174,9 @@ export class BattleGame {
       case "zen":
         this.mewtwoAct(f, o, dt);
         break;
+      case "legend":
+        this.legendAct(f, o, dt);
+        break;
       case "cast": {
         const c = this.castAnim(f);
         if (!f.fired && f.t >= c.at) {
@@ -1081,7 +1248,17 @@ export class BattleGame {
         f.z = Math.sin(Math.min(1, f.t / 0.42) * Math.PI) * 22 * k;
         if (f.t >= 0.42) {
           f.z = 0;
-          this.bursts.push({ kind: "quake", owner: f.id, x: f.x, y: f.y, t: 0, max: 200 * k, hit: false, wreckT: 0 });
+          this.bursts.push({
+            kind: "quake",
+            owner: f.id,
+            x: f.x,
+            y: f.y,
+            t: 0,
+            max: 200 * k,
+            hit: false,
+            wreckT: 0,
+            slot: f.move,
+          });
           this.sound.quake();
           this.onShake(14);
           this.screenFlash = 0.2;
@@ -1524,6 +1701,19 @@ export class BattleGame {
         this.tell("It bounced off the Barrier!");
         continue;
       }
+      if (s.kind === "ancient" && s.t < 0.45) {
+        // Ancient Power's rocks circle their thrower first, then fly
+        const a = s.angle + s.t * 9;
+        s.x = f.x + Math.cos(a) * 26 * k;
+        s.y = f.y + Math.sin(a) * 18 * k;
+        if (s.t + dt >= 0.45) {
+          const to = Math.atan2(o.y - s.y, o.x - s.x);
+          s.vx = Math.cos(to) * 380 * k;
+          s.vy = Math.sin(to) * 380 * k;
+          s.angle = to;
+        }
+        continue;
+      }
       if (s.kind === "star" || s.kind === "psyshard") {
         // Swift's stars never lose their target; Psyshock's shards curve after it a little
         const want = Math.atan2(o.y - s.y, o.x - s.x);
@@ -1604,6 +1794,40 @@ export class BattleGame {
           s.life = -1;
           this.sparks(s.x, s.y - 8 * k, 6, "#fff");
         }
+      } else if (s.kind === "twister") {
+        // a dragon's tornado: it drags the page round into itself, and the foe with it
+        this.wreck.knock(
+          s.x + rand(-1, 1) * 16 * k,
+          s.y + rand(-1, 1) * 16 * k,
+          14 * k,
+          s.x - s.vy,
+          s.y + s.vx,
+          260,
+          4
+        );
+        const d = Math.hypot(o.x - s.x, o.y - s.y);
+        if (d < 70 * k && o.z < HIGH * k && o.state !== "lurk") {
+          o.x += (s.x - o.x) * Math.min(1, dt * 1.2);
+          o.y += (s.y - o.y) * Math.min(1, dt * 1.2);
+        }
+        s.hitT = (s.hitT ?? 0) - dt;
+        if (touching(reach + 12 * k) && s.hitT <= 0) {
+          s.hitT = 0.25;
+          this.strike(f, o, "s1", Math.cos(s.angle), Math.sin(s.angle), 90);
+        }
+        if (s.t >= s.life || out) s.life = -1;
+      } else if (s.kind === "laser" || s.kind === "ancient") {
+        if (s.kind === "laser") this.wreck.knock(s.x, s.y, 7 * k, s.x - s.vx, s.y - s.vy, 240, 3);
+        if (touching(reach)) {
+          s.life = -1;
+          this.strike(f, o, s.kind === "laser" ? "s1" : "s3", Math.cos(s.angle), Math.sin(s.angle), 160);
+          this.sparks(s.x, s.y - 8 * k, 8, s.kind === "laser" ? "#7dd3fc" : EARTH[0]);
+          // Ancient Power sometimes lifts every stat
+          if (s.kind === "ancient" && Math.random() < 0.1 && f.boost <= 0) {
+            f.boost = 5;
+            this.say(`${this.name(f)}'s stats rose!`);
+          }
+        } else if (s.t >= s.life || out) s.life = -1;
       } else if (s.kind === "psyshard" || s.kind === "star") {
         if (touching(reach)) {
           s.life = -1;
@@ -1688,6 +1912,10 @@ export class BattleGame {
     for (const z of this.zones) {
       z.t += dt;
       const o = this.f![z.owner === 0 ? 1 : 0];
+      if (z.kind === "whirl") {
+        this.updateWhirl(z, o, dt);
+        continue;
+      }
       if (Math.hypot(o.x - z.x, o.y - z.y) < z.r && o.z < 6 * k && o.state !== "lurk") {
         o.slow = 0.2;
         if (z.t > 0.2) this.inflict(o, "psn");
@@ -1705,6 +1933,7 @@ export class BattleGame {
 
   /** After the cut-in, the Burst itself: a finale that takes over the whole screen. */
   private startFinale(f: Fighter) {
+    if (LEGENDS.has(f.species)) return this.startLegendFinale(f);
     if (f.mega) return this.startMegaFinale(f);
     const k = this.k;
     f.state = "ult";
@@ -1773,6 +2002,7 @@ export class BattleGame {
     const f = this.f![fin.owner];
     const o = this.other(f);
     fin.t += dt;
+    if (LEGENDS.has(fin.kind)) return this.updateLegendFinale(fin, f, o, dt);
     if (fin.mega) return this.updateMegaFinale(fin, f, o, dt);
     const t = fin.t;
     const len = FINALE[fin.kind];
@@ -2008,7 +2238,7 @@ export class BattleGame {
         const reached = b.kind === "quake" ? o.z < 4 * k && o.state !== "lurk" : grounded;
         if (!b.hit && dist < rad + BODY * k && reached) {
           b.hit = true;
-          this.strike(f, o, b.kind === "quake" ? "s4" : "burst", ux, uy, 420);
+          this.strike(f, o, b.kind === "quake" ? (b.slot ?? "s4") : "burst", ux, uy, 420);
         }
         b.wreckT -= dt;
         if (b.t < len && b.wreckT <= 0) {
@@ -2082,14 +2312,23 @@ export class BattleGame {
           }
           if (dist < (BODY + 26) * k && grounded) this.strike(f, o, "s3", ux, uy, 320);
         }
-      } else if (b.kind === "darkpulse" || b.kind === "sludgewave" || b.kind === "psywave") {
+      } else if (
+        b.kind === "darkpulse" ||
+        b.kind === "sludgewave" ||
+        b.kind === "psywave" ||
+        b.kind === "lava" ||
+        b.kind === "frost" ||
+        b.kind === "dragonring"
+      ) {
         // a ring rolling out across the page (Psystrike's psychic waves go slower, and further)
         const span = b.kind === "psywave" ? 0.8 : 0.45;
         const rad = Math.min(1, b.t / span) * b.max;
         if (!b.hit && dist < rad + BODY * k && dist > rad - 40 * k && grounded) {
           b.hit = true;
-          this.strike(f, o, b.kind === "darkpulse" ? "s2" : "s1", ux, uy, 300);
+          this.strike(f, o, b.kind === "darkpulse" ? "s2" : b.kind === "frost" ? "s3" : "s1", ux, uy, 300);
           if (b.kind === "sludgewave" && Math.random() < 0.3) this.inflict(o, "psn");
+          if (b.kind === "lava" && Math.random() < 0.3) this.inflict(o, "brn");
+          if (b.kind === "frost" && Math.random() < 0.5) this.inflict(o, "frz");
         }
         b.wreckT -= dt;
         if (b.t < span && b.wreckT <= 0) {
@@ -2098,8 +2337,10 @@ export class BattleGame {
             const a = rand(0, Math.PI * 2);
             const x = b.x + Math.cos(a) * rad;
             const y = b.y + Math.sin(a) * rad * 0.8;
-            if (b.kind !== "sludgewave") this.wreck.knock(x, y, 12 * k, b.x, b.y, 300, 5);
-            else this.wreck.dissolve(x, y, 12 * k, 5);
+            if (b.kind === "sludgewave") this.wreck.dissolve(x, y, 12 * k, 5);
+            else if (b.kind === "lava") this.wreck.ignite(x, y, 14 * k, 6);
+            else if (b.kind === "frost") this.wreck.freeze(x, y, 16 * k, 10);
+            else this.wreck.knock(x, y, 12 * k, b.x, b.y, 300, 5);
           }
         }
       } else {
@@ -2204,7 +2445,7 @@ export class BattleGame {
       f.vy += (f.input.y * speed - f.vy) * ease;
       if (f.input.x || f.input.y) f.face = Math.atan2(f.input.y, f.input.x);
       else if (f.state === "free") f.face = Math.atan2(this.other(f).y - f.y, this.other(f).x - f.x);
-    } else if (f.state !== "dodge" && f.state !== "spin" && f.state !== "dash") {
+    } else if (f.state !== "dodge" && f.state !== "spin" && f.state !== "dash" && f.state !== "legend") {
       const drag = Math.exp(-10 * dt);
       f.vx *= drag;
       f.vy *= drag;
@@ -2293,6 +2534,22 @@ export class BattleGame {
     }
     const crit = !stream && !fixed && Math.random() < 0.0625;
     let dmg = fixed ? move.power * fixed : move.power * mult * DAMAGE * eff * rand(0.85, 1) * (crit ? 1.5 : 1);
+    // the weather: sun fans fire and dries water, rain the other way round; the Primal
+    // extremes snuff the losing side out altogether
+    const weather = this.weatherNow();
+    if (weather && !fixed) {
+      if (weather === "harsh" && move.kind === "water") {
+        this.tell("The Water-type attack evaporated in the harsh sunlight!");
+        return;
+      }
+      if (weather === "heavy" && move.kind === "fire") {
+        this.tell("The Fire-type attack fizzled out in the heavy rain!");
+        return;
+      }
+      const sunny = weather === "sun" || weather === "harsh";
+      if (move.kind === "fire") dmg *= sunny ? 1.5 : 0.5;
+      if (move.kind === "water") dmg *= sunny ? 0.5 : 1.5;
+    }
     // tucked into its shell, Blastoise shrugs off half
     if (o.state === "spin" || (o.state === "charge" && o.species === "blastoise")) dmg *= 0.5;
     // a Mega hits harder, more so after a Dragon Dance or Shell Smash; Shell Smash leaves it soft
@@ -2347,7 +2604,7 @@ export class BattleGame {
   private damage(o: Fighter, dmg: number, by: Fighter | null) {
     if (o.hp <= 0) return;
     o.hp = Math.max(0, o.hp - dmg);
-    if (o.hp > 0 || this.phase !== "battle") return;
+    if (o.hp > 0 || (this.phase !== "battle" && this.phase !== "send")) return;
     // fainted
     o.state = "faint";
     o.t = 0;
@@ -2622,7 +2879,10 @@ export class BattleGame {
           if (f.species === "gengar") this.sound.cackle();
           else this.sound.roar(f.species === "blastoise");
           this.sound.boom();
-          this.say(`${before} has Mega Evolved into ${MEGA_NAME[f.species]}!`);
+          if (PRIMAL.has(f.species)) {
+            this.say(`${before}'s Primal Reversion! It reverted to its primal form!`);
+            this.setWeather(f.species === "groudon" ? "harsh" : "heavy");
+          } else this.say(`${before} has Mega Evolved into ${MEGA_NAME[f.species]}!`);
           for (let i = 0; i < 40; i++) {
             const a = rand(0, Math.PI * 2);
             const sp = rand(160, 320) * k;
@@ -3203,6 +3463,1341 @@ export class BattleGame {
     return null;
   }
 
+  // ---------- the legendaries: Rayquaza, Groudon, Kyogre ----------
+  // Their moves (and their Mega / Primal forms' moves) are scripts over a handful of shared
+  // templates: lunges, casts, beams, things falling from the sky, spikes out of the ground,
+  // rings, whirlpools and buffs. Each move picks its template, timing, look and page damage.
+
+  /** A legendary arrives: Groudon brings the sun, Kyogre the rain, Rayquaza calms the weather. */
+  private legendArrives(f: Fighter) {
+    if (f.species === "groudon") this.setWeather(f.mega ? "harsh" : "sun");
+    else if (f.species === "kyogre") this.setWeather(f.mega ? "heavy" : "rain");
+    else if (this.weather) this.say("The effects of the weather disappeared.");
+  }
+
+  private setWeather(kind: "sun" | "rain" | "harsh" | "heavy") {
+    this.weather = { kind, t: 0 };
+    this.say(
+      {
+        sun: "The sunlight turned harsh!",
+        rain: "It started to rain!",
+        harsh: "The sunlight turned extremely harsh!",
+        heavy: "A heavy rain began to fall!",
+      }[kind]
+    );
+    if (kind === "harsh" || kind === "heavy") this.sound.rumble(1);
+  }
+
+  /** The weather in effect: none while Rayquaza is on the field (Air Lock). */
+  private weatherNow() {
+    if (!this.weather || !this.f) return null;
+    if (this.f.some((f) => f.species === "rayquaza" && f.hp > 0 && f.state !== "hidden" && f.state !== "gone"))
+      return null;
+    return this.weather.kind;
+  }
+
+  private legendName(f: Fighter) {
+    return this.moves(f)[f.move].name;
+  }
+
+  private legendMove(f: Fighter, slot: Slot) {
+    f.state = "legend";
+    f.beam = null;
+    const name = this.moves(f)[slot].name;
+    if (name === "TWISTER" || name === "DRAGON ASCENT") this.sound.wind(0.8);
+    else if (["EXTREME SPEED", "DRAGON RUSH", "AERIAL ACE", "OUTRAGE"].includes(name)) this.sound.whoosh();
+    else if (["FIRE PUNCH", "HAMMER ARM", "WATERFALL", "LIQUIDATION"].includes(name)) this.sound.swipe();
+    else if (name === "EARTHQUAKE") {
+      f.state = "stomp";
+    } else if (["DRAGON DANCE", "BULK UP", "CALM MIND", "AQUA RING"].includes(name)) this.sound.megaEvolve();
+    else if (name === "HYPER BEAM" || name === "SOLAR BEAM") this.sound.psychic(0.4);
+  }
+
+  /** A charging strike: wind up, dash along the aim, hit what's in the way; `segments` dashes in a row. */
+  private lunge(
+    f: Fighter,
+    o: Fighter,
+    dt: number,
+    wind: number,
+    speed: number,
+    dur: number,
+    slot: Slot,
+    knock: number,
+    fx?: (x: number, y: number) => void,
+    segments = 1,
+    gap = 0
+  ) {
+    const k = this.k;
+    const seg = gap ? Math.min(segments - 1, Math.floor(f.t / gap)) : 0;
+    const lt = f.t - seg * gap;
+    if (lt >= wind && lt - dt < wind) {
+      const a = f.cpu || seg > 0 ? Math.atan2(o.y - f.y, o.x - f.x) : f.aimAngle;
+      f.aimAngle = f.face = a;
+      f.vx = Math.cos(a) * speed * k;
+      f.vy = Math.sin(a) * speed * k;
+    }
+    const moving = lt >= wind && lt < wind + dur;
+    if (moving) {
+      f.trail.push({ x: f.x, y: f.y, z: f.z, a: 0.45 });
+      const reach = (BODY * 2 + 8) * k * Math.max(1, f.mon.scale * 1.4);
+      if (f.hits <= seg && Math.hypot(o.x - f.x, o.y - f.y) < reach && o.z < HIGH * k && o.state !== "lurk") {
+        f.hits = seg + 1;
+        const sp = Math.hypot(f.vx, f.vy) || 1;
+        this.strike(f, o, slot, f.vx / sp, f.vy / sp, knock);
+        fx?.(o.x, o.y);
+      }
+    } else {
+      f.vx *= Math.exp(-12 * dt);
+      f.vy *= Math.exp(-12 * dt);
+    }
+    return f.t >= (segments - 1) * gap + wind + dur + 0.12;
+  }
+
+  /** A beam that grows from the user along its aim, steerable a little, hitting what's on its line. */
+  private legendBeam(
+    f: Fighter,
+    o: Fighter,
+    dt: number,
+    start: number,
+    len: number,
+    kind: NonNullable<Fighter["beam"]>,
+    knock: number
+  ) {
+    const k = this.k;
+    f.vx *= Math.exp(-12 * dt);
+    f.vy *= Math.exp(-12 * dt);
+    if (f.t < start) {
+      // gathering power
+      if (Math.random() < 0.7) {
+        const a = rand(0, Math.PI * 2);
+        const d = rand(20, 40) * k;
+        this.spawn(
+          "spark",
+          f.x + Math.cos(a) * d,
+          f.y - 14 * k + Math.sin(a) * d,
+          -Math.cos(a) * d * 3,
+          -Math.sin(a) * d * 3,
+          0.25,
+          1.6 * k
+        );
+      }
+      return;
+    }
+    if (f.t >= start + len) {
+      f.beam = null;
+      return;
+    }
+    if (!f.beam) {
+      f.beam = kind;
+      f.tick = 0;
+      if (kind === "fire") this.sound.flame(len);
+      else if (kind === "water") this.sound.water(len);
+      else if (kind === "ice") this.sound.iceBeam(len);
+      else this.sound.fireBlast();
+    }
+    this.steer(f, dt, 1.1);
+    const dx = Math.cos(f.aimAngle);
+    const dy = Math.sin(f.aimAngle);
+    const sx = f.x + dx * 20 * k;
+    const sy = f.y + dy * 16 * k;
+    const beam = Math.min(200 * k, (f.t - start) * 1500 * k);
+    f.reach = beam;
+    // the beam throws off its element along its length, and sprays it where it hits
+    {
+      const q = rand(0.1, 1) * beam;
+      const side = rand(-1, 1) * 50 * k;
+      const px = sx + dx * q;
+      const py = sy + dy * q;
+      const ex = sx + dx * beam;
+      const ey = sy + dy * beam;
+      const out = rand(0, Math.PI * 2);
+      const pk: PKind = kind === "fire" ? "flame" : kind === "water" ? "steam" : kind === "ice" ? "ice" : "spark";
+      this.spawn(pk, px, py, -dy * side, dx * side, 0.35, (pk === "spark" ? 1.6 : 2.6) * k, 16 * k);
+      this.spawn(
+        kind === "water" ? "drop" : pk,
+        ex,
+        ey,
+        Math.cos(out) * 160 * k,
+        Math.sin(out) * 160 * k,
+        0.35,
+        (pk === "spark" ? 1.8 : 3) * k,
+        14 * k,
+        kind === "water" ? rand(80, 200) * k : 0
+      );
+    }
+    const width = (kind === "hyper" || kind === "solar" ? 14 : 9) * k;
+    const rx = o.x - sx;
+    const ry = o.y - sy;
+    const along = rx * dx + ry * dy;
+    const off = Math.abs(rx * dy - ry * dx);
+    f.tick -= dt;
+    if (along > 0 && along < beam && off < BODY * k + width && o.z < HIGH * k && o.state !== "lurk" && f.tick <= 0) {
+      f.tick = 0.12;
+      this.strike(f, o, f.move, dx, dy, knock, true);
+      f.hits++;
+      if (kind === "ice" && f.hits >= 4) this.inflict(o, "frz");
+      if ((kind === "water" || kind === "fire") && Math.random() < 0.06) this.inflict(o, "brn");
+    }
+    f.wreckT -= dt;
+    if (f.wreckT <= 0) {
+      f.wreckT = 0.05;
+      for (const q of [1, rand(0.25, 0.9)]) {
+        const x = sx + dx * beam * q;
+        const y = sy + dy * beam * q;
+        const r = (q === 1 ? 14 : 9) * k * (width > 10 * k ? 1.4 : 1);
+        if (kind === "ice") this.wreck.freeze(x, y, r, 8);
+        else if (kind === "water") this.wreck.wash(x, y, r, dx, dy, 0, 6);
+        else if (kind === "fire") this.wreck.ignite(x, y, r, 6);
+        else this.wreck.knock(x, y, r, x - dx * 40, y - dy * 40, 320, 8);
+      }
+    }
+  }
+
+  /** When a legendary's beam fires, s into the move (Solar Beam fires at once in the sun). */
+  private beamStart(f: Fighter) {
+    const name = this.legendName(f);
+    if (name === "SOLAR BEAM") {
+      const w = this.weatherNow();
+      return w === "sun" || w === "harsh" ? 0.15 : 0.9;
+    }
+    return { "HYPER BEAM": 0.3, OVERHEAT: 0.15, SCALD: 0.1, "ICE BEAM": 0.1 }[name] ?? 0;
+  }
+
+  /** Things falling out of the sky around a point: Draco Meteor, water bombs, volcanic bombs. */
+  private rain(
+    f: Fighter,
+    kind: Skyfall["kind"],
+    x: number,
+    y: number,
+    count: number,
+    spread: number,
+    delay: number,
+    gap: number,
+    r: number,
+    slot: Slot,
+    mult: number,
+    max: number,
+    fall = 0.45
+  ) {
+    const group = { hits: 0, max };
+    for (let i = 0; i < count; i++) {
+      const a = rand(0, Math.PI * 2);
+      const d = i === 0 ? 0 : rand(0.3, 1) * spread;
+      this.skyfalls.push({
+        kind,
+        owner: f.id,
+        x: x + Math.cos(a) * d,
+        y: y + Math.sin(a) * d * 0.7,
+        t: -(delay + i * gap),
+        fall,
+        r,
+        slot,
+        mult,
+        hit: false,
+        group,
+      });
+    }
+  }
+
+  /** Rock spikes bursting up, one after another, along a line from (x, y). */
+  private spikeLine(
+    f: Fighter,
+    kind: Spike["kind"],
+    x: number,
+    y: number,
+    angle: number,
+    count: number,
+    spacing: number,
+    r: number,
+    slot: Slot,
+    group: { hits: number; max: number },
+    delay = 0
+  ) {
+    for (let i = 0; i < count; i++)
+      this.spikes.push({
+        kind,
+        owner: f.id,
+        x: x + Math.cos(angle) * spacing * (i + 1),
+        y: y + Math.sin(angle) * spacing * (i + 1),
+        t: -(delay + i * 0.06),
+        r,
+        slot,
+        hit: false,
+        group,
+      });
+  }
+
+  /** Runs a legendary's move, by name. */
+  private legendAct(f: Fighter, o: Fighter, dt: number) {
+    const k = this.k;
+    const name = this.legendName(f);
+    const at = (when: number) => !f.fired && f.t >= when && (f.fired = true);
+    let done = false;
+    switch (name) {
+      // ----- lunges -----
+      case "AERIAL ACE":
+        done = this.lunge(f, o, dt, 0.06, 440, 0.2, "melee", 300, (x, y) =>
+          this.swipes.push({ kind: "psycut", x, y, angle: f.aimAngle, t: 0, fromX: f.x, fromY: f.y })
+        );
+        break;
+      case "EXTREME SPEED":
+        f.invuln = f.t < 0.22 ? 0.05 : f.invuln;
+        done = this.lunge(f, o, dt, 0.04, 1100, 0.16, "s2", 300, (x, y) => this.sparks(x, y - 10 * k, 12, "#fff"));
+        break;
+      case "OUTRAGE":
+        done = this.lunge(
+          f,
+          o,
+          dt,
+          0.04,
+          380,
+          0.14,
+          "melee",
+          220,
+          (x, y) => this.sparks(x, y - 10 * k, 10, DRAGON[1]),
+          3,
+          0.27
+        );
+        break;
+      case "DRAGON RUSH":
+        if (f.t < 0.14 && Math.random() < 0.8)
+          this.spawn("spark", f.x, f.y - 10 * k, rand(-80, 80) * k, rand(-80, 80) * k, 0.3, 2 * k);
+        done = this.lunge(f, o, dt, 0.14, 520, 0.3, "s1", 460, (x, y) => {
+          this.bursts.push({ kind: "dragonring", owner: f.id, x, y, t: 0, max: 90 * k, hit: true, wreckT: 0 });
+          this.wreck.crater(x, y, 10 * k);
+          this.onShake(10);
+        });
+        break;
+      case "FIRE PUNCH":
+        done = this.lunge(f, o, dt, 0.08, 300, 0.18, "melee", 260, (x, y) => {
+          for (let i = 0; i < 16; i++) {
+            const a = rand(0, Math.PI * 2);
+            this.spawn("flame", x, y, Math.cos(a) * 120 * k, Math.sin(a) * 120 * k, 0.35, 3 * k, 10 * k);
+          }
+          this.wreck.ignite(x, y, 20 * k, 10);
+          if (Math.random() < 0.1) this.inflict(o, "brn");
+        });
+        break;
+      case "HAMMER ARM":
+        done = this.lunge(f, o, dt, 0.26, 260, 0.16, "melee", 380, (x, y) => {
+          this.bursts.push({ kind: "dragonring", owner: f.id, x, y, t: 0, max: 70 * k, hit: true, wreckT: 0 });
+          this.wreck.crater(x, y, 12 * k);
+          this.dust(x, y, 18);
+          this.sound.slam();
+          this.onShake(12);
+        });
+        break;
+      case "WATERFALL":
+      case "LIQUIDATION":
+        done = this.lunge(f, o, dt, 0.06, 360, 0.2, "melee", 280, (x, y) => {
+          for (let i = 0; i < 18; i++)
+            this.spawn(
+              i % 3 ? "drop" : "foam",
+              x + rand(-10, 10) * k,
+              y,
+              rand(-40, 40) * k,
+              rand(-40, 40) * k,
+              0.7,
+              2.5 * k,
+              10 * k,
+              rand(200, 380) * k
+            );
+          this.wreck.wash(x, y, 26 * k, Math.cos(f.aimAngle), Math.sin(f.aimAngle), 2, 20);
+          this.sound.splat();
+          if (name === "WATERFALL" && Math.random() < 0.2 && o.state === "hurt") o.t = -0.3;
+        });
+        break;
+
+      // ----- casts -----
+      case "TWISTER":
+        if (at(0.2)) this.shots.push(this.makeShot(f, "twister", 170, 1.9));
+        done = f.t >= 0.5;
+        break;
+      case "ORIGIN PULSE":
+        if (at(0.22)) {
+          for (let i = -2; i <= 2; i++) this.shots.push(this.makeShot(f, "laser", 540, 0.7, f.aimAngle + i * 0.22));
+          this.sound.iceBeam(0.4);
+          this.onShake(5);
+        }
+        done = f.t >= 0.55;
+        break;
+      case "ANCIENT POWER":
+        if (at(0.15)) {
+          for (let i = 0; i < 5; i++) {
+            const s = this.makeShot(f, "ancient", 0, 1.6, (i / 5) * Math.PI * 2);
+            s.t = 0;
+            this.shots.push(s);
+          }
+          this.sound.rockCrack();
+        }
+        done = f.t >= 0.5;
+        break;
+      case "DRACO METEOR":
+        if (at(0.3)) {
+          this.rain(f, "meteor", o.x, o.y, 6, 70 * k, 0.35, 0.13, 28 * k, "s3", 1, 3);
+          this.sound.incoming(0.6);
+          for (let i = 0; i < 6; i++)
+            this.spawn("spark", f.x, f.y - 20 * k, rand(-40, 40) * k, -rand(300, 500) * k, 0.4, 2.5 * k);
+        }
+        done = f.t >= 0.7;
+        break;
+      case "THUNDER":
+        if (at(0.3)) {
+          const rainy = this.weatherNow() === "rain" || this.weatherNow() === "heavy";
+          this.rain(
+            f,
+            "thunder",
+            o.x + o.vx * 0.2,
+            o.y + o.vy * 0.2,
+            1,
+            0,
+            rainy ? 0 : 0.3,
+            0,
+            30 * k,
+            "s3",
+            1,
+            1,
+            0.08
+          );
+        }
+        done = f.t >= 0.55;
+        break;
+      case "EARTH POWER":
+        if (at(0.25)) {
+          this.spikes.push({
+            kind: "earth",
+            owner: f.id,
+            x: o.x,
+            y: o.y,
+            t: -0.45,
+            r: 30 * k,
+            slot: "s1",
+            hit: false,
+            group: { hits: 0, max: 1 },
+          });
+          this.sound.rumble(0.5);
+        }
+        done = f.t >= 0.6;
+        break;
+      case "STONE EDGE":
+        if (at(0.2)) {
+          this.spikeLine(f, "stone", f.x, f.y, f.aimAngle, 8, 24 * k, 17 * k, "s4", { hits: 0, max: 2 });
+          this.sound.rockCrack();
+        }
+        done = f.t >= 0.6;
+        break;
+      case "PRECIPICE BLADES":
+        if (at(0.25)) {
+          const group = { hits: 0, max: 3 };
+          for (const off of [-0.35, 0, 0.35])
+            this.spikeLine(f, "blade", f.x, f.y, f.aimAngle + off, 7, 26 * k, 18 * k, "s3", group);
+          this.sound.rockCrack();
+          this.onShake(10);
+        }
+        done = f.t >= 0.7;
+        break;
+      case "LAVA PLUME":
+        if (at(0.25)) {
+          this.bursts.push({ kind: "lava", owner: f.id, x: f.x, y: f.y, t: 0, max: 130 * k, hit: false, wreckT: 0 });
+          for (let i = 0; i < 46; i++) {
+            const a = rand(0, Math.PI * 2);
+            const sp = rand(90, 300) * k;
+            this.spawn(
+              i % 5 ? "flame" : "rock",
+              f.x,
+              f.y,
+              Math.cos(a) * sp,
+              Math.sin(a) * sp * 0.8,
+              rand(0.4, 0.7),
+              rand(2.5, 4) * k,
+              6 * k,
+              rand(120, 320) * k
+            );
+          }
+          this.sound.fireBlast();
+          this.onShake(8);
+        }
+        done = f.t >= 0.55;
+        break;
+      case "SHEER COLD":
+        if (at(0.4)) {
+          this.bursts.push({ kind: "frost", owner: f.id, x: f.x, y: f.y, t: 0, max: 150 * k, hit: false, wreckT: 0 });
+          for (let i = 0; i < 40; i++) {
+            const a = (i / 40) * Math.PI * 2;
+            const sp = rand(180, 320) * k;
+            this.spawn(
+              i % 3 ? "ice" : "steam",
+              f.x,
+              f.y,
+              Math.cos(a) * sp,
+              Math.sin(a) * sp * 0.8,
+              0.5,
+              2.6 * k,
+              6 * k
+            );
+          }
+          this.sound.frozen();
+          this.sound.iceBeam(0.5);
+        }
+        done = f.t >= 0.7;
+        break;
+      case "WHIRLPOOL":
+        if (at(0.25)) {
+          this.zones.push({
+            kind: "whirl",
+            owner: f.id,
+            x: o.x,
+            y: o.y,
+            r: 44 * k,
+            t: 0,
+            life: 3,
+            wreckT: 0,
+            seed: Math.random() * 100,
+          });
+          this.sound.wave();
+        }
+        done = f.t >= 0.5;
+        break;
+
+      // ----- beams -----
+      case "HYPER BEAM":
+        this.legendBeam(f, o, dt, 0.3, 0.8, "hyper", 180);
+        if (f.t >= 1.1 && f.t - dt < 1.1) this.say(`${this.name(f)} must recharge!`);
+        done = f.t >= 1.9;
+        break;
+      case "SOLAR BEAM": {
+        const sunny = this.weatherNow() === "sun" || this.weatherNow() === "harsh";
+        const charge = sunny ? 0.15 : 0.9;
+        if (f.t >= 0.1 && f.t - dt < 0.1 && !sunny) this.say(`${this.name(f)} took in sunlight!`);
+        this.legendBeam(f, o, dt, charge, 0.7, "solar", 160);
+        done = f.t >= charge + 0.8;
+        break;
+      }
+      case "OVERHEAT":
+        this.legendBeam(f, o, dt, 0.15, 0.65, "fire", 120);
+        done = f.t >= 0.9;
+        break;
+      case "SCALD":
+        this.legendBeam(f, o, dt, 0.1, 0.75, "water", 140);
+        done = f.t >= 0.95;
+        break;
+      case "ICE BEAM":
+        this.legendBeam(f, o, dt, 0.1, 0.7, "ice", 60);
+        done = f.t >= 0.9;
+        break;
+
+      // ----- Dragon Ascent: up out of sight, then down like a comet -----
+      case "DRAGON ASCENT": {
+        f.vx *= Math.exp(-12 * dt);
+        f.vy *= Math.exp(-12 * dt);
+        if (f.t < 0.35) {
+          f.invuln = 1;
+          f.z = Math.min(700 * k, f.z + 2200 * k * dt);
+          for (let i = 0; i < 2; i++)
+            this.spawn("spark", f.x + rand(-8, 8) * k, f.y, 0, 0, 0.4, 2 * k, f.z * 0.8, -300 * k);
+        } else if (f.t < 0.62) {
+          f.invuln = 1;
+          f.tx = o.x;
+          f.ty = o.y;
+        } else if (f.t < 0.8) {
+          const q = (f.t - 0.62) / 0.18;
+          f.x += (f.tx - f.x) * Math.min(1, q * 2);
+          f.y += (f.ty - f.y) * Math.min(1, q * 2);
+          f.z = Math.max(0, 700 * k * (1 - q));
+        } else if (!f.landed) {
+          f.landed = true;
+          f.z = 0;
+          f.invuln = 0;
+          this.slam(f, o, "s2", 60 * k, JADE[1]);
+          this.wreck.crater(f.x, f.y, 16 * k);
+          this.onShake(16);
+        }
+        done = f.t >= 1;
+        break;
+      }
+
+      // ----- buffs -----
+      case "DRAGON DANCE":
+      case "BULK UP":
+      case "CALM MIND":
+      case "AQUA RING":
+        f.vx *= Math.exp(-12 * dt);
+        f.vy *= Math.exp(-12 * dt);
+        if (at(0.35)) {
+          if (name === "AQUA RING") {
+            f.regen = 10;
+            this.say(`${this.name(f)} surrounded itself with a veil of water!`);
+          } else {
+            f.boost = 8;
+            this.say(`${this.name(f)}'s power rose!`);
+          }
+          for (let i = 0; i < 24; i++) {
+            const a = (i / 24) * Math.PI * 2;
+            this.spawn(
+              name === "AQUA RING" ? "drop" : "spark",
+              f.x + Math.cos(a) * 24 * k,
+              f.y + Math.sin(a) * 12 * k,
+              0,
+              0,
+              0.6,
+              2 * k,
+              4 * k,
+              rand(60, 160) * k
+            );
+          }
+        }
+        done = f.t >= 0.6;
+        break;
+      default:
+        done = f.t >= 0.4;
+    }
+    if (done) {
+      f.beam = null;
+      f.vx *= 0.2;
+      f.vy *= 0.2;
+      this.toFree(f);
+    }
+  }
+
+  /** A shot from a legendary (the same shape as everyone else's). */
+  private makeShot(f: Fighter, kind: Shot["kind"], speed: number, life: number, angle = f.aimAngle): Shot {
+    const k = this.k;
+    const x = f.x + Math.cos(f.aimAngle) * 16 * k;
+    const y = f.y + Math.sin(f.aimAngle) * 16 * k;
+    return {
+      kind,
+      owner: f.id,
+      x,
+      y,
+      z: 14 * k,
+      vx: Math.cos(angle) * speed * k,
+      vy: Math.sin(angle) * speed * k,
+      angle,
+      t: 0,
+      life,
+      x0: x,
+      y0: y,
+      tx: 0,
+      ty: 0,
+    };
+  }
+
+  /** Primal Kyogre's whirlpool: it drags the foe round and round, and the page with it. */
+  private updateWhirl(z: Zone, o: Fighter, dt: number) {
+    const k = this.k;
+    const f = this.f![z.owner];
+    const d = Math.hypot(o.x - z.x, o.y - z.y);
+    if (d < z.r * 1.3 && o.z < 6 * k && o.state !== "lurk") {
+      const a = Math.atan2(o.y - z.y, o.x - z.x) + dt * 3;
+      const r = Math.max(6 * k, d - dt * 30 * k);
+      o.x = z.x + Math.cos(a) * r;
+      o.y = z.y + Math.sin(a) * r;
+      o.slow = 0.2;
+      z.wreckT -= dt;
+      if (z.wreckT <= 0) {
+        z.wreckT = 0.5;
+        this.strike(f, o, "s2", 0, 0, 0, true, 0, 0.25);
+      }
+    }
+    if (Math.random() < 0.5) {
+      const a = rand(0, Math.PI * 2);
+      const x = z.x + Math.cos(a) * z.r * 0.8;
+      const y = z.y + Math.sin(a) * z.r * 0.6;
+      this.wreck.wash(x, y, 10 * k, -Math.sin(a), Math.cos(a), 0, 3);
+    }
+  }
+
+  /** Sky strikes and spikes, the weather's clock, Aqua Ring's healing. */
+  private updateLegends(dt: number) {
+    const k = this.k;
+    if (this.weather) this.weather.t += dt;
+    // a beam ends with its move, however the move ends (a hit, a Burst, fainting)
+    for (const f of this.f!) if (f.beam && f.state !== "legend") f.beam = null;
+    for (const f of this.f!) {
+      if (f.regen > 0 && f.hp > 0) {
+        f.regen -= dt;
+        if (Math.floor((f.regen + dt) * 2) !== Math.floor(f.regen * 2))
+          f.hp = Math.min(STATS[f.species].hp, f.hp + STATS[f.species].hp * 0.015);
+      }
+    }
+    for (const sf of this.skyfalls) {
+      sf.t += dt;
+      if (sf.hit || sf.t < sf.fall) continue;
+      sf.hit = true;
+      const f = this.f![sf.owner];
+      const o = this.other(f);
+      const d = Math.hypot(o.x - sf.x, o.y - sf.y);
+      // what lands
+      if (sf.kind === "meteor" || sf.kind === "volcano") {
+        this.wreck.crater(sf.x, sf.y, (sf.kind === "meteor" ? 9 : 8) * k);
+        this.wreck.blast(sf.x, sf.y, sf.r, 4, sf.x, sf.y, 40);
+        if (sf.kind === "volcano") this.wreck.ignite(sf.x, sf.y, sf.r * 1.2, 12);
+        this.dust(sf.x, sf.y, 8);
+        for (let i = 0; i < 10; i++) {
+          const a = rand(0, Math.PI * 2);
+          const sp = rand(80, 220) * k;
+          if (sf.kind === "volcano")
+            this.spawn("flame", sf.x, sf.y, Math.cos(a) * sp, Math.sin(a) * sp, 0.4, 3 * k, 4 * k);
+          else this.spawn("spark", sf.x, sf.y, Math.cos(a) * sp, Math.sin(a) * sp, 0.3, 2 * k);
+        }
+        this.sound.slam();
+        this.onShake(6);
+      } else if (sf.kind === "bomb") {
+        this.wreck.wash(sf.x, sf.y, sf.r, 0, 1, 2, 30);
+        for (let i = 0; i < 14; i++) {
+          const a = rand(0, Math.PI * 2);
+          const sp = rand(60, 200) * k;
+          this.spawn(
+            i % 2 ? "drop" : "foam",
+            sf.x,
+            sf.y,
+            Math.cos(a) * sp,
+            Math.sin(a) * sp,
+            0.6,
+            2.5 * k,
+            4 * k,
+            rand(100, 240) * k
+          );
+        }
+        this.sound.splat();
+      } else {
+        // Thunder: a bolt straight down out of the sky
+        const top = window.scrollY + this.headerBottom - 40;
+        this.bolts.push({
+          x0: sf.x + rand(-20, 20) * k,
+          y0: top,
+          x1: sf.x,
+          y1: sf.y - 8 * k,
+          t: 0,
+          seed: Math.random() * 100,
+        });
+        this.wreck.crater(sf.x, sf.y, 8 * k);
+        this.wreck.ignite(sf.x, sf.y, sf.r, 10);
+        this.sound.thunder();
+        this.onShake(10);
+        this.screenFlash = 0.35;
+        for (let i = 0; i < 12; i++)
+          this.spawn("zap", sf.x + rand(-16, 16) * k, sf.y, 0, 0, 0.2, 1.5 * k, rand(4, 30) * k);
+      }
+      // and whether it lands on the foe (lightning finds flyers too)
+      const inReach = d < sf.r + BODY * k && (sf.kind === "thunder" || o.z < HIGH * k) && o.state !== "lurk";
+      if (inReach && sf.group.hits < sf.group.max) {
+        sf.group.hits++;
+        this.strike(f, o, sf.slot, (o.x - sf.x) / (d || 1), (o.y - sf.y) / (d || 1), 240, false, 0, sf.mult);
+        if (sf.kind === "thunder" && Math.random() < 0.3) this.inflict(o, "par");
+        if (sf.kind === "volcano" && Math.random() < 0.2) this.inflict(o, "brn");
+      }
+    }
+    this.skyfalls = this.skyfalls.filter((sf) => sf.t < sf.fall + 0.3);
+    for (const sp of this.spikes) {
+      const before = sp.t;
+      sp.t += dt;
+      if (before < 0 && sp.t >= 0 && !sp.hit) {
+        sp.hit = true;
+        const f = this.f![sp.owner];
+        const o = this.other(f);
+        this.wreck.blast(sp.x, sp.y, sp.r, 3, sp.x, sp.y + 10, 20);
+        if (sp.kind !== "stone" || Math.random() < 0.4)
+          this.wreck.crater(sp.x, sp.y, (sp.kind === "earth" ? 12 : 5) * k);
+        if (sp.kind === "earth") {
+          this.sound.boom();
+          this.onShake(10);
+          for (let i = 0; i < 16; i++) {
+            const a = rand(0, Math.PI * 2);
+            this.spawn(
+              "rock",
+              sp.x,
+              sp.y,
+              Math.cos(a) * 80 * k,
+              Math.sin(a) * 80 * k,
+              0.6,
+              rand(2, 3.5) * k,
+              0,
+              rand(200, 380) * k
+            );
+          }
+        } else {
+          for (let i = 0; i < 5; i++) {
+            const a = rand(0, Math.PI * 2);
+            this.spawn(
+              "rock",
+              sp.x,
+              sp.y,
+              Math.cos(a) * 60 * k,
+              Math.sin(a) * 40 * k,
+              0.5,
+              rand(1.5, 2.8) * k,
+              2 * k,
+              rand(120, 260) * k
+            );
+          }
+          if (Math.random() < 0.4) this.sound.rockCrack();
+        }
+        const d = Math.hypot(o.x - sp.x, o.y - sp.y);
+        if (d < sp.r + BODY * k && o.z < HIGH * k && o.state !== "lurk" && sp.group.hits < sp.group.max) {
+          sp.group.hits++;
+          this.strike(f, o, sp.slot, (o.x - sp.x) / (d || 1), (o.y - sp.y) / (d || 1), 260);
+        }
+      }
+    }
+    this.spikes = this.spikes.filter((sp) => sp.t < 0.65);
+  }
+
+  // ---------- the legendaries' Bursts ----------
+
+  private startLegendFinale(f: Fighter) {
+    const o = this.other(f);
+    f.state = "ult";
+    f.t = 0;
+    f.told = false;
+    f.invuln = 1;
+    this.finale = {
+      owner: f.id,
+      kind: f.species,
+      t: 0,
+      hits: 0,
+      hit: false,
+      next: 0,
+      shake: 0,
+      wreckT: 0,
+      hands: [],
+      mega: f.mega,
+      x: f.x,
+      y: f.y,
+      sweep: 0,
+    };
+    this.ribbon = [];
+    this.sound.rumble(f.mega ? MEGA_FINALE[f.species] : FINALE[f.species]);
+    if (f.species === "rayquaza") this.sound.wind(f.mega ? 3 : 2.4);
+    else if (f.species === "groudon") this.sound.boom();
+    else this.sound.wave();
+    // Tectonic Rage and Primordial Sea centre on the foe: Ω's stroke, and the maelstrom's eye
+    if (f.mega && f.species !== "rayquaza") {
+      this.finale.x = o.x;
+      this.finale.y = o.y;
+    }
+    if (f.species === "groudon" && f.mega) {
+      const R = OMEGA * this.k;
+      const a0 = Math.PI / 2 + 0.55;
+      const a1 = Math.PI / 2 - 0.55 + Math.PI * 2;
+      const at = (a: number) => ({ x: o.x + Math.cos(a) * R, y: o.y + Math.sin(a) * R * 0.8 });
+      const left = at(a0);
+      this.finale.hands.push({ x: left.x - R * 0.5, y: left.y });
+      for (let i = 0; i <= 36; i++) this.finale.hands.push(at(a0 + ((a1 - a0) * i) / 36));
+      const right = at(a1);
+      this.finale.hands.push({ x: right.x + R * 0.5, y: right.y });
+    }
+  }
+
+  private legendTint(fin: NonNullable<BattleGame["finale"]>, env: number, pulse: number) {
+    switch (fin.kind) {
+      case "rayquaza":
+        return fin.mega ? `rgba(4,40,20,${env * 0.45 * pulse})` : `rgba(20,40,40,${env * 0.35})`;
+      case "groudon":
+        return `rgba(${fin.mega ? 110 : 90},20,0,${env * 0.4 * pulse})`;
+      default:
+        return fin.mega ? `rgba(0,8,40,${env * 0.62})` : `rgba(0,20,60,${env * 0.4})`;
+    }
+  }
+
+  private updateLegendFinale(fin: NonNullable<BattleGame["finale"]>, f: Fighter, o: Fighter, dt: number) {
+    const k = this.k;
+    const t = fin.t;
+    const len = fin.mega ? MEGA_FINALE[fin.kind] : FINALE[fin.kind];
+    fin.shake -= dt;
+    if (fin.shake <= 0 && t < len - 0.3) {
+      fin.shake = 0.1;
+      this.onShake(fin.mega ? 9 : 7);
+    }
+    const reachable = () => o.invuln <= 0 && o.state !== "lurk" && o.hp > 0;
+    const v = this.view();
+    // Eruption and Water Spout are as strong as their user is healthy
+    const hpMul = Math.max(0.45, f.hp / STATS[f.species].hp);
+    const sweepPage = (from: number, dur: number, x: number, y: number) => {
+      const rad = Math.min(1, Math.max(0, (t - from) / dur)) * this.farthest(x, y);
+      if (t >= from && t < from + dur + 0.1) {
+        fin.wreckT -= dt;
+        if (fin.wreckT <= 0) {
+          fin.wreckT = 0.04;
+          this.wreck.blast(x, y, rad, 9, x, y, 500);
+        }
+      }
+      return rad;
+    };
+
+    if (fin.kind === "rayquaza" && !fin.mega) {
+      // HURRICANE: a tornado that tears across the page to the foe and flings it
+      if (t < 1.3 && !fin.hit) {
+        fin.x += (o.x - fin.x) * Math.min(1, dt * 2.2);
+        fin.y += (o.y - fin.y) * Math.min(1, dt * 2.2);
+      }
+      fin.next -= dt;
+      if (fin.next <= 0) {
+        fin.next = 0.04;
+        for (let i = 0; i < 6; i++) {
+          const a = rand(0, Math.PI * 2);
+          const x = fin.x + Math.cos(a) * 50 * k;
+          const y = fin.y + Math.sin(a) * 40 * k;
+          this.wreck.knock(x, y, 18 * k, x + Math.sin(a) * 100, y - Math.cos(a) * 100, 420, 8);
+        }
+        // and the wind rips at the whole page
+        for (let i = 0; i < 3; i++) {
+          const x = v.x + rand(0, v.w);
+          const y = v.y + rand(0, v.h);
+          const a = Math.atan2(fin.y - y, fin.x - x);
+          this.wreck.wash(x, y, 18 * k, Math.cos(a), Math.sin(a), 0, 4);
+        }
+      }
+      if (!fin.hit && t > 0.4 && Math.hypot(o.x - fin.x, o.y - fin.y) < 70 * k && reachable()) {
+        fin.hit = true;
+        o.held = 1.6;
+        o.state = "hurt";
+        o.t = -1.6;
+      }
+      if (fin.hit && fin.hits >= 0 && t < 2.05) {
+        // caught up in it, spinning
+        const a = t * 10;
+        o.x = fin.x + Math.cos(a) * 18 * k;
+        o.y = fin.y + Math.sin(a) * 12 * k;
+        o.z = 30 * k + Math.sin(t * 6) * 10 * k;
+        o.face += dt * 14;
+        const due = Math.min(4, Math.floor((t - 0.5) / 0.3));
+        if (fin.hits < due) {
+          fin.hits = due;
+          this.strike(f, o, "burst", 0, 0, 0, false, 0, 0.12);
+          o.state = "hurt";
+          o.t = -1;
+        }
+      }
+      if (fin.hit && fin.hits >= 0 && t >= 2.05) {
+        fin.hits = -2;
+        o.z = 0;
+        o.held = 0;
+        o.state = "free";
+        const a = rand(0, Math.PI * 2);
+        this.strike(f, o, "burst", Math.cos(a), Math.sin(a), 640, false, 0, 0.5);
+        this.wreck.crater(o.x, o.y, 14 * k);
+        this.onShake(18);
+      }
+      if (!fin.hit && t >= 1.6 && fin.hits === 0) {
+        fin.hits = -1;
+        this.say(`${this.name(o)} weathered the storm!`);
+      }
+    } else if (fin.kind === "rayquaza") {
+      // DELTA STREAM: off into the sky, then a jade ribbon of wind loops the whole screen,
+      // shredding the page, and Rayquaza comes down out of it onto the foe
+      if (t < 0.3) f.z = Math.min(800 * k, f.z + 3000 * k * dt);
+      if (t >= 0.3 && t < 2.1) {
+        const u = (t - 0.3) / 1.8;
+        const hx = v.x + v.w / 2 + Math.sin(u * Math.PI * 4.4 + 0.6) * v.w * 0.42;
+        const hy = v.y + v.h / 2 + Math.sin(u * Math.PI * 6.2) * v.h * 0.4;
+        this.ribbon.push({ x: hx, y: hy });
+        if (this.ribbon.length > 90) this.ribbon.shift();
+        fin.x = hx;
+        fin.y = hy;
+        fin.wreckT -= dt;
+        if (fin.wreckT <= 0) {
+          fin.wreckT = 0.03;
+          this.wreck.knock(hx, hy, 60 * k, hx, hy + 30, 520, 60);
+          this.wreck.blast(hx, hy, 60 * k, 9, hx, hy, 0);
+        }
+        fin.next -= dt;
+        if (fin.next <= 0 && fin.hits < 3 && reachable() && Math.hypot(o.x - hx, o.y - hy) < 60 * k) {
+          fin.next = 0.25;
+          fin.hits++;
+          this.strike(f, o, "burst", 0, 0, 0, false, 0, 0.12);
+        }
+      }
+      if (t >= 2.1 && t < 2.45) {
+        // dropping out of the sky onto the foe
+        f.x += (o.x - f.x) * Math.min(1, dt * 8);
+        f.y += (o.y - f.y) * Math.min(1, dt * 8);
+        f.z = Math.max(0, 800 * k * (1 - (t - 2.1) / 0.35));
+      }
+      if (t >= 2.45 && !fin.hit) {
+        fin.hit = true;
+        f.z = 0;
+        this.wreck.crater(f.x, f.y, 22 * k);
+        this.sound.boom();
+        this.onShake(26);
+        this.screenFlash = 0.8;
+        this.flashes.push({ x: f.x, y: f.y, t: 0, r: 140 * k, colour: JADE[1] });
+        const d = Math.hypot(o.x - f.x, o.y - f.y);
+        if (reachable() && d < 90 * k)
+          this.strike(f, o, "burst", (o.x - f.x) / (d || 1), (o.y - f.y) / (d || 1), 600, false, 0, 0.6);
+      }
+      if (t >= 2.45) sweepPage(2.45, 0.5, f.x, f.y);
+    } else if (fin.kind === "groudon" && !fin.mega) {
+      // ERUPTION: the page cracks open from Groudon to every edge, and volcanic bombs rain down
+      fin.sweep = Math.min(1, t / 0.5) * this.farthest(f.x, f.y);
+      if (t < 0.6 && Math.random() < 0.8) {
+        const a = rand(0, Math.PI * 2);
+        const d = rand(0, fin.sweep);
+        this.wreck.ignite(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 14 * k, 6);
+      }
+      if (t >= 0.5 && !fin.hit) {
+        fin.hit = true;
+        const group = { hits: 0, max: 3 };
+        for (let i = 0; i < 18; i++)
+          this.skyfalls.push({
+            kind: "volcano",
+            owner: f.id,
+            x: v.x + rand(0.05, 0.95) * v.w,
+            y: v.y + rand(0.1, 0.95) * v.h,
+            t: -i * 0.08,
+            fall: 0.5,
+            r: 30 * k,
+            slot: "burst",
+            mult: 0.18 * hpMul,
+            hit: false,
+            group,
+          });
+        for (const at of [0.3, 0.7, 1.1])
+          this.rain(f, "volcano", o.x, o.y, 1, 0, at, 0, 34 * k, "burst", 0.18 * hpMul, 3, 0.5);
+        this.rain(f, "volcano", o.x, o.y, 1, 0, 1.55, 0, 56 * k, "burst", 0.45 * hpMul, 1, 0.55);
+        this.sound.incoming(0.8);
+      }
+    } else if (fin.kind === "groudon") {
+      // TECTONIC RAGE: Primal Groudon burns its Ω into the page around the foe. The ground inside
+      // caves in to magma, rings of blades close in from the rim, the whole sigil erupts in a
+      // pillar of magma that throws the foe into the sky, and the page burns from there out
+      const R = OMEGA * k;
+      const path = fin.hands;
+      fin.sweep = Math.min(1, t / 0.8);
+      const inside = Math.hypot(o.x - fin.x, o.y - fin.y) < R;
+      if (t < 0.85) {
+        const p = path[Math.min(path.length - 1, Math.floor(fin.sweep * (path.length - 1)))];
+        fin.wreckT -= dt;
+        if (fin.wreckT <= 0) {
+          fin.wreckT = 0.03;
+          this.wreck.ignite(p.x, p.y, 16 * k, 8);
+          this.wreck.dissolve(p.x, p.y, 12 * k, 6);
+        }
+        for (let i = 0; i < 2; i++)
+          this.spawn("flame", p.x, p.y, rand(-40, 40) * k, rand(-40, 40) * k, 0.4, 3 * k, 4 * k, rand(60, 160) * k);
+      }
+      if (t >= 0.8 && !fin.hit) {
+        fin.hit = true;
+        if (reachable() && inside) {
+          fin.next = 1;
+          o.state = "hurt";
+          o.t = -1.2;
+          this.say(`${this.name(o)} is trapped inside the Ω!`);
+        } else this.say(`${this.name(o)} escaped the sigil!`);
+        this.sound.rockCrack();
+        this.onShake(16);
+      }
+      // the ground caves in, drawing the trapped foe to the middle
+      if (fin.next === 1 && t < 1.9) {
+        o.x += (fin.x - o.x) * Math.min(1, dt * 2);
+        o.y += (fin.y - o.y) * Math.min(1, dt * 2);
+      }
+      // three rings of blades, each closer in
+      [0.95, 1.25, 1.55].forEach((at, i) => {
+        if (t < at || t - dt >= at) return;
+        const rr = R * (0.95 - i * 0.3);
+        const n = 16 - i * 4;
+        const group = { hits: 0, max: 0 };
+        for (let j = 0; j < n; j++) {
+          const a = (j / n) * Math.PI * 2 + i * 0.4;
+          this.spikes.push({
+            kind: "blade",
+            owner: f.id,
+            x: fin.x + Math.cos(a) * rr,
+            y: fin.y + Math.sin(a) * rr * 0.8,
+            t: -j * 0.01,
+            r: (26 - i * 3) * k,
+            slot: "burst",
+            hit: false,
+            group,
+          });
+        }
+        this.sound.rockCrack();
+        this.onShake(14);
+        if (fin.next === 1 && o.hp > 0) {
+          this.strike(f, o, "burst", 0, 0, 0, false, 0, 0.1);
+          o.state = "hurt";
+          o.t = -1;
+        }
+      });
+      // the Ω erupts
+      if (t >= 1.9 && fin.hits === 0) {
+        fin.hits = 1;
+        this.sound.boom();
+        this.sound.eruption();
+        this.onShake(30);
+        this.screenFlash = 0.9;
+        this.flashes.push({ x: fin.x, y: fin.y, t: 0, r: 180 * k, colour: MAGMA[0] });
+        this.wreck.crater(fin.x, fin.y, 30 * k);
+        for (let i = 0; i < 70; i++) {
+          const a = rand(0, Math.PI * 2);
+          const d = rand(0, R * 0.6);
+          this.spawn(
+            i % 6 ? "flame" : "rock",
+            fin.x + Math.cos(a) * d,
+            fin.y + Math.sin(a) * d * 0.8,
+            Math.cos(a) * rand(20, 120) * k,
+            Math.sin(a) * rand(20, 120) * k,
+            rand(0.6, 1.1),
+            rand(3, 5) * k,
+            10 * k,
+            rand(500, 1000) * k
+          );
+        }
+        if ((fin.next === 1 || inside) && o.hp > 0 && o.state !== "lurk") {
+          fin.next = 2;
+          o.state = "hurt";
+          o.t = -1;
+          this.strike(f, o, "burst", 0, 0, 0, false, 0, 0.25);
+        }
+        // and it all comes back down as magma, all over the page
+        const v = this.view();
+        const group = { hits: 0, max: 0 };
+        for (let i = 0; i < 24; i++)
+          this.skyfalls.push({
+            kind: "volcano",
+            owner: f.id,
+            x: v.x + rand(0.03, 0.97) * v.w,
+            y: v.y + rand(0.1, 0.95) * v.h,
+            t: -0.35 - i * 0.045,
+            fall: 0.5,
+            r: 26 * k,
+            slot: "burst",
+            mult: 0,
+            hit: false,
+            group,
+          });
+      }
+      if (fin.next === 2 && t < 2.6) {
+        o.z = Math.sin(((t - 1.9) / 0.7) * Math.PI) * 170 * k;
+        o.face += dt * 12;
+      }
+      if (fin.next === 2 && t >= 2.6) {
+        // slammed back down into the magma
+        fin.next = 3;
+        o.z = 0;
+        this.strike(f, o, "burst", 0, 0, 0, false, 0, 0.45);
+        this.wreck.crater(o.x, o.y, 22 * k);
+        this.sound.slam();
+        this.onShake(24);
+        this.screenFlash = 0.6;
+      }
+      // fissures race from the sigil to every edge, and the page burns
+      if (t >= 1.9 && t < 2.9) {
+        const rad = Math.min(1, (t - 1.9) / 0.7) * this.farthest(fin.x, fin.y);
+        fin.wreckT -= dt;
+        if (fin.wreckT <= 0) {
+          fin.wreckT = 0.04;
+          this.wreck.blast(fin.x, fin.y, rad, 9, fin.x, fin.y, 500);
+          for (let i = 0; i < 3; i++) {
+            const a = rand(0, Math.PI * 2);
+            this.wreck.ignite(fin.x + Math.cos(a) * rad, fin.y + Math.sin(a) * rad, 24 * k, 10);
+          }
+        }
+      }
+    } else if (fin.kind === "kyogre" && !fin.mega) {
+      // WATER SPOUT: a column of water into the sky, and it all comes back down as bombs
+      if (t < 0.6) {
+        for (let i = 0; i < 4; i++)
+          this.spawn(
+            "foam",
+            f.x + rand(-10, 10) * k,
+            f.y,
+            rand(-20, 20) * k,
+            rand(-20, 20) * k,
+            0.9,
+            3 * k,
+            30 * k,
+            rand(500, 800) * k
+          );
+      }
+      if (t >= 0.5 && !fin.hit) {
+        fin.hit = true;
+        const group = { hits: 0, max: 3 };
+        for (let i = 0; i < 20; i++)
+          this.skyfalls.push({
+            kind: "bomb",
+            owner: f.id,
+            x: v.x + rand(0.05, 0.95) * v.w,
+            y: v.y + rand(0.1, 0.95) * v.h,
+            t: -i * 0.07,
+            fall: 0.45,
+            r: 30 * k,
+            slot: "burst",
+            mult: 0.18 * hpMul,
+            hit: false,
+            group,
+          });
+        for (const at of [0.3, 0.7, 1.1]) this.rain(f, "bomb", o.x, o.y, 1, 0, at, 0, 34 * k, "burst", 0.18 * hpMul, 3);
+        this.rain(f, "bomb", o.x, o.y, 1, 0, 1.55, 0, 56 * k, "burst", 0.45 * hpMul, 1);
+      }
+      if (t >= 1.8) this.flood = 1;
+    } else {
+      // PRIMORDIAL SEA: Primal Kyogre dives into the page. Its shadow, vast, circles beneath the
+      // foe while the whole screen turns into a maelstrom; it breaches right under the foe and
+      // throws it into the sky, and the ocean it brought crashes out over everything
+      if (t < 0.4) {
+        f.grow = Math.max(0.02, 1 - t / 0.35);
+        f.invuln = 1;
+        this.spawn(
+          "foam",
+          f.x + rand(-14, 14) * k,
+          f.y + rand(-6, 6) * k,
+          rand(-90, 90) * k,
+          rand(-50, 50) * k,
+          0.5,
+          3 * k,
+          2 * k,
+          rand(80, 200) * k
+        );
+      } else if (t < 1.75) f.grow = 0.02;
+      // the maelstrom: the page is dragged round and in, and the foe with it
+      if (t >= 0.4 && t < 1.75) {
+        const R = this.farthest(fin.x, fin.y);
+        fin.wreckT -= dt;
+        if (fin.wreckT <= 0) {
+          fin.wreckT = 0.03;
+          for (let i = 0; i < 4; i++) {
+            const a = rand(0, Math.PI * 2);
+            const d = rand(40 * k, R);
+            const ca = Math.cos(a);
+            const sa = Math.sin(a);
+            this.wreck.wash(fin.x + ca * d, fin.y + sa * d, 22 * k, -sa * 0.8 - ca * 0.4, ca * 0.8 - sa * 0.4, 5, 10);
+          }
+        }
+        if (t >= 0.6 && fin.next === 0 && reachable()) {
+          fin.next = 1;
+          o.state = "hurt";
+          o.t = -1.2;
+        }
+        if (fin.next === 1) {
+          o.x += (fin.x - o.x) * Math.min(1, dt * 1.6);
+          o.y += (fin.y - o.y) * Math.min(1, dt * 1.6);
+          o.face += dt * 8;
+          const due = Math.min(3, Math.max(0, Math.floor((t - 0.75) / 0.3) + 1));
+          if (fin.hits < due) {
+            fin.hits = due;
+            this.strike(f, o, "burst", 0, 0, 0, false, 0, 0.1);
+            o.state = "hurt";
+            o.t = -1;
+          }
+        }
+      }
+      // the breach
+      if (t >= 1.75 && !fin.hit) {
+        fin.hit = true;
+        f.x = fin.x;
+        f.y = fin.y + 6 * k;
+        f.face = Math.PI / 2;
+        this.sound.boom();
+        this.sound.wave();
+        this.onShake(28);
+        this.screenFlash = 0.8;
+        this.flashes.push({ x: fin.x, y: fin.y, t: 0, r: 170 * k, colour: "#e0f6ff" });
+        this.wreck.crater(fin.x, fin.y, 26 * k);
+        this.wreck.blast(fin.x, fin.y, 110 * k, 9, fin.x, fin.y, 300);
+        for (let i = 0; i < 80; i++) {
+          const a = rand(0, Math.PI * 2);
+          const d = rand(0, 34) * k;
+          this.spawn(
+            i % 3 ? "drop" : "foam",
+            fin.x + Math.cos(a) * d,
+            fin.y + Math.sin(a) * d * 0.8,
+            Math.cos(a) * rand(30, 160) * k,
+            Math.sin(a) * rand(30, 160) * k,
+            rand(0.7, 1.2),
+            rand(2.5, 4) * k,
+            10 * k,
+            rand(450, 950) * k
+          );
+        }
+        if (o.hp > 0 && o.state !== "lurk" && Math.hypot(o.x - fin.x, o.y - fin.y) < 140 * k) {
+          fin.next = 2;
+          o.state = "hurt";
+          o.t = -1;
+          this.strike(f, o, "burst", 0, 0, 0, false, 0, 0.25);
+        } else this.say(`${this.name(o)} escaped the depths!`);
+      }
+      if (t >= 1.75) f.grow = 1 + 0.6 * Math.max(0, 1 - (t - 1.75) / 0.6);
+      if (fin.next === 2 && t < 2.45) {
+        o.z = Math.sin(((t - 1.75) / 0.7) * Math.PI) * 160 * k;
+        o.face += dt * 10;
+      }
+      // the sea it raised comes crashing down, and races out to the edges of the screen
+      if (t >= 2.45 && fin.sweep < 1) {
+        fin.sweep = 1;
+        this.sound.wave();
+        this.sound.slam();
+        this.onShake(24);
+        if (fin.next === 2) {
+          o.z = 0;
+          this.strike(f, o, "burst", 0, 0, 0, false, 0, 0.45);
+          this.wreck.crater(o.x, o.y, 20 * k);
+        }
+        fin.next = 3;
+      }
+      if (t >= 2.45 && t < 3.15) {
+        const rad = ((t - 2.45) / 0.6) * this.farthest(fin.x, fin.y);
+        fin.wreckT -= dt;
+        if (fin.wreckT <= 0) {
+          fin.wreckT = 0.03;
+          for (let i = 0; i < 10; i++) {
+            const a = rand(0, Math.PI * 2);
+            const x = fin.x + Math.cos(a) * rad;
+            const y = fin.y + Math.sin(a) * rad * 0.8;
+            this.wreck.wash(x, y, 30 * k, Math.cos(a), Math.sin(a), 9, 14);
+            this.spawn(
+              "foam",
+              x,
+              y,
+              Math.cos(a) * 200 * k,
+              Math.sin(a) * 160 * k,
+              0.4,
+              3 * k,
+              4 * k,
+              rand(60, 160) * k
+            );
+          }
+        }
+      }
+    }
+    if (t >= len) {
+      o.grow = 1;
+      f.grow = 1;
+      o.z = 0;
+      this.endFinale(f);
+    }
+  }
+
+  /** The CPU's pick from a legendary's moves (its regular or its Mega / Primal set). */
+  private cpuLegendMove(f: Fighter, o: Fighter, d: number, away: boolean): Slot | null {
+    const k = this.k;
+    const moves = this.moves(f);
+    const ready = (s: Slot) => f.cd[s] <= 0;
+    const chance = (p: number) => Math.random() < p;
+    const eff = (s: Slot) => this.eff(moves[s].kind, o);
+    const order: Slot[] = ["s1", "s2", "s3", "s4"];
+    if (d < 60 * k && ready("melee") && eff("melee") > 0 && !away && chance(0.7)) return "melee";
+    for (const s of order) {
+      if (!ready(s) || eff(s) === 0) continue;
+      const name = moves[s].name;
+      if (["DRAGON DANCE", "BULK UP", "CALM MIND"].includes(name)) {
+        if (f.boost <= 0 && chance(0.2)) return s;
+        continue;
+      }
+      if (name === "AQUA RING") {
+        if (f.regen <= 0 && f.hp / STATS[f.species].hp < 0.6 && chance(0.3)) return s;
+        continue;
+      }
+      if (away) continue;
+      // close-range moves want the foe near; the rest reach across the arena
+      const close = ["EXTREME SPEED", "DRAGON RUSH", "LAVA PLUME", "SHEER COLD", "OVERHEAT", "SCALD"].includes(name);
+      const range = close ? 150 * k : 300 * k;
+      if (d < range && chance(eff(s) > 1 ? 0.5 : 0.3)) return s;
+    }
+    return null;
+  }
+
   // ---------- Mewtwo ----------
 
   /** Mewtwo's own moves: Psychic grabs, Teleport blinks, the rest are cast. */
@@ -3623,6 +5218,7 @@ export class BattleGame {
     const chance = (p: number) => Math.random() < p;
     const eff = (s: Slot) => this.eff(this.moves(f)[s].kind, o);
     if (f.meter >= 1 && !away) return "burst";
+    if (LEGENDS.has(f.species)) return this.cpuLegendMove(f, o, d, away);
     if (f.mega) return this.cpuMegaMove(f, o, d, away);
     if (d < 52 * k && ready("melee") && eff("melee") > 0 && chance(0.75)) return "melee";
     if (away) return null;
@@ -3687,9 +5283,15 @@ export class BattleGame {
       loser.t = 0;
       this.sound.recall();
     }
+    // 3 v 3: it's not over while that side has someone left
+    if (this.fainted[loser.id] + 1 < this.teams[loser.id].length) {
+      if (this.phaseT > 2.1) this.sendNext(loser);
+      return;
+    }
     if (this.phaseT > 2.1 && this.phaseT - TICK <= 2.1) {
       const won = loser === foe;
-      if (this.watch) this.say(`${winner.species.toUpperCase()} wins!`);
+      if (this.watch)
+        this.say(this.teams[0].length > 1 ? `CPU ${winner.id + 1} wins!` : `${winner.species.toUpperCase()} wins!`);
       else this.say(won ? "Player defeated RIVAL!" : "Player is out of usable POKéMON!");
       if (won || this.watch) this.sound.win();
       else this.sound.lose();
@@ -3709,6 +5311,8 @@ export class BattleGame {
         letters: this.wreck.destroyed,
         hpLeft: me.hp / STATS[me.species].hp,
         watch: this.watch,
+        team: this.teams[0],
+        foeTeam: this.teams[1],
       };
       // records and achievements are for battles you fought yourself
       if (won && !this.watch) {
@@ -3717,10 +5321,43 @@ export class BattleGame {
         if (me.species === "gengar") unlock("poke-haunted");
         if (me.species === "mewtwo") unlock("poke-mewtwo");
         if (stats.hpLeft > 0.5) unlock("poke-untouchable");
-        record("pokemon", this.time);
+        if (LEGENDS.has(me.species)) unlock("poke-legend");
+        if (this.teams[0].length === 3) unlock("poke-trio");
+        // the fastest win is a 1 v 1 record
+        else record("pokemon", this.time);
       }
       this.onEnd(stats);
     }
+  }
+
+  /** The next Pokémon on the fainted one's team comes out where its side starts. */
+  private sendNext(loser: Fighter) {
+    const id = loser.id;
+    this.fainted[id]++;
+    const species = this.teams[id][this.fainted[id]];
+    const a = this.arena();
+    const f = this.fighter(
+      id,
+      species,
+      a.l + (a.r - a.l) * (id === 0 ? 0.28 : 0.72),
+      a.t + (a.b - a.t) * (id === 0 ? 0.7 : 0.32)
+    );
+    f.cpu = loser.cpu;
+    // the team's tallies carry on, and so does its one Mega Evolution
+    f.stats = loser.stats;
+    f.megaUsed = loser.megaUsed || loser.mega;
+    this.f![id] = f;
+    // a Primal's weather leaves with it
+    if (loser.mega && (loser.species === "groudon" || loser.species === "kyogre") && this.weather) {
+      this.weather = null;
+      this.say(loser.species === "groudon" ? "The extremely harsh sunlight faded!" : "The heavy rain has lifted!");
+    }
+    const who = id === 0 ? (this.watch ? "CPU 1" : "") : this.watch ? "CPU 2" : "RIVAL";
+    this.say(who ? `${who} sent out ${species.toUpperCase()}!` : `Go! ${species.toUpperCase()}!`);
+    this.throwBall(id);
+    this.onSwitch?.(id, species);
+    this.phase = "send";
+    this.phaseT = 0;
   }
 
   private lowHpAlarm(dt: number) {
@@ -3776,8 +5413,9 @@ export class BattleGame {
       const tt = fin.t;
       const env = Math.min(1, tt / 0.3) * Math.min(1, (len - tt) / 0.4);
       const pulse = 0.85 + Math.sin(tt * 18) * 0.15;
-      ctx.fillStyle =
-        fin.kind === "mewtwo"
+      ctx.fillStyle = LEGENDS.has(fin.kind)
+        ? this.legendTint(fin, env, pulse)
+        : fin.kind === "mewtwo"
           ? `rgba(${fin.mega ? 70 : 60},0,${fin.mega ? 90 : 70},${env * (fin.mega ? 0.3 : 0.45) * pulse})`
           : fin.mega
             ? fin.kind === "gengar"
@@ -3791,6 +5429,7 @@ export class BattleGame {
                 ? `rgba(120,24,0,${env * 0.35 * pulse})`
                 : `rgba(4,30,70,${env * 0.3})`;
       ctx.fillRect(0, 0, vw, vh);
+      if (fin.kind === "kyogre" && fin.mega) this.drawAbyss(fin);
     }
     ctx.save();
     ctx.translate(-window.scrollX, -window.scrollY);
@@ -3810,6 +5449,7 @@ export class BattleGame {
       ctx.fillStyle = `rgba(255,214,140,${this.screenFlash * 0.4})`;
       ctx.fillRect(0, this.headerBottom, vw, vh - this.headerBottom);
     }
+    this.drawWeatherTint(vw, vh);
     this.drawHud(vw, vh);
     if (this.cutin) this.drawCutin(this.cutin, vw, vh);
   }
@@ -3837,7 +5477,13 @@ export class BattleGame {
           ? { band: "#0c2c70", light: "#2890e8", text: "#c8f0ff" }
           : f.species === "mewtwo"
             ? { band: f.mega ? "#2a0850" : "#3a1060", light: f.mega ? "#ff7af0" : "#e070f0", text: "#ffe0ff" }
-            : { band: "#1c0838", light: "#9050e0", text: "#f4dcff" };
+            : f.species === "rayquaza"
+              ? { band: "#0c4a28", light: "#3cc870", text: "#f0fff4" }
+              : f.species === "groudon"
+                ? { band: "#400804", light: "#f05010", text: "#fff4c0" }
+                : f.species === "kyogre"
+                  ? { band: "#0c2c70", light: "#ff4060", text: "#c8f0ff" }
+                  : { band: "#1c0838", light: "#9050e0", text: "#f4dcff" };
     ctx.save();
     ctx.fillStyle = `rgba(0,0,0,${0.55 * (1 - outT)})`;
     ctx.fillRect(0, 0, vw, vh);
@@ -3877,7 +5523,7 @@ export class BattleGame {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage((c.evolve ? this.megas[f.species] : f.mon)?.portrait ?? f.mon.portrait, px, py, size, size);
     // the move's name
-    const name = c.evolve ? "MEGA EVOLUTION" : this.moves(f).burst.name;
+    const name = c.evolve ? (PRIMAL.has(f.species) ? "PRIMAL REVERSION" : "MEGA EVOLUTION") : this.moves(f).burst.name;
     const big = Math.min(72, Math.max(24, vw / (name.length > 16 ? 22 : 16)));
     const tx = px + size + Math.max(20, vw * 0.04);
     ctx.textBaseline = "middle";
@@ -3901,10 +5547,12 @@ export class BattleGame {
   }
 
   /** On the page, under the Pokémon: shadows, puddles, shockwaves, Surf's body, a lurking Gengar. */
+  // (whirlpools are drawn with the legendaries' ground effects)
   private drawGround(g: PixelLayer) {
     const k = this.k;
     const t = this.clock;
     for (const z of this.zones) {
+      if (z.kind === "whirl") continue;
       // a sludge puddle: a lumpy blob that shrinks away at the end, with popping bubbles
       const fade = Math.min(1, (z.life - z.t) / 0.6) * Math.min(1, z.t / 0.12);
       const r = z.r * fade;
@@ -3949,6 +5597,7 @@ export class BattleGame {
     }
     for (const w of this.waves) this.drawWaveBody(g, w);
     if (this.flood > 0) this.drawFlood(g, this.flood);
+    this.drawLegendGround(g);
     if (this.finale?.mega) this.drawMegaGround(g, this.finale);
     for (const f of this.f!) {
       if (f.state === "hidden" || f.state === "gone") continue;
@@ -4145,6 +5794,13 @@ export class BattleGame {
         frame = frameAt(a.Charge, f.t);
         break;
       case "ult":
+        if (LEGENDS.has(f.species)) {
+          // Rayquaza flies, Groudon and Kyogre call on the land and the sea
+          anim = f.species === "rayquaza" ? "Walk" : f.species === "groudon" ? "Emit" : "Swell";
+          frame = frameAt(a[anim], f.t * (f.species === "rayquaza" ? 2 : 1));
+          d = 0;
+          break;
+        }
         // Charizard hovers, wings beating; Blastoise aims its cannons; Gengar strikes a pose
         anim = f.species === "charizard" ? "Walk" : f.species === "blastoise" ? (f.t < 0.6 ? "Shoot" : "Idle") : "Pose";
         frame =
@@ -4184,6 +5840,12 @@ export class BattleGame {
         anim = "Attack";
         frame = frameAt(a.Attack, f.t, false);
         break;
+      case "legend": {
+        const l = this.legendAnim(f);
+        anim = l.anim;
+        frame = l.frame;
+        break;
+      }
       case "hurt":
         anim = "Hurt";
         frame = frameAt(a.Hurt, f.t);
@@ -4203,7 +5865,13 @@ export class BattleGame {
           ? WATER[3]
           : f.species === "mewtwo"
             ? PINK[2]
-            : GHOST[2];
+            : f.species === "rayquaza"
+              ? JADE[2]
+              : f.species === "groudon"
+                ? MAGMA[2]
+                : f.species === "kyogre"
+                  ? "#50b0f0"
+                  : GHOST[2];
     for (const p of f.trail) {
       drawMon(ctx, f.mon, anim, d, frame, p.x, p.y - p.z, k, { alpha: p.a * 0.6, tint: 1, tintColour: trailColour });
     }
@@ -4295,6 +5963,7 @@ export class BattleGame {
       this.drawHands(g, this.finale);
     }
     this.drawPsychic(g);
+    this.drawLegends(g);
     this.drawMega(g);
     for (const b of this.balls) this.drawBall(g, b);
   }
@@ -4466,6 +6135,7 @@ export class BattleGame {
 
   private drawShot(g: PixelLayer, s: Shot) {
     if (s.t < 0) return;
+    if (this.drawLegendShot(g, s)) return;
     const k = this.k;
     const t = this.clock;
     const y = s.y - s.z;
@@ -4585,12 +6255,30 @@ export class BattleGame {
       }
       return;
     }
-    if (b.kind === "darkpulse" || b.kind === "sludgewave" || b.kind === "psywave") {
+    if (
+      b.kind === "darkpulse" ||
+      b.kind === "sludgewave" ||
+      b.kind === "psywave" ||
+      b.kind === "lava" ||
+      b.kind === "frost" ||
+      b.kind === "dragonring"
+    ) {
       const p = Math.min(1, b.t / 0.45);
       const rad = p * b.max;
       const fade = b.t < 0.45 ? 1 : 1 - (b.t - 0.45) / 0.45;
       if (fade <= 0) return;
-      const pal = b.kind === "darkpulse" ? DARK : b.kind === "psywave" ? PINK : SLUDGE;
+      const pal =
+        b.kind === "darkpulse"
+          ? DARK
+          : b.kind === "psywave"
+            ? PINK
+            : b.kind === "lava"
+              ? MAGMA
+              : b.kind === "frost"
+                ? ICE
+                : b.kind === "dragonring"
+                  ? JADE
+                  : SLUDGE;
       g.alpha = fade;
       g.ring(b.x, b.y, rad, pal[3], 0.8, 6, 0.08, flick);
       g.ring(b.x, b.y, rad * 0.97, pal[1], 0.8, 3, 0.2, flick + 1);
@@ -4631,6 +6319,656 @@ export class BattleGame {
       g.ring(b.x, b.y - 8 * k, b.max * (0.4 + p), ramp(GHOST, p), 0.8, 3, 0.2, flick);
       if (p < 0.4) g.disc(b.x, b.y - 8 * k, b.max * 0.5 * (1 - p), GHOST[5]);
     }
+  }
+
+  /** Which animation a legendary's move plays. */
+  private legendAnim(f: Fighter) {
+    const a = f.mon.anims;
+    const name = this.legendName(f);
+    const pick = (n: string) => (a[n] ? n : "Idle");
+    const lunges = [
+      "AERIAL ACE",
+      "EXTREME SPEED",
+      "OUTRAGE",
+      "DRAGON RUSH",
+      "FIRE PUNCH",
+      "HAMMER ARM",
+      "WATERFALL",
+      "LIQUIDATION",
+    ];
+    if (lunges.includes(name)) {
+      const n = pick(name === "EXTREME SPEED" ? "QuickStrike" : "Attack");
+      const t = name === "OUTRAGE" ? f.t % 0.27 : f.t;
+      return { anim: n, frame: frameAt(a[n], t * 1.3, false) };
+    }
+    if (BEAM_OF[name]) {
+      if (!f.beam && f.t >= this.beamStart(f)) return { anim: "Idle", frame: frameAt(a.Idle, f.t) };
+      if (!f.beam) return { anim: pick("Charge"), frame: frameAt(a[pick("Charge")], f.t) };
+      const n = pick("Shoot");
+      const hit = a[n].hitFrame ?? 1;
+      return { anim: n, frame: Math.min(frameAt(a[n], f.t - this.beamStart(f), false), hit + 1) };
+    }
+    if (name === "DRAGON ASCENT") return { anim: pick("Walk"), frame: frameAt(a[pick("Walk")], f.t * 3) };
+    const emit = f.species === "groudon" ? "Emit" : f.species === "kyogre" ? "Swell" : "Charge";
+    const cast: Record<string, string> = {
+      TWISTER: "Swing",
+      "ORIGIN PULSE": "Shoot",
+      "ANCIENT POWER": "Charge",
+      "DRACO METEOR": "Shoot",
+      THUNDER: "Charge",
+      "EARTH POWER": emit,
+      "STONE EDGE": emit,
+      "PRECIPICE BLADES": emit,
+      "LAVA PLUME": emit,
+      "SHEER COLD": emit,
+      WHIRLPOOL: "Shoot",
+    };
+    const n = pick(cast[name] ?? "Charge");
+    return { anim: n, frame: frameAt(a[n], f.t, !cast[name]) };
+  }
+
+  /** Twister, Origin Pulse and Ancient Power, in pixels. Returns whether it drew the shot. */
+  private drawLegendShot(g: PixelLayer, s: Shot) {
+    const k = this.k;
+    const t = this.clock;
+    if (s.kind === "twister") {
+      // a funnel of wind, wide at the top, turning
+      for (let i = 0; i < 9; i++) {
+        const h = i * 6 * k;
+        const r = (7 + i * 2.2) * k;
+        const sway = Math.sin(t * 8 + i * 0.7) * 3 * k;
+        g.ring(s.x + sway, s.y - h, r, i % 2 ? JADE[2] : "#cbd5e1", 0.35, 2, 0.25, Math.floor(t * 20) + i);
+      }
+      return true;
+    }
+    if (s.kind === "laser") {
+      // Origin Pulse: a hard, bright blue lance of light
+      const dx = Math.cos(s.angle);
+      const dy = Math.sin(s.angle);
+      const y = s.y - s.z;
+      g.line(s.x - dx * 18 * k, y - dy * 18 * k, s.x + dx * 6 * k, y + dy * 6 * k, "#1d4ed8", 5);
+      g.line(s.x - dx * 16 * k, y - dy * 16 * k, s.x + dx * 6 * k, y + dy * 6 * k, "#7dd3fc", 3);
+      g.line(s.x - dx * 12 * k, y - dy * 12 * k, s.x + dx * 6 * k, y + dy * 6 * k, "#ffffff", 1);
+      return true;
+    }
+    if (s.kind === "ancient") {
+      const y = s.y - s.z;
+      g.disc(s.x, y, 6 * k, EARTH[4]);
+      g.disc(s.x, y, 5 * k, EARTH[2]);
+      g.dot(s.x - 2 * k, y - 2 * k, EARTH[0], 2);
+      g.ring(s.x, y, 8 * k, "#c8f0ff", 1, 1, 0.6, Math.floor(t * 16));
+      return true;
+    }
+    return false;
+  }
+
+  /** On the page: whirlpools, where sky strikes will land, Earth Power's warning, the finales' ground. */
+  private drawLegendGround(g: PixelLayer) {
+    const k = this.k;
+    const t = this.clock;
+    for (const z of this.zones) {
+      if (z.kind !== "whirl") continue;
+      const fade = Math.min(1, (z.life - z.t) / 0.4) * Math.min(1, z.t / 0.2);
+      g.alpha = fade;
+      g.ditherDisc(z.x, z.y, z.r, WATER[5], 0.6, 0);
+      for (let arm = 0; arm < 4; arm++)
+        for (let r = 4 * k; r < z.r; r += 4 * k) {
+          const a = (arm / 4) * Math.PI * 2 + r / (12 * k) - t * 5;
+          g.dot(z.x + Math.cos(a) * r, z.y + Math.sin(a) * r * 0.6, r > z.r * 0.6 ? WATER[2] : WATER[1], 2);
+        }
+      g.alpha = 1;
+    }
+    for (const sf of this.skyfalls) {
+      if (sf.hit || sf.t < -0.5) continue;
+      // a shadow growing where it will land
+      const p = Math.max(0, Math.min(1, (sf.t + 0.5) / (sf.fall + 0.5)));
+      const c =
+        sf.kind === "thunder"
+          ? "#fde047"
+          : sf.kind === "bomb"
+            ? WATER[3]
+            : sf.kind === "volcano"
+              ? MAGMA[2]
+              : "#a78bfa";
+      g.ring(sf.x, sf.y, sf.r * (0.3 + p * 0.7), c, 0.5, 1, 0.3, Math.floor(t * 12));
+      g.ditherDisc(sf.x, sf.y, sf.r * 0.5 * p, "#000", 0.5, 0);
+    }
+    for (const sp of this.spikes) {
+      if (sp.kind !== "earth" || sp.t >= 0) continue;
+      // Earth Power's warning: the ground cracks and glows first
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + hash(i + sp.x);
+        g.line(
+          sp.x,
+          sp.y,
+          sp.x + Math.cos(a) * sp.r,
+          sp.y + Math.sin(a) * sp.r * 0.6,
+          Math.floor(t * 16) % 2 ? MAGMA[1] : MAGMA[3],
+          1
+        );
+      }
+    }
+    const fin = this.finale;
+    if (!fin || !LEGENDS.has(fin.kind)) return;
+    if (fin.kind === "groudon" && !fin.mega) {
+      // Eruption's cracks, running from Groudon to the edges of the screen, glowing
+      const f = this.f![fin.owner];
+      for (let i = 0; i < 12; i++) {
+        let x = f.x;
+        let y = f.y;
+        const a0 = (i / 12) * Math.PI * 2 + hash(i) * 0.3;
+        for (let s2 = 1; s2 <= 8; s2++) {
+          const r = (fin.sweep * s2) / 8;
+          const a = a0 + (hash(i * 13 + s2) - 0.5) * 0.4;
+          const nx = f.x + Math.cos(a) * r;
+          const ny = f.y + Math.sin(a) * r * 0.8;
+          g.line(x, y, nx, ny, MAGMA[3], 3);
+          g.line(x, y, nx, ny, Math.floor(t * 10 + i) % 3 ? MAGMA[1] : MAGMA[0], 1);
+          x = nx;
+          y = ny;
+        }
+      }
+    } else if (fin.kind === "groudon") {
+      // Tectonic Rage: the ground inside the Ω caves in to magma, and the Ω burns
+      const path = fin.hands;
+      const R = OMEGA * k;
+      const tt = fin.t;
+      if (tt >= 0.8) {
+        const cave = Math.min(1, (tt - 0.8) / 0.5) * Math.min(1, Math.max(0, (3.4 - tt) / 0.4));
+        g.disc(fin.x, fin.y, R * 0.97 * cave, "#140400", 0.8);
+        g.disc(fin.x, fin.y, R * 0.82 * cave, MAGMA[3], 0.8);
+        g.ditherDisc(fin.x, fin.y, R * 0.72 * cave, MAGMA[2], 0.8, Math.floor(tt * 8) % 2);
+        g.ditherDisc(fin.x, fin.y, R * 0.4 * cave, MAGMA[1], 0.8, Math.floor(tt * 6) % 2);
+        for (let i = 0; i < 12; i++) {
+          const ph = (tt * 1.6 + hash(i * 3)) % 1;
+          const bx = fin.x + (hash(i) - 0.5) * R * 1.2 * cave;
+          const by = fin.y + (hash(i + 9) - 0.5) * R * 0.9 * cave;
+          g.ring(bx, by, (1 + ph * 6) * k, ph > 0.8 ? MAGMA[2] : MAGMA[0], 1, 1);
+        }
+      }
+      const shown = Math.floor(fin.sweep * (path.length - 1));
+      const flick = Math.floor(t * 12) % 2;
+      for (let i = 1; i <= shown; i++) {
+        const p0 = path[i - 1];
+        const p1 = path[i];
+        g.line(p0.x, p0.y, p1.x, p1.y, MAGMA[4], 8);
+        g.line(p0.x, p0.y, p1.x, p1.y, (i + flick) % 3 ? MAGMA[2] : MAGMA[3], 5);
+        g.line(p0.x, p0.y, p1.x, p1.y, MAGMA[1], 3);
+        g.line(p0.x, p0.y, p1.x, p1.y, MAGMA[0], 1);
+      }
+      if (fin.sweep < 1) g.disc(path[shown].x, path[shown].y, 7 * k, MAGMA[0]);
+      if (tt >= 1.9) {
+        // fissures racing out to every edge
+        const reach = Math.min(1, (tt - 1.9) / 0.6) * this.farthest(fin.x, fin.y);
+        for (let i = 0; i < 14; i++) {
+          let x = fin.x + Math.cos((i / 14) * Math.PI * 2) * R;
+          let y = fin.y + Math.sin((i / 14) * Math.PI * 2) * R * 0.8;
+          const a0 = (i / 14) * Math.PI * 2;
+          for (let s2 = 1; s2 <= 10; s2++) {
+            const r = R + ((reach - R) * s2) / 10;
+            if (r <= R) break;
+            const a = a0 + (hash(i * 17 + s2) - 0.5) * 0.35;
+            const nx = fin.x + Math.cos(a) * r;
+            const ny = fin.y + Math.sin(a) * r * 0.8;
+            g.line(x, y, nx, ny, MAGMA[3], 4);
+            g.line(x, y, nx, ny, (s2 + flick) % 3 ? MAGMA[1] : MAGMA[0], 2);
+            x = nx;
+            y = ny;
+          }
+        }
+      }
+    } else if (fin.kind === "kyogre" && fin.mega) {
+      // Primordial Sea: the maelstrom, turning faster and faster around its eye
+      const tt = fin.t;
+      const s2 = tt < 0.4 ? 0 : tt < 1.75 ? Math.min(1, (tt - 0.4) / 0.5) : Math.max(0, 1 - (tt - 1.75) / 0.35);
+      if (s2 > 0) {
+        const R = this.farthest(fin.x, fin.y) * s2;
+        const spin = tt * (3 + tt * 2);
+        // the deep, swallowing the page, and the current's arms swirling in to the eye
+        g.ditherDisc(fin.x, fin.y, R, "#062a5a", 0.8, Math.floor(tt * 10) % 2);
+        g.ditherDisc(fin.x, fin.y, R * 0.45, "#041a3c", 0.8, 0);
+        for (let arm = 0; arm < 7; arm++) {
+          let px = fin.x;
+          let py = fin.y;
+          for (let r = 12 * k; r < R; r += 8 * k) {
+            const a = (arm / 7) * Math.PI * 2 + Math.log(r / (10 * k)) * 1.7 - spin;
+            const x = fin.x + Math.cos(a) * r;
+            const y = fin.y + Math.sin(a) * r * 0.8;
+            const c = r < 80 * k ? WATER[0] : arm % 2 ? WATER[1] : WATER[2];
+            if (r > 12 * k) g.line(px, py, x, y, c, r < R * 0.35 ? 3 : 2);
+            px = x;
+            py = y;
+          }
+        }
+        g.ditherDisc(fin.x, fin.y, 46 * k * s2, "#010818", 0.8, 0);
+        g.ring(fin.x, fin.y, 50 * k * s2, WATER[1], 0.8, 2, 0.3, Math.floor(tt * 20));
+      }
+      if (tt >= 2.45 && tt < 3.15) {
+        // the crash: a ring of white water racing out to the edges
+        const r = ((tt - 2.45) / 0.6) * this.farthest(fin.x, fin.y);
+        g.ring(fin.x, fin.y, Math.max(1, r - 14 * k), WATER[3], 0.8, 8);
+        g.ring(fin.x, fin.y, Math.max(1, r - 4 * k), WATER[2], 0.8, 5);
+        g.ring(fin.x, fin.y, r, WATER[1], 0.8, 3);
+        g.ring(fin.x, fin.y, r + 3 * k, WATER[0], 0.8, 2, 0.3, Math.floor(tt * 30));
+      }
+    }
+  }
+
+  /** Over everything: beams, sky strikes, spikes, the weather, Aqua Ring, and the legendary finales. */
+  private drawLegends(g: PixelLayer) {
+    const k = this.k;
+    const t = this.clock;
+    // beams
+    for (const f of this.f!) {
+      if (f.state !== "legend") continue;
+      const kind = BEAM_OF[this.legendName(f)];
+      if (!kind) continue;
+      const pal = { hyper: HYPER, solar: SOLAR, fire: MAGMA, water: WATER, ice: ICE }[kind];
+      const wide = kind === "hyper" || kind === "solar";
+      const dx = Math.cos(f.aimAngle);
+      const dy = Math.sin(f.aimAngle);
+      const lift = 16 * k;
+      const sx = f.x + dx * 20 * k;
+      const sy = f.y + dy * 16 * k - lift;
+      if (!f.beam) {
+        // gathering power at the mouth (Hyper Beam's recharge after shows nothing)
+        const start = this.beamStart(f);
+        if (f.t >= start) continue;
+        const q = Math.min(1, f.t / Math.max(0.1, start));
+        for (let i = 0; i < 10; i++) {
+          const a = (i / 10) * Math.PI * 2 + t * 4;
+          const r = (1 - ((t * 3 + i / 10) % 1)) * 44 * k;
+          g.line(
+            sx + Math.cos(a) * r,
+            sy + Math.sin(a) * r,
+            sx + Math.cos(a) * (r + 7 * k),
+            sy + Math.sin(a) * (r + 7 * k),
+            pal[1],
+            1
+          );
+        }
+        g.disc(sx, sy, (3 + q * 7) * k, pal[3]);
+        g.disc(sx, sy, (2 + q * 4.5) * k, pal[1]);
+        g.disc(sx, sy, (1 + q * 2) * k, pal[0]);
+        continue;
+      }
+      const ex = sx + dx * f.reach;
+      const ey = sy + dy * f.reach + lift * 0.6;
+      const wob = Math.floor(t * 30) % 2;
+      const base = wide ? 12 : 8;
+      g.alpha = 0.45;
+      g.line(sx, sy, ex, ey, pal[3], base + 6 + wob * 2);
+      g.alpha = 1;
+      g.line(sx, sy, ex, ey, pal[4], base + 2 + wob);
+      g.line(sx, sy, ex, ey, pal[3], base + wob);
+      g.line(sx, sy, ex, ey, pal[2], Math.round(base * 0.65));
+      g.line(sx, sy, ex, ey, pal[1], Math.round(base * 0.4));
+      g.line(sx, sy, ex, ey, pal[0], Math.max(1, Math.round(base * 0.2)));
+      // pulses running down it
+      for (let i = 0; i < 4; i++) {
+        const q = (t * 3 + i / 4) % 1;
+        const px = sx + (ex - sx) * q;
+        const py = sy + (ey - sy) * q;
+        g.disc(px, py, (wide ? 9 : 6) * k, pal[1]);
+        g.disc(px, py, (wide ? 5 : 3) * k, pal[0]);
+      }
+      // sparkles along its edges
+      const tick = Math.floor(t * 20);
+      for (let i = 0; i < 8; i++) {
+        const q = hash(i + tick);
+        const side = (hash(i * 3 + tick) - 0.5) * (wide ? 26 : 16) * k;
+        g.dot(sx + (ex - sx) * q - dy * side, sy + (ey - sy) * q + dx * side, pal[i % 2], 1);
+      }
+      if (kind === "ice")
+        for (let i = 0; i < 6; i++) {
+          const q = hash(i + Math.floor(t * 12));
+          const cx = sx + (ex - sx) * q;
+          const cy = sy + (ey - sy) * q;
+          g.line(cx - 4 * k, cy, cx + 4 * k, cy, ICE[0], 1);
+          g.line(cx, cy - 4 * k, cx, cy + 4 * k, ICE[0], 1);
+        }
+      // the muzzle, and a starburst where it hits
+      g.disc(sx, sy, (wide ? 11 : 8) * k * (0.9 + 0.1 * wob), pal[2]);
+      g.disc(sx, sy, (wide ? 6 : 4) * k, pal[0]);
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2 + t * 5;
+        const len = (wide ? 26 : 16) * k * (0.5 + 0.5 * hash(i + Math.floor(t * 24)));
+        g.line(ex, ey, ex + Math.cos(a) * len, ey + Math.sin(a) * len * 0.7, pal[i % 2], 1);
+      }
+      g.disc(ex, ey, (wide ? 13 : 9) * k, pal[2]);
+      g.disc(ex, ey, (wide ? 7 : 5) * k, pal[0]);
+    }
+    // lunges: the move's colour streaming off the body, a bow shock in front, speed lines
+    for (const f of this.f!) {
+      if (f.state !== "legend") continue;
+      const name = this.legendName(f);
+      const pal = LUNGE_PAL[name];
+      if (!pal) continue;
+      const sp = Math.hypot(f.vx, f.vy);
+      const cy = f.y - f.z - 14 * k;
+      if (sp < 140 * k) {
+        // winding up: its power gathering
+        if (f.hits === 0 && f.t < 0.3) {
+          const q = Math.min(1, f.t / 0.2);
+          g.ring(f.x, cy, (30 - q * 10) * k, pal[1], 0.7, 2, 0.3, Math.floor(t * 20));
+          g.ring(f.x, cy, (22 - q * 8) * k, pal[2], 0.7, 1, 0.5, Math.floor(t * 20) + 3);
+        }
+        continue;
+      }
+      const ux = f.vx / sp;
+      const uy = f.vy / sp;
+      for (let i = 2; i < 10; i++) {
+        const q = i / 10;
+        const wig = Math.sin(t * 40 + i * 1.7) * 5 * k * q;
+        const bx = f.x - ux * q * 60 * k - uy * wig;
+        const by = cy - uy * q * 60 * k + ux * wig;
+        g.ditherDisc(bx, by, (20 - q * 15) * k, pal[1 + Math.min(3, i >> 1)], 0.8, i % 2);
+      }
+      const head = Math.atan2(uy, ux);
+      for (let j = -5; j <= 5; j++) {
+        const a = head + j * 0.24;
+        g.dot(f.x + Math.cos(a) * 26 * k, cy + Math.sin(a) * 20 * k, Math.abs(j) % 2 ? pal[0] : pal[1], 2);
+      }
+      const tick = Math.floor(t * 30);
+      for (let i = 0; i < 7; i++) {
+        const off = (hash(i * 5 + tick) - 0.5) * 50 * k;
+        const len = (30 + hash(i * 7 + tick) * 50) * k;
+        const bx = f.x - uy * off - ux * 18 * k;
+        const by = cy + ux * off - uy * 18 * k;
+        g.line(bx, by, bx - ux * len, by - uy * len, i % 2 ? "#ffffff" : pal[1], 1);
+      }
+      if (name === "FIRE PUNCH" || name === "HAMMER ARM") {
+        // the fist, blazing
+        const fx = f.x + ux * 24 * k;
+        const fy = cy + uy * 20 * k;
+        g.disc(fx, fy, 9 * k, pal[2]);
+        g.disc(fx, fy, 5 * k, pal[1]);
+        g.dot(fx, fy, pal[0], 3);
+      }
+    }
+    // things falling from the sky
+    for (const sf of this.skyfalls) {
+      if (sf.hit || sf.t < 0 || sf.kind === "thunder") continue;
+      const p = sf.t / sf.fall;
+      const h = (1 - p) * 520 * k;
+      const x = sf.x + (1 - p) * 90 * k;
+      const y = sf.y - h;
+      if (sf.kind === "meteor") {
+        g.line(x, y, x + 40 * k, y - 60 * k, "#7c3aed", 4);
+        g.disc(x, y, 9 * k, "#4c1d95");
+        g.disc(x, y, 6 * k, "#a78bfa");
+        g.disc(x - 2 * k, y - 2 * k, 3 * k, "#ffffff");
+      } else if (sf.kind === "volcano") {
+        g.line(x, y, x + 34 * k, y - 50 * k, MAGMA[2], 4);
+        g.disc(x, y, 8 * k, EARTH[4]);
+        g.disc(x, y, 6 * k, MAGMA[2]);
+        g.dot(x - k, y - k, MAGMA[0], 2);
+      } else {
+        g.disc(x, y, 8 * k, WATER[3]);
+        g.disc(x, y, 6 * k, WATER[2]);
+        g.dot(x - 2 * k, y - 2 * k, WATER[0], 2);
+      }
+    }
+    // spikes
+    for (const sp of this.spikes) {
+      if (sp.t < 0) continue;
+      const rise = Math.min(1, sp.t / 0.08) * (sp.t > 0.4 ? Math.max(0, 1 - (sp.t - 0.4) / 0.25) : 1);
+      if (rise <= 0) continue;
+      if (sp.kind === "earth") {
+        // a pillar of earth and fire bursting up
+        const h = 46 * k * rise;
+        for (let y = 0; y < h; y += 5 * k) {
+          const w = (12 - (y / h) * 6) * k;
+          g.disc(sp.x + Math.sin(y * 0.2) * 2 * k, sp.y - y, w, y > h * 0.6 ? MAGMA[2] : EARTH[3]);
+          g.disc(sp.x + Math.sin(y * 0.2) * 2 * k - w * 0.3, sp.y - y, w * 0.4, y > h * 0.6 ? MAGMA[1] : EARTH[2]);
+        }
+        g.disc(sp.x, sp.y - h, 8 * k, MAGMA[1]);
+        g.disc(sp.x, sp.y - h, 4 * k, MAGMA[0]);
+        continue;
+      }
+      const blade = sp.kind === "blade";
+      const size = sp.r / ((blade ? 18 : 17) * k);
+      const light = blade ? "#8a4030" : EARTH[1];
+      const mid = blade ? "#5a2418" : EARTH[2];
+      const dark = blade ? "#2a0c08" : EARTH[4];
+      const lean = (hash(sp.x) - 0.5) * 12 * k;
+      g.ring(sp.x, sp.y, 12 * k * size, dark, 0.5, 1, 0.4, Math.floor(sp.x));
+      for (const [ox, hs, ws] of [
+        [0, 1, 1],
+        [9, 0.55, 0.6],
+        [-8, 0.4, 0.5],
+      ]) {
+        const h = (blade ? 38 : 28) * k * rise * hs * size;
+        const w = (blade ? 10 : 8) * k * ws * size;
+        const bx = sp.x + ox * k * size;
+        const n = Math.max(4, Math.round(h / (2 * k)));
+        for (let i = 0; i <= n; i++) {
+          const q = i / n;
+          const y = sp.y - h * q;
+          const half = w * (1 - q);
+          const x = bx + lean * q * hs;
+          g.line(x - half, y, x, y, i % 3 ? light : mid, 2);
+          g.line(x, y, x + half, y, i % 3 ? dark : mid, 2);
+        }
+        if (blade) {
+          // magma glowing in its cracks
+          const flick = Math.floor(t * 10 + sp.x) % 2;
+          g.line(bx - w * 0.3, sp.y - h * 0.1, bx + lean * 0.5 * hs, sp.y - h * 0.6, flick ? MAGMA[1] : MAGMA[2], 1);
+        }
+        g.dot(bx + lean * hs, sp.y - h, blade ? MAGMA[0] : "#ffffff", 1);
+      }
+    }
+    // Aqua Ring
+    for (const f of this.f!) {
+      if (f.regen <= 0 || f.state === "hidden" || f.state === "gone") continue;
+      for (let i = 0; i < 8; i++) {
+        const a = t * 3 + (i / 8) * Math.PI * 2;
+        g.dot(f.x + Math.cos(a) * 22 * k, f.y - 10 * k + Math.sin(a) * 8 * k, i % 2 ? WATER[1] : WATER[2], 2);
+      }
+    }
+    this.drawWeather(g);
+    const fin = this.finale;
+    if (!fin || !LEGENDS.has(fin.kind)) return;
+    if (fin.kind === "rayquaza" && !fin.mega) {
+      // the hurricane: a funnel from the page up past the top of the screen
+      const top = window.scrollY + this.headerBottom;
+      const span = fin.y - top + 40 * k;
+      for (let i = 0; i < 26; i++) {
+        const q = i / 25;
+        const y = fin.y - q * span;
+        const r = (12 + q * 70) * k;
+        const sway = Math.sin(t * 5 + q * 4) * 12 * k * q;
+        g.ring(
+          fin.x + sway,
+          y,
+          r,
+          i % 3 === 0 ? "#e2e8f0" : i % 3 === 1 ? JADE[2] : "#94a3b8",
+          0.3,
+          2,
+          0.3,
+          Math.floor(t * 24) + i
+        );
+      }
+      // wind streaking across the whole screen
+      const v = this.view();
+      for (let i = 0; i < 24; i++) {
+        const y = v.y + hash(i * 7) * v.h;
+        const x = v.x + ((hash(i * 3) * v.w + t * 900 * k) % v.w);
+        g.line(x, y, x + 40 * k, y, "#e2e8f0", 1);
+      }
+    } else if (fin.kind === "rayquaza") {
+      // Delta Stream's ribbon: a jade-green band of wind with a bright core
+      const r = this.ribbon;
+      for (let i = 1; i < r.length; i++) {
+        const q = i / r.length;
+        g.line(r[i - 1].x, r[i - 1].y, r[i].x, r[i].y, JADE[3], Math.round(4 + q * 10));
+        g.line(r[i - 1].x, r[i - 1].y, r[i].x, r[i].y, JADE[2], Math.round(2 + q * 6));
+        g.line(r[i - 1].x, r[i - 1].y, r[i].x, r[i].y, JADE[0], Math.round(1 + q * 2));
+      }
+      if (fin.t < 2.1 && r.length) g.disc(r[r.length - 1].x, r[r.length - 1].y, 14 * k, JADE[1]);
+    } else if (fin.kind === "kyogre" && !fin.mega && fin.t < 0.9) {
+      // the water spout, roaring up out of Kyogre into the sky
+      const f = this.f![fin.owner];
+      const top = window.scrollY + this.headerBottom;
+      const w = 16 * k * Math.min(1, fin.t / 0.2);
+      for (let y = f.y; y > top; y -= 6 * k) {
+        const sway = Math.sin(y * 0.03 + t * 10) * 3 * k;
+        g.disc(f.x + sway, y, w, WATER[2]);
+        g.disc(f.x + sway, y, w * 0.5, WATER[0]);
+      }
+    } else if (fin.kind === "kyogre" && fin.mega && fin.t >= 1.75 && fin.t < 2.45) {
+      // the breach: a crown of white water thrown up all round it
+      const q = (fin.t - 1.75) / 0.7;
+      const r = (30 + q * 210) * k;
+      // the column of water it bursts up through
+      g.alpha = Math.min(0.85, 1.4 * (1 - q));
+      const top = fin.y - (1 - q * 0.6) * 260 * k;
+      for (let y = fin.y; y > top; y -= 5 * k) {
+        const sway = Math.sin(y * 0.05 + t * 14) * 3 * k;
+        const w = (26 - ((fin.y - y) / (260 * k)) * 10) * k * (1 - q * 0.5);
+        g.disc(fin.x + sway, y, w, WATER[2]);
+        g.disc(fin.x + sway - w * 0.25, y, w * 0.45, WATER[0]);
+      }
+      g.alpha = 1 - q;
+      g.ring(fin.x, fin.y, r, WATER[0], 0.7, 3, 0.15, Math.floor(t * 20));
+      g.ring(fin.x, fin.y, r * 0.8, WATER[1], 0.7, 2, 0.3, Math.floor(t * 20) + 5);
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2;
+        const h = (1 - q) * 70 * k * (0.6 + 0.4 * hash(i));
+        const x = fin.x + Math.cos(a) * r * 0.55;
+        const y = fin.y + Math.sin(a) * r * 0.4;
+        for (let j = 0; j < h; j += 4 * k) g.disc(x, y - j, (4 - (j / h) * 2) * k, j > h * 0.6 ? WATER[0] : WATER[2]);
+      }
+      g.alpha = 1;
+    } else if (fin.kind === "groudon" && fin.mega && fin.t >= 1.9 && fin.t < 2.7) {
+      // the Ω erupts: a pillar of magma into the sky
+      const q = (fin.t - 1.9) / 0.8;
+      const w = 64 * k * (q < 0.12 ? q / 0.12 : 1 - ((q - 0.12) / 0.88) * 0.85);
+      const top = window.scrollY + this.headerBottom;
+      g.alpha = 0.8;
+      for (let y = fin.y; y > top; y -= 5 * k) {
+        const sway = Math.sin(y * 0.03 + t * 12) * 4 * k;
+        g.disc(fin.x + sway, y, w, MAGMA[2]);
+      }
+      g.alpha = 1;
+      for (let y = fin.y; y > top; y -= 5 * k) {
+        const sway = Math.sin(y * 0.03 + t * 12) * 4 * k;
+        g.disc(fin.x + sway, y, w * 0.5, MAGMA[1]);
+        g.disc(fin.x + sway, y, w * 0.22, MAGMA[0]);
+      }
+    }
+  }
+
+  /** Primordial Sea: Primal Kyogre's shadow, vast, circling under the page and closing in. */
+  private drawAbyss(fin: NonNullable<BattleGame["finale"]>) {
+    const t = fin.t;
+    if (t < 0.3 || t > 1.85) return;
+    const f = this.f![fin.owner];
+    const k = this.k;
+    const q = (t - 0.3) / 1.45;
+    const a0 = Math.atan2(f.y - fin.y, f.x - fin.x);
+    const ang = a0 + q * Math.PI * 3.2;
+    const rad = (1 - q) * 300 * k + 10 * k;
+    const x = fin.x + Math.cos(ang) * rad;
+    const y = fin.y + Math.sin(ang) * rad * 0.75;
+    const d = dirOf(-Math.sin(ang), Math.cos(ang) * 0.75);
+    const walk = f.mon.anims.Walk ?? f.mon.anims.Idle;
+    const frame = frameAt(walk, t * 1.5);
+    const fade = Math.min(1, (t - 0.3) / 0.25) * Math.min(1, (1.85 - t) / 0.15);
+    const big = 5;
+    const { ctx } = this;
+    ctx.save();
+    ctx.translate(-window.scrollX, -window.scrollY);
+    const anim = f.mon.anims.Walk ? "Walk" : "Idle";
+    drawMon(ctx, f.mon, anim, d, frame, x, y + 60 * k, k, {
+      grow: big * 1.06,
+      tint: 1,
+      tintColour: "#38bdf8",
+      alpha: 0.4 * fade,
+    });
+    drawMon(ctx, f.mon, anim, d, frame, x, y + 60 * k, k, {
+      grow: big,
+      tint: 1,
+      tintColour: "#020617",
+      alpha: 0.85 * fade,
+    });
+    // its markings glowing red through the deep
+    if (Math.floor(t * 5) % 2)
+      drawMon(ctx, f.mon, anim, d, frame, x, y + 60 * k, k, {
+        grow: big * 0.98,
+        tint: 1,
+        tintColour: "#ff2050",
+        alpha: 0.22 * fade,
+      });
+    ctx.restore();
+  }
+
+  /** Rain falling across the screen, or the sun's harsh glare, while the weather lasts. */
+  private drawWeather(g: PixelLayer) {
+    // a Primal's Burst brings its own weather to the screen while it lasts
+    const fin = this.finale;
+    const w =
+      fin?.mega && fin.kind === "kyogre" ? "heavy" : fin?.mega && fin.kind === "groudon" ? "harsh" : this.weatherNow();
+    if (!w) return;
+    const k = this.k;
+    const t = this.clock;
+    const v = this.view();
+    if (w === "rain" || w === "heavy") {
+      const n = w === "heavy" ? 160 : 70;
+      for (let i = 0; i < n; i++) {
+        const x = v.x + hash(i * 1.7) * v.w;
+        const y = v.y + ((hash(i * 3.1) * v.h + t * (700 + hash(i) * 300) * k) % v.h);
+        g.line(x, y, x - 3 * k, y + 12 * k, i % 3 ? WATER[2] : WATER[1], 1);
+      }
+    } else {
+      // sunbeams slanting down, and in extreme sun, heat shimmering up off the page
+      for (let i = 0; i < 6; i++) {
+        const x = v.x + hash(i * 5) * v.w;
+        g.alpha = 0.18 + Math.sin(t * 1.5 + i) * 0.06;
+        g.line(x, v.y, x - 140 * k, v.y + v.h, "#fff1a8", 6);
+        g.alpha = 1;
+      }
+      if (w === "harsh")
+        for (let i = 0; i < 30; i++) {
+          const x = v.x + hash(i * 2.3) * v.w;
+          const y = v.y + v.h - ((hash(i * 4.1) * v.h + t * 60 * k) % v.h);
+          g.dot(x + Math.sin(t * 4 + i) * 3 * k, y, i % 2 ? MAGMA[1] : MAGMA[0], 1);
+        }
+    }
+  }
+
+  /** The weather's colour over the screen, and its name, top centre. */
+  private drawWeatherTint(vw: number, vh: number) {
+    const w = this.weatherNow();
+    const { ctx } = this;
+    if (w) {
+      ctx.fillStyle =
+        w === "sun"
+          ? "rgba(255,200,80,0.07)"
+          : w === "harsh"
+            ? "rgba(255,120,30,0.13)"
+            : w === "rain"
+              ? "rgba(20,40,90,0.12)"
+              : "rgba(10,20,70,0.22)";
+      ctx.fillRect(0, this.headerBottom, vw, vh - this.headerBottom);
+    }
+    if (!this.weather || this.phase === "menu") return;
+    const label = !w
+      ? "AIR LOCK · NO WEATHER"
+      : { sun: "HARSH SUNLIGHT", rain: "RAIN", harsh: "EXTREMELY HARSH SUNLIGHT", heavy: "HEAVY RAIN" }[w];
+    ctx.save();
+    ctx.font = `bold 10px ${this.font}`;
+    const tw = ctx.measureText(label).width + 16;
+    const x = (vw - tw) / 2;
+    const y = this.headerBottom + 10;
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    roundRect(ctx, x, y, tw, 18, 4);
+    ctx.fill();
+    ctx.fillStyle = !w ? "#94a3b8" : w === "sun" || w === "harsh" ? "#fbbf24" : "#7dd3fc";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, vw / 2, y + 9);
+    ctx.restore();
   }
 
   /** Mewtwo's powers: the Barrier, things held in the air, Psychic's link, Thunderbolt. */
@@ -4951,6 +7289,10 @@ export class BattleGame {
     const top = this.headerBottom + 12;
     if (me.state !== "hidden" || this.phase !== "intro") this.hudBox(me, 16, top, w, true);
     if (foe.state !== "hidden" || this.phase !== "intro") this.hudBox(foe, vw - w - 16, top + 34, w, false);
+    if (this.teams[0].length > 1) {
+      this.drawParty(0, 16, top + (small ? 70 : 84) + 6);
+      this.drawParty(1, vw - w - 16, top + 34 + (small ? 50 : 56) + 6);
+    }
 
     if (this.message) {
       const { ctx } = this;
@@ -4975,6 +7317,40 @@ export class BattleGame {
       ctx.textAlign = "left";
       ctx.fillText(this.message.text.slice(0, Math.floor(this.message.t * 45)), x + 18, y + bh / 2);
     }
+  }
+
+  /** A team's Poké Balls: fainted ones dark, the one out lit up, the rest waiting. */
+  private drawParty(id: 0 | 1, x: number, y: number) {
+    const { ctx } = this;
+    const out = this.fainted[id];
+    ctx.save();
+    this.teams[id].forEach((_, i) => {
+      const cx = x + 8 + i * 18;
+      const cy = y + 7;
+      const down = i < out;
+      ctx.globalAlpha = down ? 0.45 : 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 7, Math.PI, 0);
+      ctx.fillStyle = down ? "#4b5563" : "#ef4444";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 7, 0, Math.PI);
+      ctx.fillStyle = down ? "#9ca3af" : "#f8fafc";
+      ctx.fill();
+      ctx.strokeStyle = "#111827";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+      ctx.moveTo(cx - 7, cy);
+      ctx.lineTo(cx + 7, cy);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = i === out ? "#fde047" : "#f8fafc";
+      ctx.fill();
+      ctx.stroke();
+    });
+    ctx.restore();
   }
 
   /** A Gen 3 style status box: name, level, status, HP bar, and (yours) HP numbers and moves. */

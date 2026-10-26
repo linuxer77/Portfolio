@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import TouchControls from "@/components/arcade/TouchControls";
 import { BattleGame, type BattleStats } from "./game";
@@ -10,7 +10,7 @@ import { loadMon, type Species } from "./sprites";
 
 // ==========================================
 // POKÉMON mode shell: loads the roster, lays the battle canvas over the live page, lets you
-// pick your Pokémon and your rival's (or two CPUs to watch), routes keyboard and touch input,
+// pick your Pokémon (or a team of three) and your rival's, or two CPUs to watch, routes keyboard and touch input,
 // shakes the page on big hits, and shows the result. Launched from the terminal with `pokemon`.
 // ==========================================
 
@@ -41,7 +41,31 @@ const ROSTER: { species: Species; label: string; types: string; blurb: string }[
     types: "PSYCHIC",
     blurb: "Fast and frightening. Throws foes with its mind, teleports, and its Barrier sends attacks right back.",
   },
+  {
+    species: "rayquaza",
+    label: "RAYQUAZA",
+    types: "DRAGON · FLYING",
+    blurb:
+      "Lord of the sky. Its Air Lock cancels all weather, and Draco Meteor rains down from above. Ice is its bane.",
+  },
+  {
+    species: "groudon",
+    label: "GROUDON",
+    types: "GROUND",
+    blurb:
+      "Brings harsh sunlight that powers up fire and dries up water. Huge and slow, with stone that erupts underfoot.",
+  },
+  {
+    species: "kyogre",
+    label: "KYOGRE",
+    types: "WATER",
+    blurb:
+      "Summons rain that powers up water and douses fire. Origin Pulse cuts across the arena; Thunder never misses in rain.",
+  },
 ];
+
+/** Loaded with the arena; the legendaries load the first time they're picked. */
+const STARTERS: Species[] = ["charizard", "blastoise", "gengar", "mewtwo"];
 
 const KEYS: [string, string][] = [
   ["MOVE", "W A S D / arrows"],
@@ -53,8 +77,9 @@ const KEYS: [string, string][] = [
 ];
 
 interface Match {
-  mine: Species;
-  rival: Species;
+  /** each side's team, in the order they're sent out (one each for 1 v 1) */
+  mine: Species[];
+  rival: Species[];
   /** CPU vs CPU */
   watch: boolean;
 }
@@ -82,8 +107,17 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  // sprites already loaded (or on their way), by species
+  const loads = useRef(new Map<Species, Promise<void>>());
+  const [fetching, setFetching] = useState(false);
   // your pick while you choose a rival, then the match (kept for rematches)
-  const [choice, setChoice] = useState<Species | null>(null);
+  // 1 v 1 or 3 v 3, then your picks and the rival's (kept as the match for rematches)
+  const [size, setSize] = useState<1 | 3>(1);
+  const [team, setTeam] = useState<Species[]>([]);
+  const [rivalTeam, setRivalTeam] = useState<Species[]>([]);
+  // your Pokémon out right now, and whether your team's one Mega Evolution is spent
+  const [cur, setCur] = useState<Species | null>(null);
+  const [megaSpent, setMegaSpent] = useState(false);
   const [match, setMatch] = useState<Match | null>(null);
   // your Pokémon has Mega Evolved: the touch buttons show its Mega moves
   const [megaOn, setMegaOn] = useState(false);
@@ -121,23 +155,26 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
     const sound = new Sound();
     soundRef.current = sound;
     setMuted(sound.muted);
-    Promise.all([
-      loadMon("charizard"),
-      loadMon("blastoise"),
-      loadMon("gengar"),
-      loadMon("charizard", "charizard-mega"),
-      loadMon("gengar", "gengar-mega"),
-      loadMon("blastoise", "blastoise-mega"),
-      loadMon("mewtwo"),
-      loadMon("mewtwo", "mewtwo-mega"),
-    ])
-      .then(([charizard, blastoise, gengar, megaCharizard, megaGengar, megaBlastoise, mewtwo, megaMewtwo]) => {
+    loads.current.clear();
+    Promise.all(STARTERS.map((s) => Promise.all([loadMon(s), loadMon(s, `${s}-mega`)])))
+      .then((forms) => {
         if (cancelled) return;
-        const megas = { charizard: megaCharizard, gengar: megaGengar, blastoise: megaBlastoise, mewtwo: megaMewtwo };
-        gameRef.current = new BattleGame(canvas, { charizard, blastoise, gengar, mewtwo }, megas, sound, setEnd, shake);
+        const game = new BattleGame(canvas, {}, {}, sound, setEnd, shake);
+        STARTERS.forEach((s, i) => {
+          game.addMon(s, forms[i][0], forms[i][1]);
+          loads.current.set(s, Promise.resolve());
+        });
+        gameRef.current = game;
         gameRef.current.setTouch(window.matchMedia("(pointer: coarse)").matches);
         gameRef.current.onMega = (id) => {
-          if (id === 0) setMegaOn(true);
+          if (id !== 0) return;
+          setMegaOn(true);
+          setMegaSpent(true);
+        };
+        gameRef.current.onSwitch = (id, species) => {
+          if (id !== 0) return;
+          setCur(species);
+          setMegaOn(false);
         };
         setLoading(false);
       })
@@ -174,33 +211,84 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
     };
   }, [battling]);
 
-  const play = useCallback((m: Match) => {
-    if (!gameRef.current) return;
-    soundRef.current?.unlock();
-    setEnd(null);
-    setChoice(null);
-    setMatch(m);
-    setMegaOn(false);
-    gameRef.current.start(m.mine, m.rival, m.watch);
+  /** A Pokémon's sprites, fetched the first time it's needed. */
+  const need = useCallback((s: Species) => {
+    let p = loads.current.get(s);
+    if (!p) {
+      p = Promise.all([loadMon(s), loadMon(s, `${s}-mega`)]).then(([mon, mega]) =>
+        gameRef.current?.addMon(s, mon, mega)
+      );
+      p.catch(() => loads.current.delete(s));
+      loads.current.set(s, p);
+    }
+    return p;
   }, []);
 
-  /** The rivals on offer once you've picked: everyone else, then a random one. */
-  const rivals = choice ? ROSTER.filter((r) => r.species !== choice) : [];
-  const chooseRival = useCallback(
-    (i: number) => {
-      if (!choice) return;
-      const others = ROSTER.filter((r) => r.species !== choice);
-      const r = others[i] ?? others[Math.floor(Math.random() * others.length)];
-      play({ mine: choice, rival: r.species, watch });
+  const play = useCallback(
+    (m: Match) => {
+      if (!gameRef.current || fetching) return;
+      soundRef.current?.unlock();
+      setFetching(true);
+      Promise.all([...m.mine, ...m.rival].map(need))
+        .then(() => {
+          const game = gameRef.current;
+          if (!game) return;
+          setEnd(null);
+          setTeam([]);
+          setRivalTeam([]);
+          setMatch(m);
+          setCur(m.mine[0]);
+          setMegaOn(false);
+          setMegaSpent(false);
+          game.start(m.mine, m.rival, m.watch);
+        })
+        .catch(() => setFailed(true))
+        .finally(() => setFetching(false));
     },
-    [choice, play, watch]
+    [need, fetching]
   );
+
+  /** Once your side is picked, the rival's options: everyone you didn't take. */
+  const full = team.length >= size;
+  const rivals = useMemo(() => (full ? ROSTER.filter((r) => !team.includes(r.species)) : []), [full, team]);
+  /** A card picked (picked again, it's dropped); -1 fills the rival's team at random. */
+  const pickCard = useCallback(
+    (i: number) => {
+      if (!full) {
+        const s = ROSTER[i]?.species;
+        if (s) setTeam((t) => (t.includes(s) ? t.filter((x) => x !== s) : [...t, s]));
+        return;
+      }
+      let next: Species[];
+      if (i < 0) {
+        const rest = rivals
+          .map((r) => r.species)
+          .filter((s) => !rivalTeam.includes(s))
+          .sort(() => Math.random() - 0.5);
+        next = [...rivalTeam, ...rest].slice(0, size);
+      } else {
+        const s = rivals[i]?.species;
+        if (!s) return;
+        if (rivalTeam.includes(s)) return setRivalTeam(rivalTeam.filter((x) => x !== s));
+        next = [...rivalTeam, s];
+      }
+      if (next.length >= size) play({ mine: team, rival: next, watch });
+      else setRivalTeam(next);
+    },
+    [full, rivals, rivalTeam, size, team, play, watch]
+  );
+  /** Back a step: the last pick undone. */
+  const back = useCallback(() => {
+    if (rivalTeam.length) setRivalTeam((r) => r.slice(0, -1));
+    else setTeam((t) => t.slice(0, -1));
+  }, [rivalTeam.length]);
 
   /** Back to the pick screen. */
   const pick = useCallback(() => {
     setEnd(null);
     setMatch(null);
-    setChoice(null);
+    setTeam([]);
+    setRivalTeam([]);
   }, []);
 
   /** Leaving plays the rewind first: the page flies back together, then the mode closes. */
@@ -235,11 +323,14 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
         if (end) {
           if (e.code === "Enter" && match) play(match);
           else if (e.code === "Backspace") pick();
-        } else if (choice) {
-          if (n >= 0 && n <= rivals.length) chooseRival(n);
-          else if (e.code === "Backspace") setChoice(null);
-        } else if (n >= 0 && ROSTER[n]) setChoice(ROSTER[n].species);
-        else if (e.code === "KeyC") setWatch((w) => !w);
+        } else {
+          const list = full ? rivals : ROSTER;
+          if (n >= 0 && n < list.length) pickCard(n);
+          else if (full && n === list.length) pickCard(-1);
+          else if (e.code === "Backspace") back();
+          else if (!team.length && e.code === "KeyC") setWatch((w) => !w);
+          else if (!team.length && e.code === "KeyT") setSize((z) => (z === 1 ? 3 : 1));
+        }
         return;
       }
       if (gameRef.current?.key(e.code, true) || e.code === "Space") e.preventDefault();
@@ -253,11 +344,14 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [leave, toggleMute, play, pick, chooseRival, choice, rivals.length, match, end]);
+  }, [leave, toggleMute, play, pick, pickCard, back, full, rivals, team.length, match, end]);
 
   if (!mounted) return null;
 
-  const moves = match && !match.watch ? (megaOn ? MEGA_MOVES : MOVES)[match.mine] : null;
+  const moves = match && !match.watch && cur ? (megaOn ? MEGA_MOVES : MOVES)[cur] : null;
+  const teamNames = (t: Species[]) => t.map((s) => s.toUpperCase()).join(" · ");
+  /** In the pick screen, where a card stands: its place in the team being picked, if any. */
+  const placeOf = (s: Species) => (full ? rivalTeam : team).indexOf(s);
 
   return createPortal(
     <div data-arcade className="font-mono">
@@ -302,7 +396,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
                   onTap: () => gameRef.current?.press(slot),
                 })),
                 { label: moves.burst.short, tone: "finish", onTap: () => gameRef.current?.press("burst") },
-                ...(megaOn
+                ...(megaSpent
                   ? []
                   : [{ label: "MEGA", tone: "finish" as const, onTap: () => gameRef.current?.press("mega") }]),
               ]}
@@ -335,17 +429,25 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
                 <div className="space-y-1 text-center">
                   <h2 className="text-2xl font-bold tracking-tight">
                     {end.watch
-                      ? `${(end.won ? end.species : end.foe).toUpperCase()} WINS!`
+                      ? end.team.length > 1
+                        ? `CPU ${end.won ? 1 : 2} WINS!`
+                        : `${(end.won ? end.species : end.foe).toUpperCase()} WINS!`
                       : end.won
                         ? "YOU WIN!"
                         : "YOU LOST…"}
                   </h2>
                   <p className="text-xs text-zinc-400">
-                    {end.watch
-                      ? `${(end.won ? end.species : end.foe).toUpperCase()} beat ${(end.won ? end.foe : end.species).toUpperCase()}.`
-                      : end.won
-                        ? `${end.species.toUpperCase()} beat ${end.foe.toUpperCase()}.`
-                        : `${end.foe.toUpperCase()} was too strong this time.`}{" "}
+                    {end.team.length > 1
+                      ? end.watch
+                        ? `${teamNames(end.won ? end.team : end.foeTeam)} beat ${teamNames(end.won ? end.foeTeam : end.team)}.`
+                        : end.won
+                          ? `Your ${teamNames(end.team)} beat the rival's ${teamNames(end.foeTeam)}.`
+                          : `The rival's ${teamNames(end.foeTeam)} was too strong this time.`
+                      : end.watch
+                        ? `${(end.won ? end.species : end.foe).toUpperCase()} beat ${(end.won ? end.foe : end.species).toUpperCase()}.`
+                        : end.won
+                          ? `${end.species.toUpperCase()} beat ${end.foe.toUpperCase()}.`
+                          : `${end.foe.toUpperCase()} was too strong this time.`}{" "}
                     The page took {end.letters} letters of damage. It all goes back when you exit.
                   </p>
                 </div>
@@ -354,8 +456,16 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
                     [
                       ["TIME", formatTime(end.time)],
                       ["DAMAGE", `${end.dealt} – ${end.taken}`],
-                      [end.watch ? `${end.species.toUpperCase()} SUPERS` : "SUPER EFFECTIVE", String(end.supers)],
-                      [end.watch ? `${end.species.toUpperCase()} HP` : "HP LEFT", `${Math.round(end.hpLeft * 100)}%`],
+                      [
+                        end.watch
+                          ? `${end.team.length > 1 ? "CPU 1" : end.species.toUpperCase()} SUPERS`
+                          : "SUPER EFFECTIVE",
+                        String(end.supers),
+                      ],
+                      [
+                        end.watch ? `${end.team.length > 1 ? "CPU 1" : end.species.toUpperCase()} HP` : "HP LEFT",
+                        `${Math.round(end.hpLeft * 100)}%`,
+                      ],
                     ] as const
                   ).map(([label, value]) => (
                     <div key={label} className="border-b border-dotted border-zinc-800 pb-1">
@@ -376,18 +486,41 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
               <>
                 <div className="space-y-1 text-center">
                   <h2 className="text-2xl font-bold tracking-tight">
-                    {choice ? (watch ? "CHOOSE CPU 2" : "CHOOSE YOUR RIVAL") : "POKÉMON ARENA"}
+                    {full
+                      ? `${watch ? "CHOOSE CPU 2" : size > 1 ? "CHOOSE THE RIVAL'S TEAM" : "CHOOSE YOUR RIVAL"}${
+                          size > 1 ? ` ${rivalTeam.length}/${size}` : ""
+                        }`
+                      : team.length
+                        ? `${watch ? "CPU 1'S TEAM" : "YOUR TEAM"} ${team.length}/${size}`
+                        : "POKÉMON ARENA"}
                   </h2>
                   <p className="text-xs text-zinc-400">
-                    {choice
-                      ? watch
-                        ? `CPU 1 sends out ${choice.toUpperCase()}. Who does CPU 2 send out?`
-                        : `You'll send out ${choice.toUpperCase()}. Who does the CPU send out?`
-                      : "A live battle on this page, seen from above. Every move lands on the page too. Exit and it all goes back."}
+                    {full
+                      ? `${watch ? "CPU 1 sends out" : "You'll send out"} ${team
+                          .map((s) => s.toUpperCase())
+                          .join(", then ")}. Who does ${watch ? "CPU 2" : "the CPU"} send out?`
+                      : team.length
+                        ? "Pick three, in the order they'll go out. Pick one again to drop it."
+                        : "A live battle on this page, seen from above. Every move lands on the page too. Exit and it all goes back."}
                   </p>
                 </div>
-                {!choice && (
-                  <div className="flex justify-center gap-2 text-[11px] uppercase tracking-wider">
+                {!team.length && (
+                  <div className="flex flex-wrap justify-center gap-2 text-[11px] uppercase tracking-wider">
+                    {([1, 3] as const).map((z) => (
+                      <button
+                        key={z}
+                        type="button"
+                        onClick={() => setSize(z)}
+                        className={`border border-dotted px-3 py-1.5 transition-colors ${
+                          size === z
+                            ? "border-white bg-white font-bold text-black"
+                            : "border-zinc-700 text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        {z} v {z}
+                      </button>
+                    ))}
+                    <span className="mr-4 self-center text-[10px] normal-case tracking-normal text-zinc-600">[T]</span>
                     {([false, true] as const).map((w) => (
                       <button
                         key={String(w)}
@@ -407,14 +540,23 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
                     </span>
                   </div>
                 )}
-                <div className={`grid gap-3 sm:grid-cols-2 ${choice ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
-                  {(choice ? rivals : ROSTER).map((r, i) => (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {(full ? rivals : ROSTER).map((r, i) => (
                     <button
                       key={r.species}
                       type="button"
-                      onClick={() => (choice ? chooseRival(i) : setChoice(r.species))}
-                      className="group flex flex-col gap-2 border border-dotted border-zinc-700 p-3 text-left transition-colors hover:border-zinc-300 focus:border-white focus:outline-none"
+                      onClick={() => pickCard(i)}
+                      className={`group relative flex flex-col gap-2 border p-3 text-left transition-colors focus:outline-none ${
+                        placeOf(r.species) >= 0
+                          ? "border-solid border-white bg-zinc-900"
+                          : "border-dotted border-zinc-700 hover:border-zinc-300 focus:border-white"
+                      }`}
                     >
+                      {placeOf(r.species) >= 0 && (
+                        <span className="absolute -right-2 -top-2 bg-white px-1.5 text-[10px] font-bold text-black">
+                          #{placeOf(r.species) + 1}
+                        </span>
+                      )}
                       <div className="flex items-center gap-3">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -454,10 +596,14 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
                     </button>
                   ))}
                 </div>
-                {choice ? (
+                {full ? (
                   <div className="flex justify-center gap-3">
-                    <Btn onClick={() => chooseRival(-1)}>RANDOM [{rivals.length + 1}]</Btn>
-                    <Btn onClick={() => setChoice(null)}>BACK [⌫]</Btn>
+                    <Btn onClick={() => pickCard(-1)}>RANDOM [{rivals.length + 1}]</Btn>
+                    <Btn onClick={back}>BACK [⌫]</Btn>
+                  </div>
+                ) : team.length ? (
+                  <div className="flex justify-center gap-3">
+                    <Btn onClick={back}>BACK [⌫]</Btn>
                   </div>
                 ) : touch ? (
                   <p className="text-center text-[11px] leading-relaxed text-zinc-300">
@@ -477,6 +623,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
                   </table>
                 )}
                 <p className="text-center text-[10px] text-zinc-600">
+                  {fetching ? "Calling the legendary… " : ""}
                   {watch ? "Pick both sides, then watch." : "You vs the CPU."} Types matter: water drowns Charizard,
                   Bite and Earthquake hurt Gengar, and Ground can&apos;t touch a flyer.
                 </p>

@@ -1,0 +1,243 @@
+{
+ "name": "kyogre-mega",
+ "anims": {
+  "Walk": {
+   "w": 64,
+   "h": 72,
+   "dirs": 8,
+   "durations": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8
+   ],
+   "sheet": "Walk"
+  },
+  "Attack": {
+   "w": 80,
+   "h": 72,
+   "dirs": 8,
+   "durations": [
+    2,
+    6,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 4,
+   "rushFrame": 1,
+   "returnFrame": 6,
+   "sheet": "Attack"
+  },
+  "Stomp": {
+   "w": 96,
+   "h": 96,
+   "dirs": 8,
+   "durations": [
+    2,
+    4,
+    3,
+    1,
+    2,
+    4,
+    3,
+    4,
+    3,
+    2,
+    2
+   ],
+   "hitFrame": 2,
+   "returnFrame": 5,
+   "sheet": "Stomp"
+  },
+  "Shoot": {
+   "w": 72,
+   "h": 72,
+   "dirs": 8,
+   "durations": [
+    2,
+    6,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 1,
+   "returnFrame": 3,
+   "sheet": "Shoot"
+  },
+  "Swell": {
+   "w": 72,
+   "h": 64,
+   "dirs": 8,
+   "durations": [
+    3,
+    6,
+    3,
+    6,
+    3,
+    6
+   ],
+   "hitFrame": 3,
+   "sheet": "Swell"
+  },
+  "Sleep": {
+   "w": 64,
+   "h": 72,
+   "dirs": 1,
+   "durations": [
+    16,
+    12,
+    16,
+    16,
+    12,
+    16
+   ],
+   "sheet": "Sleep"
+  },
+  "Hurt": {
+   "w": 64,
+   "h": 88,
+   "dirs": 8,
+   "durations": [
+    2,
+    8
+   ],
+   "sheet": "Hurt"
+  },
+  "Idle": {
+   "w": 64,
+   "h": 72,
+   "dirs": 8,
+   "durations": [
+    10,
+    14,
+    14,
+    14,
+    14,
+    10,
+    14,
+    14,
+    14,
+    14
+   ],
+   "sheet": "Idle"
+  },
+  "Swing": {
+   "w": 88,
+   "h": 80,
+   "dirs": 8,
+   "durations": [
+    2,
+    1,
+    2,
+    2,
+    3,
+    2,
+    2,
+    1,
+    1
+   ],
+   "hitFrame": 5,
+   "returnFrame": 5,
+   "sheet": "Swing"
+  },
+  "Double": {
+   "w": 96,
+   "h": 80,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    2,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "sheet": "Double"
+  },
+  "Hop": {
+   "w": 64,
+   "h": 104,
+   "dirs": 8,
+   "durations": [
+    2,
+    1,
+    2,
+    3,
+    4,
+    4,
+    3,
+    2,
+    1,
+    2
+   ],
+   "hitFrame": 9,
+   "sheet": "Hop"
+  },
+  "Charge": {
+   "w": 64,
+   "h": 64,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 5,
+   "returnFrame": 9,
+   "sheet": "Charge"
+  },
+  "Rotate": {
+   "w": 64,
+   "h": 56,
+   "dirs": 8,
+   "durations": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hitFrame": 8,
+   "sheet": "Rotate"
+  }
+ }
+}

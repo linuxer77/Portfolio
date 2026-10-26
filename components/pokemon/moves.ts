@@ -20,7 +20,9 @@ export type Kind =
   | "poison"
   | "fighting"
   | "psychic"
-  | "electric";
+  | "electric"
+  | "grass"
+  | "rock";
 
 /** J, K, L, U, O and I on the keyboard. */
 export type Slot = "melee" | "s1" | "s2" | "s3" | "s4" | "burst";
@@ -71,6 +73,30 @@ export const MOVES: Record<Species, Record<Slot, Move>> = {
     s4: { name: "BARRIER", short: "BARRIER", kind: "psychic", power: 0, cooldown: 6 },
     burst: { name: "PSYSTRIKE", short: "PSYSTRK", kind: "psychic", power: 48, cooldown: 0 },
   },
+  rayquaza: {
+    melee: { name: "AERIAL ACE", short: "A.ACE", kind: "flying", power: 10, cooldown: 0.6 },
+    s1: { name: "TWISTER", short: "TWISTER", kind: "dragon", power: 3.2, cooldown: 3.2 },
+    s2: { name: "EXTREME SPEED", short: "E.SPEED", kind: "normal", power: 13, cooldown: 2.6 },
+    s3: { name: "DRACO METEOR", short: "DRACO", kind: "dragon", power: 15, cooldown: 6 },
+    s4: { name: "HYPER BEAM", short: "H.BEAM", kind: "normal", power: 3.4, cooldown: 7 },
+    burst: { name: "HURRICANE", short: "HURRICN", kind: "flying", power: 50, cooldown: 0 },
+  },
+  groudon: {
+    melee: { name: "FIRE PUNCH", short: "F.PUNCH", kind: "fire", power: 11, cooldown: 0.6 },
+    s1: { name: "EARTH POWER", short: "E.POWER", kind: "ground", power: 18, cooldown: 2.8 },
+    s2: { name: "EARTHQUAKE", short: "QUAKE", kind: "ground", power: 20, cooldown: 6 },
+    s3: { name: "SOLAR BEAM", short: "SOLAR", kind: "grass", power: 4, cooldown: 6 },
+    s4: { name: "STONE EDGE", short: "S.EDGE", kind: "rock", power: 9, cooldown: 4 },
+    burst: { name: "ERUPTION", short: "ERUPT", kind: "fire", power: 52, cooldown: 0 },
+  },
+  kyogre: {
+    melee: { name: "WATERFALL", short: "W.FALL", kind: "water", power: 11, cooldown: 0.6 },
+    s1: { name: "ORIGIN PULSE", short: "ORIGIN", kind: "water", power: 6, cooldown: 3 },
+    s2: { name: "ICE BEAM", short: "ICE", kind: "ice", power: 2.2, cooldown: 4.5 },
+    s3: { name: "THUNDER", short: "THUNDER", kind: "electric", power: 21, cooldown: 4 },
+    s4: { name: "AQUA RING", short: "A.RING", kind: "water", power: 0, cooldown: 12 },
+    burst: { name: "WATER SPOUT", short: "W.SPOUT", kind: "water", power: 52, cooldown: 0 },
+  },
 };
 
 /** After Mega Evolution, the same buttons do these. */
@@ -107,13 +133,46 @@ export const MEGA_MOVES: Record<Species, Record<Slot, Move>> = {
     s4: { name: "RECOVER", short: "RECOVER", kind: "normal", power: 0, cooldown: 14 },
     burst: { name: "SHATTERED PSYCHE", short: "PSYCHE", kind: "psychic", power: 62, cooldown: 0 },
   },
+  rayquaza: {
+    melee: { name: "OUTRAGE", short: "OUTRAGE", kind: "dragon", power: 8, cooldown: 1 },
+    s1: { name: "DRAGON RUSH", short: "RUSH", kind: "dragon", power: 16, cooldown: 3 },
+    s2: { name: "DRAGON ASCENT", short: "ASCENT", kind: "flying", power: 24, cooldown: 5.5 },
+    s3: { name: "ANCIENT POWER", short: "A.POWER", kind: "rock", power: 7, cooldown: 3.6 },
+    s4: { name: "DRAGON DANCE", short: "DANCE", kind: "dragon", power: 0, cooldown: 10 },
+    burst: { name: "DELTA STREAM", short: "DELTA", kind: "flying", power: 66, cooldown: 0 },
+  },
+  groudon: {
+    melee: { name: "HAMMER ARM", short: "HAMMER", kind: "fighting", power: 15, cooldown: 0.9 },
+    s1: { name: "LAVA PLUME", short: "LAVA", kind: "fire", power: 16, cooldown: 3.2 },
+    s2: { name: "OVERHEAT", short: "OVERHT", kind: "fire", power: 4.2, cooldown: 5 },
+    s3: { name: "PRECIPICE BLADES", short: "BLADES", kind: "ground", power: 9, cooldown: 4 },
+    s4: { name: "BULK UP", short: "BULK UP", kind: "fighting", power: 0, cooldown: 10 },
+    burst: { name: "TECTONIC RAGE", short: "TECTONC", kind: "ground", power: 68, cooldown: 0 },
+  },
+  kyogre: {
+    melee: { name: "LIQUIDATION", short: "LIQUID", kind: "water", power: 14, cooldown: 0.6 },
+    s1: { name: "SCALD", short: "SCALD", kind: "water", power: 2.3, cooldown: 3 },
+    s2: { name: "WHIRLPOOL", short: "W.POOL", kind: "water", power: 12, cooldown: 4 },
+    s3: { name: "SHEER COLD", short: "S.COLD", kind: "ice", power: 22, cooldown: 7 },
+    s4: { name: "CALM MIND", short: "C.MIND", kind: "psychic", power: 0, cooldown: 10 },
+    burst: { name: "PRIMORDIAL SEA", short: "P.SEA", kind: "water", power: 66, cooldown: 0 },
+  },
 };
+
+/** Pokémon whose moves run on the shared move templates (and who reshape the weather). */
+export const LEGENDS: ReadonlySet<Species> = new Set(["rayquaza", "groudon", "kyogre"]);
+
+/** Groudon and Kyogre don't Mega Evolve: they undergo Primal Reversion. */
+export const PRIMAL: ReadonlySet<Species> = new Set(["groudon", "kyogre"]);
 
 export const MEGA_NAME: Record<Species, string> = {
   charizard: "MEGA CHARIZARD X",
   blastoise: "MEGA BLASTOISE",
   gengar: "MEGA GENGAR",
   mewtwo: "MEGA MEWTWO Y",
+  rayquaza: "MEGA RAYQUAZA",
+  groudon: "PRIMAL GROUDON",
+  kyogre: "PRIMAL KYOGRE",
 };
 
 export const STATS: Record<Species, { hp: number; speed: number }> = {
@@ -121,6 +180,9 @@ export const STATS: Record<Species, { hp: number; speed: number }> = {
   blastoise: { hp: 185, speed: 92 },
   gengar: { hp: 135, speed: 116 },
   mewtwo: { hp: 160, speed: 120 },
+  rayquaza: { hp: 165, speed: 110 },
+  groudon: { hp: 175, speed: 78 },
+  kyogre: { hp: 170, speed: 86 },
 };
 
 /** Mega Charizard X turns Fire/Dragon; the others keep their types. */
@@ -129,6 +191,9 @@ export const MEGA_TYPES: Record<Species, Kind[]> = {
   blastoise: ["water"],
   gengar: ["ghost", "poison"],
   mewtwo: ["psychic"],
+  rayquaza: ["dragon", "flying"],
+  groudon: ["ground", "fire"],
+  kyogre: ["water"],
 };
 
 export const TYPES: Record<Species, Kind[]> = {
@@ -136,21 +201,26 @@ export const TYPES: Record<Species, Kind[]> = {
   blastoise: ["water"],
   gengar: ["ghost", "poison"],
   mewtwo: ["psychic"],
+  rayquaza: ["dragon", "flying"],
+  groudon: ["ground"],
+  kyogre: ["water"],
 };
 
 /** attacker kind → defender type → multiplier (1 when missing) */
 const CHART: Partial<Record<Kind, Partial<Record<Kind, number>>>> = {
-  fire: { fire: 0.5, water: 0.5, dragon: 0.5 },
-  water: { fire: 2, water: 0.5, dragon: 0.5 },
-  ice: { flying: 2, fire: 0.5, water: 0.5, dragon: 2 },
-  ground: { fire: 2, poison: 2, flying: 0 },
+  fire: { fire: 0.5, water: 0.5, dragon: 0.5, grass: 2, rock: 0.5 },
+  water: { fire: 2, water: 0.5, dragon: 0.5, ground: 2, rock: 2, grass: 0.5 },
+  ice: { flying: 2, fire: 0.5, water: 0.5, dragon: 2, ground: 2, grass: 2 },
+  ground: { fire: 2, poison: 2, flying: 0, electric: 2, rock: 2, grass: 0.5 },
+  grass: { water: 2, ground: 2, rock: 2, fire: 0.5, flying: 0.5, dragon: 0.5, poison: 0.5, grass: 0.5 },
+  rock: { fire: 2, flying: 2, ice: 2, ground: 0.5, fighting: 0.5 },
   dark: { ghost: 2, psychic: 2 },
   dragon: { dragon: 2 },
-  fighting: { ghost: 0, flying: 0.5, poison: 0.5, psychic: 0.5 },
+  fighting: { ghost: 0, flying: 0.5, poison: 0.5, psychic: 0.5, rock: 2, ice: 2 },
   ghost: { ghost: 2, psychic: 2 },
   psychic: { poison: 2, psychic: 0.5 },
-  electric: { water: 2, flying: 2, dragon: 0.5, electric: 0.5 },
-  normal: { ghost: 0 },
+  electric: { water: 2, flying: 2, dragon: 0.5, electric: 0.5, ground: 0, grass: 0.5 },
+  normal: { ghost: 0, rock: 0.5 },
   poison: { poison: 0.5, ghost: 0.5 },
 };
 

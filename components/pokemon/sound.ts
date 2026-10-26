@@ -225,6 +225,18 @@ export class Sound {
     this.tone(1200, 1200, 0.1, "triangle", 0.06, 0.05);
   }
 
+  /** Wind howling: Twister, Hurricane, Delta Stream. */
+  wind(dur: number) {
+    this.hiss(dur, "bandpass", 300, 900, 0.3, 0, 2, 0.15);
+    this.hiss(dur, "bandpass", 1200, 500, 0.15, dur * 0.2, 3, 0.15);
+  }
+
+  /** Stone cracking up out of the ground. */
+  rockCrack() {
+    this.hiss(0.18, "bandpass", 1400, 500, 0.3, 0, 1.5);
+    this.tone(160, 70, 0.2, "square", 0.12);
+  }
+
   /** Mewtwo's cry: low, eerie, rising. */
   mewtwoCry() {
     this.tone(180, 420, 0.8, "sawtooth", 0.1, 0, 0.1);
