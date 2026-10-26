@@ -2284,7 +2284,8 @@ export class BattleGame {
       return;
     }
     const move = this.moves(f)[slot];
-    const eff = fixed ? 1 : this.eff(move.kind, o);
+    // a Burst lands on almost anything, so super effective only adds half again, not double
+    const eff = fixed ? 1 : Math.min(slot === "burst" ? 1.5 : 4, this.eff(move.kind, o));
     if (eff === 0) {
       if (!f.told) this.say(`It doesn't affect ${this.name(o)}…`);
       f.told = true;

@@ -69,7 +69,7 @@ export const MOVES: Record<Species, Record<Slot, Move>> = {
     s2: { name: "TELEPORT", short: "TELEPORT", kind: "psychic", power: 0, cooldown: 2.2 },
     s3: { name: "FUTURE SIGHT", short: "FUTURE", kind: "psychic", power: 22, cooldown: 4 },
     s4: { name: "BARRIER", short: "BARRIER", kind: "psychic", power: 0, cooldown: 6 },
-    burst: { name: "PSYSTRIKE", short: "PSYSTRK", kind: "psychic", power: 55, cooldown: 0 },
+    burst: { name: "PSYSTRIKE", short: "PSYSTRK", kind: "psychic", power: 48, cooldown: 0 },
   },
 };
 
@@ -105,7 +105,7 @@ export const MEGA_MOVES: Record<Species, Record<Slot, Move>> = {
     s2: { name: "SWIFT", short: "SWIFT", kind: "normal", power: 5, cooldown: 2.8 },
     s3: { name: "THUNDERBOLT", short: "T.BOLT", kind: "electric", power: 19, cooldown: 3.2 },
     s4: { name: "RECOVER", short: "RECOVER", kind: "normal", power: 0, cooldown: 14 },
-    burst: { name: "SHATTERED PSYCHE", short: "PSYCHE", kind: "psychic", power: 72, cooldown: 0 },
+    burst: { name: "SHATTERED PSYCHE", short: "PSYCHE", kind: "psychic", power: 62, cooldown: 0 },
   },
 };
 
