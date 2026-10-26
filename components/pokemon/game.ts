@@ -1045,6 +1045,7 @@ export class BattleGame {
       f.state = "charge";
       f.invuln = 99;
       this.cutin = { owner: f.id, t: 0 };
+      console.log(`[CUT] ${f.species} ${f.mega}`); // LEGTEST
       this.sound.cutin();
       if (sp === "gengar") this.sound.cackle();
       else this.sound.roar(sp === "blastoise");
@@ -2724,6 +2725,8 @@ export class BattleGame {
 
   /** Once a battle, below MEGA_AT of its HP, when the screen is free. */
   private canMega(f: Fighter) {
+    const T = localStorage.getItem("poke-legtest"); // LEGTEST
+    if (T === "m" && this.clock > 3 && !f.megaUsed && this.canAct(f) && !this.cutin && !this.finale) return true; // LEGTEST
     return (
       !f.megaUsed && f.hp > 0 && f.hp / STATS[f.species].hp < MEGA_AT && this.canAct(f) && !this.cutin && !this.finale
     );
@@ -5242,6 +5245,7 @@ export class BattleGame {
     const away = o.z >= HIGH * k || o.state === "lurk";
     const chance = (p: number) => Math.random() < p;
     const eff = (s: Slot) => this.eff(this.moves(f)[s].kind, o);
+    if (localStorage.getItem("poke-legtest") && (f.mega || localStorage.getItem("poke-legtest") === "r")) f.meter = Math.min(1, f.meter + 0.02); // LEGTEST
     if (f.meter >= 1 && !away) return "burst";
     if (LEGENDS.has(f.species)) return this.cpuLegendMove(f, o, d, away);
     if (f.mega) return this.cpuMegaMove(f, o, d, away);
