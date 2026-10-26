@@ -116,7 +116,7 @@ export function Rule({
   const className = `m m-wipe pointer-events-none absolute inset-x-0 border-dotted border-zinc-800 ${
     edge === "bottom" ? "-bottom-px border-b" : "-top-px border-t"
   }`;
-  // data-game: the dotted rules double as floors in the Stack Runner game
+  // data-game: the dotted rules double as floors for the monsters in DOOM mode
   const rule = <span aria-hidden data-game="floor" style={d(delay)} className={className} />;
   if (!standalone) return rule;
   // a hairline is too thin to measure reliably, so a taller invisible box triggers it

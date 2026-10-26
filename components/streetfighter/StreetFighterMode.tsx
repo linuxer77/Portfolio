@@ -129,6 +129,16 @@ export default function StreetFighterMode({ onClose }: { onClose: () => void }) 
     gameRef.current.start(m);
   }, []);
 
+  /** Leaving plays the rewind first: the page flies back together, then the mode closes. */
+  const [leaving, setLeaving] = useState(false);
+  const leave = useCallback(() => {
+    if (leaving) return;
+    setLeaving(true);
+    const game = gameRef.current;
+    if (!game) return onClose();
+    game.exit(onClose);
+  }, [leaving, onClose]);
+
   const toggleMute = useCallback(() => {
     const sfx = sfxRef.current;
     if (!sfx) return;
@@ -140,7 +150,7 @@ export default function StreetFighterMode({ onClose }: { onClose: () => void }) 
     const down = (e: KeyboardEvent) => {
       if (e.code === "Escape") {
         e.preventDefault();
-        return onClose();
+        return leave();
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.code === "KeyM") return toggleMute();
@@ -162,7 +172,7 @@ export default function StreetFighterMode({ onClose }: { onClose: () => void }) 
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [onClose, toggleMute, play, mode, end]);
+  }, [leave, toggleMute, play, mode, end]);
 
   if (!mounted) return null;
 
@@ -188,14 +198,14 @@ export default function StreetFighterMode({ onClose }: { onClose: () => void }) 
         </button>
         <button
           type="button"
-          onClick={onClose}
+          onClick={leave}
           className="border border-dotted border-zinc-700 bg-black/90 px-2 py-1 text-zinc-400 hover:text-white transition-colors"
         >
           Exit [Esc]
         </button>
       </div>
 
-      {touch && playing && (
+      {touch && playing && !leaving && (
         <>
           {/* swallows stray taps so they can't follow the page's links mid-fight */}
           <div className="fixed inset-0 z-[46]" style={{ touchAction: "none" }} />
@@ -238,7 +248,7 @@ export default function StreetFighterMode({ onClose }: { onClose: () => void }) 
         </div>
       )}
 
-      {!loading && !failed && (!mode || end) && (
+      {!loading && !failed && !leaving && (!mode || end) && (
         <div
           data-menu
           className="fixed inset-0 z-[48] flex items-center justify-center overflow-y-auto bg-black/60 p-4"
@@ -274,7 +284,7 @@ export default function StreetFighterMode({ onClose }: { onClose: () => void }) 
                   <Btn onClick={() => play(mode === "cpu" ? "versus" : "cpu")}>
                     {mode === "cpu" ? "2P VERSUS [2]" : "VS CPU [1]"}
                   </Btn>
-                  <Btn onClick={onClose}>EXIT</Btn>
+                  <Btn onClick={leave}>EXIT</Btn>
                 </div>
               </>
             ) : (

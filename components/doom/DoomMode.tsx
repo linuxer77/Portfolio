@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { personalData } from "@/lib/portfolio-data";
 import { loadAtlas, Sfx } from "./assets";
 import { DoomGame, type DoomEnd } from "./game";
+import { record, unlock } from "@/lib/arcade";
 
 // ==========================================
 // DOOM mode shell: loads the Freedoom assets, lays the game canvas over the live page,
@@ -66,7 +67,20 @@ export default function DoomMode({ onClose }: { onClose: () => void }) {
     Promise.all([loadAtlas(), sfx.load()])
       .then(([atlas]) => {
         if (cancelled) return;
-        const game = new DoomGame(canvas, atlas, sfx, setEnd, shake);
+        const game = new DoomGame(
+          canvas,
+          atlas,
+          sfx,
+          (e) => {
+            setEnd(e);
+            if (e.stats.secrets) unlock("doom-secret");
+            if (e.type === "win") {
+              unlock("doom-clear");
+              record("doom", e.stats.time);
+            }
+          },
+          shake
+        );
         gameRef.current = game;
         window.scrollTo({ top: 0, behavior: "instant" });
         game.start();
@@ -90,6 +104,16 @@ export default function DoomMode({ onClose }: { onClose: () => void }) {
     gameRef.current?.restart();
   }, []);
 
+  /** Leaving plays the rewind first: the page flies back together, then the mode closes. */
+  const [leaving, setLeaving] = useState(false);
+  const leave = useCallback(() => {
+    if (leaving) return;
+    setLeaving(true);
+    const game = gameRef.current;
+    if (!game) return onClose();
+    game.exit(onClose);
+  }, [leaving, onClose]);
+
   const toggleMute = useCallback(() => {
     const sfx = sfxRef.current;
     if (!sfx) return;
@@ -101,7 +125,7 @@ export default function DoomMode({ onClose }: { onClose: () => void }) {
     const down = (e: KeyboardEvent) => {
       if (e.code === "Escape") {
         e.preventDefault();
-        return onClose();
+        return leave();
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.code === "KeyM") return toggleMute();
@@ -110,7 +134,7 @@ export default function DoomMode({ onClose }: { onClose: () => void }) {
     };
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
-  }, [onClose, restart, toggleMute]);
+  }, [leave, restart, toggleMute]);
 
   if (!mounted) return null;
 
@@ -143,7 +167,7 @@ export default function DoomMode({ onClose }: { onClose: () => void }) {
         </button>
         <button
           type="button"
-          onClick={onClose}
+          onClick={leave}
           className="border border-dotted border-zinc-700 bg-black/90 px-2 py-1 text-zinc-400 hover:text-white transition-colors"
         >
           Exit [Esc]
@@ -156,7 +180,7 @@ export default function DoomMode({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {end && (
+      {end && !leaving && (
         <div className="fixed inset-0 z-[48] flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md space-y-5 border border-dotted border-zinc-700 bg-black p-6 text-center">
             <div className="space-y-1">
@@ -202,7 +226,7 @@ export default function DoomMode({ onClose }: { onClose: () => void }) {
               <Btn primary={end.type === "dead"} onClick={restart}>
                 {end.type === "win" ? "PLAY AGAIN" : "RESTART [R]"}
               </Btn>
-              <Btn onClick={onClose}>EXIT</Btn>
+              <Btn onClick={leave}>EXIT</Btn>
             </div>
             <p className="text-[10px] text-zinc-600">Art and sounds from Freedoom (BSD licence).</p>
           </div>

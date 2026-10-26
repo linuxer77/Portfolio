@@ -1,12 +1,12 @@
 import { docBox, glyphOf, textNodes, type Box, type Glyph } from "../doom/page";
+import { Rewind } from "../arcade/rewind";
 
 // ==========================================
-// Page damage for the arcade modes (Street Fighter, Mortal Kombat, Pac-Man): every blow
-// lands on the portfolio as well as the opponent, and Pac-Man eats it. Letters are knocked
-// off as rubble that piles up on the arena floor, or bitten off and sucked into Pac-Man;
-// skill tags burst, image boxes crack and shatter; ice frosts letters over so the
+// Page damage for the fighting modes (Street Fighter and Mortal Kombat): every blow lands on
+// the portfolio as well as the opponent. Letters are knocked off as rubble that piles up on the
+// arena floor, skill tags burst, image boxes crack and shatter; ice frosts letters over so the
 // next hit shatters them, fire burns them down to embers. Like DOOM mode, nothing in the DOM
-// is changed: damage is drawn on the game canvas, so exiting restores the page.
+// is changed: damage is drawn on the game canvas, and on the way out every piece flies home.
 // ==========================================
 
 const GRAVITY = 1800;
@@ -16,8 +16,6 @@ const BUMP_HP = 2;
 const BURN_TIME = 0.7;
 
 type Tint = "ice" | "ember";
-const MAX_MORSELS = 500;
-const MAX_CRUMBS = 800;
 
 interface Rubble {
   img: HTMLCanvasElement;
@@ -30,32 +28,9 @@ interface Rubble {
   rot: number;
   vr: number;
   rest: boolean;
-}
-
-/** Something Pac-Man bit off: it pops off the page, then gets sucked into his mouth. */
-interface Morsel {
-  img: HTMLCanvasElement;
-  sx: number; // where it started, centre, document px
-  sy: number;
-  w: number;
-  h: number;
-  rot: number;
-  vr: number;
-  t: number;
-  delay: number;
-  dur: number;
-  swirl: number;
-}
-
-/** A crumb sprayed out by a bite, in the colour of what was bitten. */
-interface Crumb {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  s: number;
-  color: string;
-  t: number;
+  /** where it came from on the page and how it looked there, for the rewind */
+  home?: Box;
+  homeImg?: HTMLCanvasElement;
 }
 
 interface TextEntry {
@@ -132,9 +107,9 @@ export class PageWreck {
   private burning: { g: Glyph; t: number; fromX: number; fromY: number }[] = [];
   private lit = new WeakMap<Text, Set<number>>();
   private clock = 0;
-  private morsels: Morsel[] = [];
-  private crumbs: Crumb[] = [];
-  private mouth: { x: number; y: number } | null = null;
+  /** pieces no longer drawn (pushed out by newer rubble), kept for the rewind */
+  private parked: Rubble[] = [];
+  private homecoming = new Rewind();
 
   constructor(private onShatter: (strength: number) => void) {}
 
@@ -150,8 +125,7 @@ export class PageWreck {
     this.frost = [];
     this.burning = [];
     this.lit = new WeakMap();
-    this.morsels = [];
-    this.crumbs = [];
+    this.parked = [];
     this.measure();
   }
 
@@ -220,70 +194,6 @@ export class PageWreck {
     );
   }
 
-  /** Where Pac-Man's mouth is now (document px): bitten pieces fly there. */
-  setMouth(x: number, y: number) {
-    this.mouth = { x, y };
-  }
-
-  /**
-   * Pac-Man: letters within radius that fit in a mouth maxH tall are ripped off the page and
-   * sucked in, spraying crumbs. Returns how many went and the area they covered (what he grows by).
-   */
-  eat(x: number, y: number, radius: number, maxH: number, limit = 200) {
-    let area = 0;
-    const letters = this.eachGlyph(x, y, radius, limit, (g) => {
-      if (g.box.h > maxH) return false;
-      this.gulp(g);
-      area += g.box.w * g.box.h;
-      return true;
-    });
-    return { letters, area };
-  }
-
-  /** Swallows whole skill tags, glyph buttons and image boxes near (x, y) that `fits` allows. */
-  eatBoxes(x: number, y: number, radius: number, fits: (b: Box, kind: string) => boolean) {
-    const eaten: { kind: string; area: number }[] = [];
-    for (const t of this.targets) {
-      if (this.broken.has(t.el) || !near(t.box, x, y, radius * 0.5) || !fits(t.box, t.kind)) continue;
-      this.broken.add(t.el);
-      // a tag goes letter by letter; a box cracks into chunks that get sucked in
-      for (const node of textNodes(t.el)) {
-        const set = this.setOf(this.gone, node);
-        for (let i = 0; i < node.data.length; i++) {
-          if (!node.data[i].trim() || set.has(i)) continue;
-          const g = t.kind === "skill" ? glyphOf(node, i) : null;
-          if (g) this.gulp(g);
-          else {
-            set.add(i);
-            this.destroyed++;
-          }
-        }
-      }
-      if (t.kind !== "skill") {
-        const { snap, image } = snapshotBox(t.el, t.box);
-        this.pieces(snap, [0, 0, snap.width, snap.height], t.box, image ? 5 : 2, image ? 4 : 2, false, true);
-      }
-      this.holes.push({
-        x: t.box.x - 1,
-        y: t.box.y - 1,
-        w: t.box.w + 2,
-        h: t.box.h + 2,
-      });
-      eaten.push({ kind: t.kind, area: t.box.w * t.box.h });
-    }
-    return eaten;
-  }
-
-  /** Letters still on the page. Measures every text node, so call it once the layout has settled. */
-  lettersLeft() {
-    let n = 0;
-    for (const e of this.text) {
-      const gone = this.gone.get(e.node);
-      for (const g of this.glyphsOf(e)) if (!gone?.has(g.index)) n++;
-    }
-    return n;
-  }
-
   /** Fire: letters in range catch, burn for a moment, then crumble into embers. */
   ignite(x: number, y: number, radius: number, limit = 80) {
     return this.eachGlyph(x, y, radius, limit, (g) => {
@@ -315,15 +225,12 @@ export class PageWreck {
       if (b.t >= BURN_TIME) this.knockOff(b.g, b.fromX, b.fromY, 120, "ember");
     }
     this.burning = this.burning.filter((b) => b.t < BURN_TIME);
-    for (const m of this.morsels) m.t += dt;
-    this.morsels = this.morsels.filter((m) => m.t < m.delay + m.dur);
-    for (const c of this.crumbs) {
-      c.t += dt;
-      c.vy += 900 * dt;
-      c.x += c.vx * dt;
-      c.y += c.vy * dt;
+    if (this.homecoming.update(dt)) {
+      // every piece is home: the page is whole again
+      this.holes = [];
+      this.dents = [];
+      this.frost = [];
     }
-    this.crumbs = this.crumbs.filter((c) => c.t < 0.5);
     for (const r of this.rubble) {
       if (r.rest) continue;
       const prevBottom = r.y + r.h / 2;
@@ -350,6 +257,9 @@ export class PageWreck {
 
   /** Draws the damage; ctx is already translated to document coordinates. */
   draw(ctx: CanvasRenderingContext2D, top: number, bottom: number) {
+    // during the rewind, frost, dents and fire fade away as the pieces fly home
+    const fade = this.homecoming.fade;
+    ctx.globalAlpha = fade;
     // frost first, so a hole punched where a frozen letter was covers it
     for (const f of this.frost) {
       if (f.y + f.h < top || f.y > bottom) continue;
@@ -358,8 +268,10 @@ export class PageWreck {
       ctx.fillStyle = "rgba(240,249,255,0.75)";
       ctx.fillRect(f.x - 0.5, f.y, f.w + 1, 1);
     }
+    ctx.globalAlpha = 1;
     ctx.fillStyle = "#000";
     for (const h of this.holes) if (h.y + h.h > top && h.y < bottom) ctx.fillRect(h.x, h.y, h.w, h.h);
+    ctx.globalAlpha = fade;
     for (const d of this.dents) {
       if (d.y < top || d.y > bottom) continue;
       ctx.fillStyle = "rgba(0,0,0,0.85)";
@@ -400,32 +312,29 @@ export class PageWreck {
       ctx.drawImage(r.img, -r.w / 2, -r.h / 2, r.w, r.h);
       ctx.restore();
     }
-    for (const c of this.crumbs) {
-      ctx.globalAlpha = 1 - c.t / 0.5;
-      ctx.fillStyle = c.color;
-      ctx.fillRect(c.x - c.s / 2, c.y - c.s / 2, c.s, c.s);
-    }
     ctx.globalAlpha = 1;
-    const mouth = this.mouth;
-    if (!mouth) return;
-    for (const m of this.morsels) {
-      const p = Math.max(0, Math.min(1, (m.t - m.delay) / m.dur));
-      // first it jumps off the page, then accelerates into the mouth, shrinking
-      const pop = p < 0.3 ? Math.sin((p / 0.3) * Math.PI) : 0;
-      const pull = p < 0.3 ? 0 : ((p - 0.3) / 0.7) ** 2;
-      const dx = mouth.x - m.sx;
-      const dy = mouth.y - m.sy;
-      const d = Math.hypot(dx, dy) || 1;
-      const curve = Math.sin(pull * Math.PI) * m.swirl;
-      const x = m.sx + dx * pull - (dx / d) * pop * 16 - (dy / d) * curve;
-      const y = m.sy + dy * pull - (dy / d) * pop * 16 - 14 * pop + (dx / d) * curve;
-      const scale = p < 0.3 ? 1 + (p / 0.3) * 0.6 : 1.6 * (1 - ((p - 0.3) / 0.7) * 0.9);
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(m.rot + m.vr * m.t);
-      ctx.drawImage(m.img, (-m.w / 2) * scale, (-m.h / 2) * scale, m.w * scale, m.h * scale);
-      ctx.restore();
-    }
+    this.homecoming.draw(ctx);
+  }
+
+  // ---------- rewind ----------
+
+  get rewinding() {
+    return this.homecoming.active;
+  }
+
+  /**
+   * Puts the page back the fun way: every knocked-off letter and shard flies home while frost,
+   * dents and fire fade. Calls done once the page is whole again.
+   */
+  rewind(done: () => void) {
+    const strays = [...this.rubble, ...this.parked]
+      .filter((r) => r.home && r.homeImg)
+      .map((r) => ({ img: r.homeImg!, home: r.home!, x: r.x, y: r.y, rot: r.rot }));
+    if (!strays.length && !this.holes.length) return done();
+    this.rubble = [];
+    this.parked = [];
+    this.burning = [];
+    this.homecoming.start(strays, done);
   }
 
   // ---------- internals ----------
@@ -465,54 +374,6 @@ export class PageWreck {
     return e.glyphs;
   }
 
-  /** One letter bitten off the page: a hole where it was, the letter on its way into the mouth. */
-  private gulp(g: Glyph) {
-    this.setOf(this.gone, g.node).add(g.index);
-    this.destroyed++;
-    this.holes.push({
-      x: g.box.x - 0.5,
-      y: g.box.y - 0.5,
-      w: g.box.w + 1,
-      h: g.box.h + 1,
-    });
-    const cx = g.box.x + g.box.w / 2;
-    const cy = g.box.y + g.box.h / 2;
-    this.addMorsel({
-      img: this.glyphImage(g),
-      sx: cx,
-      sy: cy,
-      w: g.box.w,
-      h: g.box.h,
-      rot: 0,
-      vr: rand(-14, 14),
-      t: 0,
-      delay: rand(0, 0.05),
-      dur: rand(0.32, 0.44),
-      swirl: rand(-24, 24),
-    });
-    for (let i = 0; i < 3; i++) this.crumb(cx, cy, g.color, g.box.h);
-  }
-
-  private crumb(x: number, y: number, color: string, size: number) {
-    if (this.crumbs.length >= MAX_CRUMBS) this.crumbs.shift();
-    const a = rand(0, Math.PI * 2);
-    const v = rand(90, 320);
-    this.crumbs.push({
-      x,
-      y,
-      vx: Math.cos(a) * v,
-      vy: Math.sin(a) * v - 120,
-      s: Math.max(2, size * rand(0.12, 0.26)),
-      color,
-      t: rand(0, 0.15),
-    });
-  }
-
-  private addMorsel(m: Morsel) {
-    this.morsels.push(m);
-    if (this.morsels.length > MAX_MORSELS) this.morsels.shift();
-  }
-
   /** One letter off the page: a black hole where it was, the letter as flying rubble. */
   private knockOff(g: Glyph, fromX: number, fromY: number, force: number, tint?: Tint) {
     const set = this.setOf(this.gone, g.node);
@@ -541,6 +402,8 @@ export class PageWreck {
       rot: 0,
       vr: rand(-12, 12),
       rest: false,
+      home: g.box,
+      homeImg: this.glyphImage(g),
     });
     return true;
   }
@@ -596,8 +459,7 @@ export class PageWreck {
 
   /**
    * Breaks the src rectangle of an image into cols × rows tumbling pieces, drawn over the
-   * document box `to`. Used for shattered image boxes and for a frozen fighter's last moment;
-   * with `suck`, the pieces fly into Pac-Man's mouth instead of falling.
+   * document box `to`. Used for shattered image boxes and for a frozen fighter's last moment.
    */
   pieces(
     img: CanvasImageSource,
@@ -606,7 +468,8 @@ export class PageWreck {
     cols: number,
     rows: number,
     flip = false,
-    suck = false
+    /** false for pieces that aren't the page's (a shattered fighter): they don't fly home */
+    returns = true
   ) {
     const [sx, sy, sw, sh] = src;
     const dpr = window.devicePixelRatio || 1;
@@ -638,23 +501,6 @@ export class PageWreck {
         );
         const cx = to.x + (i + 0.5) * pw;
         const cy = to.y + (j + 0.5) * ph;
-        if (suck) {
-          this.addMorsel({
-            img: piece,
-            sx: cx,
-            sy: cy,
-            w: pw,
-            h: ph,
-            rot: 0,
-            vr: rand(-6, 6),
-            t: 0,
-            delay: rand(0, 0.18),
-            dur: rand(0.4, 0.6),
-            swirl: rand(-40, 40),
-          });
-          for (let k = 0; k < 4; k++) this.crumb(cx, cy, "#a1a1aa", 22);
-          continue;
-        }
         this.addRubble({
           img: piece,
           x: cx,
@@ -666,6 +512,8 @@ export class PageWreck {
           rot: 0,
           vr: rand(-4, 4),
           rest: false,
+          home: returns ? { x: to.x + i * pw, y: to.y + j * ph, w: pw, h: ph } : undefined,
+          homeImg: returns ? piece : undefined,
         });
       }
     }
@@ -675,7 +523,9 @@ export class PageWreck {
     this.rubble.push(r);
     if (this.rubble.length > MAX_RUBBLE) {
       const i = this.rubble.findIndex((p) => p.rest);
-      this.rubble.splice(i >= 0 ? i : 0, 1);
+      // no longer drawn, but it still flies home in the rewind
+      const [old] = this.rubble.splice(i >= 0 ? i : 0, 1);
+      if (old.home) this.parked.push(old);
     }
   }
 }

@@ -1,6 +1,8 @@
 import { drawFrame, type Atlas, type FighterId, type Fighters, type Sfx, type Sound } from "./assets";
 import { PageWreck } from "../streetfighter/wreck";
 import { docBox } from "../doom/page";
+import { playRewind } from "../arcade/rewindSound";
+import { record, unlock } from "@/lib/arcade";
 
 // ==========================================
 // MORTAL KOMBAT mode: Scorpion vs Classic Sub-Zero (UMK3) on top of the portfolio. The
@@ -440,6 +442,8 @@ export class KombatGame {
   private last = 0;
   private acc = 0;
   private over = false;
+  /** on the way out: the fight is gone and the page is flying back together */
+  private leaving = 0;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -504,6 +508,14 @@ export class KombatGame {
 
   releaseAll() {
     for (const f of this.fighters) f.keys = { ...NONE };
+  }
+
+  /** Leaving: the fighters go, and every broken piece of the page flies back home. */
+  exit(done: () => void) {
+    if (this.leaving) return;
+    this.leaving = 0.0001;
+    playRewind(this.sfx.muted);
+    this.wreck.rewind(done);
   }
 
   /** One-tap special for player 1 (the touch controls), without the taps. */
@@ -763,10 +775,11 @@ export class KombatGame {
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
     this.acc += dt * this.slow;
-    while (this.acc >= TICK) {
+    while (this.acc >= TICK && !this.leaving) {
       this.acc -= TICK;
       this.step();
     }
+    if (this.leaving) this.leaving += dt;
     this.wreck.update(dt * this.slow, window.scrollY + this.floorY);
     this.updateDrops(dt * this.slow);
     this.render();
@@ -1412,6 +1425,7 @@ export class KombatGame {
   }
 
   private toastyNow() {
+    unlock("kombat-toasty");
     this.toasty = 0;
     this.sfx.play("toasty");
   }
@@ -1510,6 +1524,11 @@ export class KombatGame {
     this.setState(victim, "victim");
     this.iceballs = [];
     this.stats.fatality = true;
+    // only a person's fatality counts, not the CPU's
+    if (f.id === 0 || this.mode === "versus") {
+      unlock("kombat-fatality");
+      record("kombat", 1);
+    }
     return true;
   }
 
@@ -1573,7 +1592,7 @@ export class KombatGame {
       const { k } = this;
       const feet = this.toDoc(v.x, v.alt);
       const left = feet.x - (v.face < 0 ? w - ax : ax) * k;
-      this.wreck.pieces(atlas.image, [sx, sy, w, h], { x: left, y: feet.y - ay * k, w: w * k, h: h * k }, 4, 6, v.face < 0);
+      this.wreck.pieces(atlas.image, [sx, sy, w, h], { x: left, y: feet.y - ay * k, w: w * k, h: h * k }, 4, 6, v.face < 0, false);
     }
     this.setState(v, "gone");
     this.sfx.play("shatter");
@@ -1837,6 +1856,8 @@ export class KombatGame {
     const top = window.scrollY - 200;
     const bottom = window.scrollY + vh + 200;
     this.wreck.draw(ctx, top, bottom);
+    // the blood dries away as the page puts itself back
+    ctx.globalAlpha = this.leaving ? Math.max(0, 1 - this.leaving / 1.1) : 1;
     ctx.fillStyle = "#8b0000";
     for (const s of this.stains) {
       if (s.y < top || s.y > bottom) continue;
@@ -1847,6 +1868,7 @@ export class KombatGame {
     ctx.fillStyle = "#b91c1c";
     for (const d of this.drops) ctx.fillRect(d.x - d.r / 2, d.y - d.r / 2, d.r, d.r);
     ctx.restore();
+    if (this.leaving) return;
 
     // the lights go out for FINISH HIM and the Fatality
     if (this.dark > 0.01) {

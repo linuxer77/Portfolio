@@ -346,19 +346,18 @@ export class Disk {
     }
     if (this.burstT >= 0 && this.burstT < 1.6) {
       const fade = 1 - this.burstT / 1.6;
+      // the blown-out gas as glowing sparks, shrinking as they cool
       const paths = COLOURS.map(() => new Path2D());
+      const size = 1 + fade * 2;
       for (const g of this.gas) {
         const b = g.burst;
         if (!b) continue;
         const i = Math.min(COLOURS.length - 1, 1 + Math.floor(g.f * 5));
-        paths[i].moveTo(b.x - b.vx * 0.03, b.y - b.vy * 0.03);
-        paths[i].lineTo(b.x, b.y);
+        paths[i].rect(b.x - size / 2, b.y - size / 2, size, size);
       }
-      ctx.lineWidth = 2;
-      ctx.lineCap = "round";
       COLOURS.forEach((c, i) => {
-        ctx.strokeStyle = rgba(c, 0.8 * fade);
-        ctx.stroke(paths[i]);
+        ctx.fillStyle = rgba(c, 0.85 * fade);
+        ctx.fill(paths[i]);
       });
     }
     if (this.shock >= 0 && this.shock < 1.4) {

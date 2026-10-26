@@ -8,11 +8,12 @@ import { Sound } from "./sound";
 // ==========================================
 // BLACK HOLE mode shell: lays the canvas over the live page, reveals every section so all
 // of it can be pulled in, turns the pointer into the hole, and runs the Big Bang on the way
-// out so leaving rebuilds the page. Launched from the terminal with `blackhole`.
+// out so leaving rebuilds the page. A second canvas underneath carries the lensed page. Launched from the terminal with `blackhole`.
 // ==========================================
 
 export default function BlackHoleMode({ onClose }: { onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lensRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<HoleGame | null>(null);
   const soundRef = useRef<Sound | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -28,7 +29,8 @@ export default function BlackHoleMode({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!mounted) return;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const lensCanvas = lensRef.current;
+    if (!canvas || !lensCanvas) return;
     const root = document.querySelector("[data-page-root]");
     const revealed = root?.hasAttribute("data-in");
     root?.setAttribute("data-in", "");
@@ -37,7 +39,7 @@ export default function BlackHoleMode({ onClose }: { onClose: () => void }) {
     soundRef.current = sound;
     setMuted(sound.muted);
     sound.unlock();
-    const game = new HoleGame(canvas, sound, (strength) => {
+    const game = new HoleGame(canvas, lensCanvas, sound, (strength) => {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       const frames = [0, 1, -1, 0.6, -0.4, 0].map((f) => ({
         transform: `translate(${f * strength}px, ${-f * strength * 0.6}px)`,
@@ -45,6 +47,7 @@ export default function BlackHoleMode({ onClose }: { onClose: () => void }) {
       const opts = { duration: 260, easing: "ease-out" };
       document.querySelector("[data-page-root]")?.animate(frames, opts);
       canvas.animate(frames, opts);
+      lensCanvas.animate(frames, opts);
     });
     gameRef.current = game;
     game.start();
@@ -98,6 +101,8 @@ export default function BlackHoleMode({ onClose }: { onClose: () => void }) {
 
   return createPortal(
     <div data-arcade className="font-mono">
+      {/* the bent page around the hole (WebGL), under everything else the hole draws */}
+      <canvas ref={lensRef} aria-hidden className="pointer-events-none fixed left-0 top-0 z-[46]" />
       <canvas
         ref={canvasRef}
         aria-label="Black hole mode: the page falls in"

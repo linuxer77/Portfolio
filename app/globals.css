@@ -196,9 +196,14 @@
   .m-skel, .m-helper { display: none; }
 }
 
-/* Stack Runner: skills the player has collected light up on the page */
-[data-collected],
-[data-collected] > * {
-  color: #fff !important;
-  border-color: #fff !important;
+/* Arcade: achievement toasts slide down into place */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }

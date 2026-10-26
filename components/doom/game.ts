@@ -1,5 +1,7 @@
 import { drawSprite, spriteSize, type Atlas, type Sfx, type SoundName } from "./assets";
 import { docBox, glyphAt, glyphOf, glyphsInCircle, inBox, textNodes, throughLayer, type Box, type Glyph } from "./page";
+import { Rewind } from "../arcade/rewind";
+import { playRewind } from "../arcade/rewindSound";
 
 // ==========================================
 // DOOM mode: the portfolio page is the level. You are the viewer: aim with the mouse,
@@ -234,6 +236,8 @@ interface Rubble {
   rot: number;
   vr: number;
   rest: boolean;
+  /** where it came from on the page, for the rewind on exit */
+  home?: Box;
 }
 
 interface Effect {
@@ -312,6 +316,10 @@ export class DoomGame {
   private effects: Effect[] = [];
   private pickups: Pickup[] = [];
   private rubble: Rubble[] = [];
+  /** rubble no longer drawn (pushed out by newer pieces), kept so it can fly home on exit */
+  private parked: Rubble[] = [];
+  private homecoming = new Rewind();
+  private leaving = false;
   private holes: Box[] = [];
   private decals: { box: HTMLElement; x: number; y: number }[] = [];
   private boxes = new Map<HTMLElement, number>(); // hit points left per image box / glyph button
@@ -350,6 +358,26 @@ export class DoomGame {
     this.running = true;
     this.last = performance.now();
     this.raf = requestAnimationFrame(this.tick);
+  }
+
+  /** Leaving: the monsters and the gun go, and every piece of the page flies back home. */
+  exit(done: () => void) {
+    if (this.leaving) return;
+    this.leaving = true;
+    this.trigger = false;
+    window.clearTimeout(this.endTimer);
+    const strays = [...this.rubble, ...this.parked]
+      .filter((r) => r.home)
+      .map((r) => ({ img: r.img, home: r.home!, x: r.x, y: r.y, rot: r.rot }));
+    if (!strays.length && !this.holes.length) return done();
+    playRewind(this.sfx.muted);
+    this.rubble = [];
+    this.parked = [];
+    this.homecoming.start(strays, () => {
+      this.holes = [];
+      this.decals = [];
+      done();
+    });
   }
 
   stop() {
@@ -439,6 +467,7 @@ export class DoomGame {
     this.effects = [];
     this.pickups = [];
     this.rubble = [];
+    this.parked = [];
     this.holes = [];
     this.decals = [];
     this.boxes.clear();
@@ -491,6 +520,10 @@ export class DoomGame {
   };
 
   private update(dt: number) {
+    if (this.leaving) {
+      this.homecoming.update(dt);
+      return;
+    }
     this.clock += dt;
     if (!this.dead && !this.done) this.stats.time += dt;
     if ((this.platsT -= dt) <= 0) {
@@ -744,6 +777,7 @@ export class DoomGame {
       rot: 0,
       vr: rand(-12, 12),
       rest: false,
+      home: g.box,
     });
   }
 
@@ -849,6 +883,7 @@ export class DoomGame {
           rot: 0,
           vr: rand(-4, 4),
           rest: false,
+          home: { x: b.x + i * pw, y: b.y + j * ph, w: pw, h: ph },
         });
       }
     }
@@ -867,7 +902,8 @@ export class DoomGame {
     this.rubble.push(r);
     if (this.rubble.length > MAX_RUBBLE) {
       const i = this.rubble.findIndex((p) => p.rest);
-      this.rubble.splice(i >= 0 ? i : 0, 1);
+      const [old] = this.rubble.splice(i >= 0 ? i : 0, 1);
+      if (old.home) this.parked.push(old);
     }
   }
 
@@ -1271,7 +1307,8 @@ export class DoomGame {
     ctx.fillStyle = "#000";
     for (const h of this.holes) if (h.y + h.h > top && h.y < bottom) ctx.fillRect(h.x, h.y, h.w, h.h);
 
-    // bullet holes in image boxes
+    // bullet holes in image boxes (they fade out during the rewind)
+    ctx.globalAlpha = this.homecoming.fade;
     for (const d of this.decals) {
       if (d.y < top || d.y > bottom) continue;
       ctx.fillStyle = "rgba(0,0,0,0.85)";
@@ -1283,6 +1320,13 @@ export class DoomGame {
       ctx.beginPath();
       ctx.arc(d.x, d.y, 4.5, 0, Math.PI * 2);
       ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    if (this.leaving) {
+      // on the way out only the page is left, knitting itself back together
+      this.homecoming.draw(ctx);
+      ctx.restore();
+      return;
     }
 
     for (const r of this.rubble) {

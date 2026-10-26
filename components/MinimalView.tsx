@@ -37,13 +37,14 @@ import ArcadePreload from "@/components/arcade/ArcadePreload";
 import dynamic from "next/dynamic";
 
 // The playable game is only downloaded when someone launches it
-const StackRunner = dynamic(() => import("@/components/arcade/StackRunner"), { ssr: false });
 const DoomMode = dynamic(() => import("@/components/doom/DoomMode"), { ssr: false });
 const StreetFighterMode = dynamic(() => import("@/components/streetfighter/StreetFighterMode"), { ssr: false });
 const KombatMode = dynamic(() => import("@/components/mortalkombat/KombatMode"), { ssr: false });
-const PacmanMode = dynamic(() => import("@/components/pacman/PacmanMode"), { ssr: false });
 const BlackHoleMode = dynamic(() => import("@/components/blackhole/BlackHoleMode"), { ssr: false });
 const LifeMode = dynamic(() => import("@/components/life/LifeMode"), { ssr: false });
+const ArcadeMenu = dynamic(() => import("@/components/arcade/ArcadeMenu"), { ssr: false });
+import AchievementToast from "@/components/arcade/AchievementToast";
+import type { ArcadeGame } from "@/lib/arcade";
 
 // ==========================================
 // Motion: visuals and their story loops
@@ -369,13 +370,8 @@ interface TerminalDrawerProps {
   onTriggerMario: () => void;
   onTriggerMk: () => void;
   onTriggerToasty?: () => void;
-  onTriggerGame: () => void;
-  onTriggerDoom: () => void;
-  onTriggerFight: () => void;
-  onTriggerKombat: () => void;
-  onTriggerPacman: () => void;
-  onTriggerBlackHole: () => void;
-  onTriggerLife: () => void;
+  onLaunch: (game: ArcadeGame) => void;
+  onArcade: () => void;
 }
 
 function TerminalDrawer({
@@ -386,13 +382,8 @@ function TerminalDrawer({
   onTriggerMario,
   onTriggerMk,
   onTriggerToasty,
-  onTriggerGame,
-  onTriggerDoom,
-  onTriggerFight,
-  onTriggerKombat,
-  onTriggerPacman,
-  onTriggerBlackHole,
-  onTriggerLife,
+  onLaunch,
+  onArcade,
 }: TerminalDrawerProps) {
   const [inputVal, setInputVal] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -449,7 +440,6 @@ ARCADE:
   doom     (shoot the site!)
   fight    (street fighter, 1P or 2P)
   mk3      (mortal kombat, 1P or 2P)
-  pacman   (eat the site!)
   blackhole (swallow the site, then big bang)
   life     (the site comes alive)`,
         });
@@ -544,32 +534,18 @@ ARCADE:
       case "retro":
       case "secrets":
       case "games":
-        newLogs.push({
-          type: "out",
-          text: `ARCADE:
-  doom     (shoot the site!)
-  fight    (street fighter, 1P or 2P)
-  mk3      (mortal kombat, 1P or 2P)
-  pacman   (eat the site!)
-  blackhole (swallow the site, then big bang)
-  life     (the site comes alive)`,
-        });
-        break;
-
-      case "play":
-      case "game":
-        onTriggerGame();
+        onArcade();
         onClose();
         return;
 
       case "doom":
-        onTriggerDoom();
+        onLaunch("doom");
         onClose();
         return;
 
       case "fight":
       case "streetfighter":
-        onTriggerFight();
+        onLaunch("fight");
         onClose();
         return;
 
@@ -577,28 +553,21 @@ ARCADE:
       case "umk3":
       case "kombat":
       case "mortalkombat":
-        onTriggerKombat();
-        onClose();
-        return;
-
-      case "pacman":
-      case "pac":
-      case "pac-man":
-        onTriggerPacman();
+        onLaunch("kombat");
         onClose();
         return;
 
       case "blackhole":
       case "black-hole":
       case "singularity":
-        onTriggerBlackHole();
+        onLaunch("blackhole");
         onClose();
         return;
 
       case "life":
       case "conway":
       case "gameoflife":
-        onTriggerLife();
+        onLaunch("life");
         onClose();
         return;
 
@@ -804,13 +773,15 @@ export default function MinimalView() {
   const [marioActive, setMarioActive] = useState(false);
   const [fatalityActive, setFatalityActive] = useState(false);
   const [toastyOpen, setToastyOpen] = useState(false);
-  const [gameOpen, setGameOpen] = useState(false);
-  const [doomOpen, setDoomOpen] = useState(false);
-  const [fightOpen, setFightOpen] = useState(false);
-  const [kombatOpen, setKombatOpen] = useState(false);
-  const [pacmanOpen, setPacmanOpen] = useState(false);
-  const [holeOpen, setHoleOpen] = useState(false);
-  const [lifeOpen, setLifeOpen] = useState(false);
+  // which page-wrecking game is running, and whether the arcade menu is up
+  const [playing, setPlaying] = useState<ArcadeGame | null>(null);
+  const [arcadeOpen, setArcadeOpen] = useState(false);
+  const launch = useCallback((game: ArcadeGame) => {
+    setArcadeOpen(false);
+    setShowTerminal(false);
+    setPlaying(game);
+  }, []);
+  const stopPlaying = useCallback(() => setPlaying(null), []);
   const keyHistoryRef = useRef<string[]>([]);
   // const { setViewMode } = useViewMode();
 
@@ -847,7 +818,7 @@ export default function MinimalView() {
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // The games own the keyboard while they are open
-      if (gameOpen || doomOpen || fightOpen || kombatOpen || pacmanOpen || holeOpen || lifeOpen) return;
+      if (playing || arcadeOpen) return;
 
       // Don't trigger if user is focused inside an input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
@@ -921,7 +892,7 @@ export default function MinimalView() {
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [showToast, triggerToasty, gameOpen, doomOpen, fightOpen, kombatOpen, pacmanOpen, holeOpen, lifeOpen]);
+  }, [showToast, triggerToasty, playing, arcadeOpen]);
 
   return (
     <div data-page-root className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black relative">
@@ -1019,10 +990,10 @@ export default function MinimalView() {
             {/* Right-side quadrant: games terminal hint (types itself out as a story) */}
             <div className="m m-up pt-2 md:pt-0 shrink-0" style={d(0.5)}>
               <button
-                onClick={() => setShowTerminal(true)}
+                onClick={() => setArcadeOpen(true)}
                 className="group inline-flex items-center gap-2 font-mono text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
-                title="Open bash terminal (~)"
-                aria-label="type 'arcade' in the terminal"
+                title="Open the arcade"
+                aria-label="Open the arcade"
               >
                 <span>
                   type{" "}
@@ -1369,15 +1340,29 @@ export default function MinimalView() {
         </div>
       </footer>
 
-      {/* Terminal Drawer Trigger Button (pops in after the page lands; the underscore blinks) */}
-      <Unit story={blinkStory} start={2.4} className="m m-pop fixed bottom-3 right-3 z-30" style={d(1.2)}>
-        <button
-          onClick={() => setShowTerminal((prev) => !prev)}
-          className="px-2.5 py-1 rounded bg-black/80 border border-dotted border-zinc-800 hover:border-cyan-700 hover:text-cyan-300 text-[10px] font-mono text-zinc-400 transition-colors shadow-lg flex items-center gap-1.5"
-          title="Open terminal console (~)"
-        >
-          <span>&gt;<span data-blink>_</span> bash</span>
-        </button>
+      {/* Terminal Drawer Trigger Button (pops in after the page lands; the underscore blinks; hidden mid-game) */}
+      <Unit
+        story={blinkStory}
+        start={2.4}
+        className={`m m-pop fixed bottom-3 right-3 z-30 ${playing ? "invisible" : ""}`}
+        style={d(1.2)}
+      >
+        <div className="flex gap-2">
+          <button
+            onClick={() => setArcadeOpen(true)}
+            className="px-2.5 py-1 rounded bg-black/80 border border-dotted border-zinc-800 hover:border-yellow-600 hover:text-yellow-300 text-[10px] font-mono text-zinc-400 transition-colors shadow-lg flex items-center gap-1.5"
+            title="Open the arcade"
+          >
+            <span>▶ arcade</span>
+          </button>
+          <button
+            onClick={() => setShowTerminal((prev) => !prev)}
+            className="px-2.5 py-1 rounded bg-black/80 border border-dotted border-zinc-800 hover:border-cyan-700 hover:text-cyan-300 text-[10px] font-mono text-zinc-400 transition-colors shadow-lg flex items-center gap-1.5"
+            title="Open terminal console (~)"
+          >
+            <span>&gt;<span data-blink>_</span> bash</span>
+          </button>
+        </div>
       </Unit>
 
       {/* Toast Notification */}
@@ -1405,57 +1390,8 @@ export default function MinimalView() {
             onTriggerMario={() => setMarioActive(true)}
             onTriggerMk={() => setFatalityActive(true)}
             onTriggerToasty={triggerToasty}
-            onTriggerGame={() => {
-              setDoomOpen(false);
-              setFightOpen(false);
-              setKombatOpen(false);
-              setGameOpen(true);
-            }}
-            onTriggerDoom={() => {
-              setGameOpen(false);
-              setFightOpen(false);
-              setKombatOpen(false);
-              setDoomOpen(true);
-            }}
-            onTriggerFight={() => {
-              setGameOpen(false);
-              setDoomOpen(false);
-              setKombatOpen(false);
-              setFightOpen(true);
-            }}
-            onTriggerKombat={() => {
-              setGameOpen(false);
-              setDoomOpen(false);
-              setFightOpen(false);
-              setPacmanOpen(false);
-              setKombatOpen(true);
-            }}
-            onTriggerPacman={() => {
-              setGameOpen(false);
-              setDoomOpen(false);
-              setFightOpen(false);
-              setKombatOpen(false);
-              setHoleOpen(false);
-              setPacmanOpen(true);
-            }}
-            onTriggerBlackHole={() => {
-              setGameOpen(false);
-              setDoomOpen(false);
-              setFightOpen(false);
-              setKombatOpen(false);
-              setPacmanOpen(false);
-              setLifeOpen(false);
-              setHoleOpen(true);
-            }}
-            onTriggerLife={() => {
-              setGameOpen(false);
-              setDoomOpen(false);
-              setFightOpen(false);
-              setKombatOpen(false);
-              setPacmanOpen(false);
-              setHoleOpen(false);
-              setLifeOpen(true);
-            }}
+            onLaunch={launch}
+            onArcade={() => setArcadeOpen(true)}
           />
         )}
       </AnimatePresence>
@@ -1475,26 +1411,14 @@ export default function MinimalView() {
       {/* Easter Egg 4: Authentic MK Fatality (Announcer Voice & Blood Text) */}
       <MkFatality isActive={fatalityActive} onComplete={() => setFatalityActive(false)} />
 
-      {/* Playable platformer: Stack Runner (terminal: play) */}
-      {gameOpen && <StackRunner onClose={() => setGameOpen(false)} />}
-
-      {/* DOOM mode: shoot the page apart (terminal: doom) */}
-      {doomOpen && <DoomMode onClose={() => setDoomOpen(false)} />}
-
-      {/* Street Fighter mode: two players brawl on the page (terminal: fight) */}
-      {fightOpen && <StreetFighterMode onClose={() => setFightOpen(false)} />}
-
-      {/* Mortal Kombat mode: Scorpion vs Sub-Zero on the page (terminal: mk3) */}
-      {kombatOpen && <KombatMode onClose={() => setKombatOpen(false)} />}
-
-      {/* Pac-Man mode: eat the page and grow (terminal: pacman) */}
-      {pacmanOpen && <PacmanMode onClose={() => setPacmanOpen(false)} />}
-
-      {/* Black hole mode: the page falls in, then a Big Bang puts it back (terminal: blackhole) */}
-      {holeOpen && <BlackHoleMode onClose={() => setHoleOpen(false)} />}
-
-      {/* Game of Life mode: the page becomes Conway's Life (terminal: life) */}
-      {lifeOpen && <LifeMode onClose={() => setLifeOpen(false)} />}
+      {/* The page-wrecking games, one at a time; the arcade menu lists them all (terminal: arcade) */}
+      {playing === "doom" && <DoomMode onClose={stopPlaying} />}
+      {playing === "fight" && <StreetFighterMode onClose={stopPlaying} />}
+      {playing === "kombat" && <KombatMode onClose={stopPlaying} />}
+      {playing === "blackhole" && <BlackHoleMode onClose={stopPlaying} />}
+      {playing === "life" && <LifeMode onClose={stopPlaying} />}
+      {arcadeOpen && !playing && <ArcadeMenu onLaunch={launch} onClose={() => setArcadeOpen(false)} />}
+      <AchievementToast />
 
       {/* Global Zero-Latency Preloader for Arcade Sprites & Audio */}
       <ArcadePreload />

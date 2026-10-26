@@ -1,6 +1,8 @@
 import { drawFrame, type Atlas, type Hit, type Sfx } from "./assets";
 import { PageWreck } from "./wreck";
 import { docBox } from "../doom/page";
+import { playRewind } from "../arcade/rewindSound";
+import { record, unlock } from "@/lib/arcade";
 
 // ==========================================
 // STREET FIGHTER mode: two Ryus fight on top of the portfolio. The viewport is the stage,
@@ -303,6 +305,8 @@ export class FightGame {
   private last = 0;
   private acc = 0;
   private over = false;
+  /** on the way out: the fight is gone and the page is flying back together */
+  private leaving = 0;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -371,6 +375,14 @@ export class FightGame {
 
   releaseAll() {
     for (const f of this.fighters) f.keys = { ...NONE };
+  }
+
+  /** Leaving: the fighters go, and every broken piece of the page flies back home. */
+  exit(done: () => void) {
+    if (this.leaving) return;
+    this.leaving = 0.0001;
+    playRewind(this.sfx.muted);
+    this.wreck.rewind(done);
   }
 
   /** One-tap special for player 1 (the touch controls), without the motion. */
@@ -519,6 +531,7 @@ export class FightGame {
       this.setState(winner, "win");
       winner.face = winner.x < this.fighters[1 - winner.id].x ? 1 : -1;
       const perfect = winner.hp >= MAX_HP;
+      if (perfect && (winner.id === 0 || this.mode === "versus")) unlock("fight-perfect");
       this.banner = { text: `${this.tag(winner.id)} WINS`, sub: sub ?? (perfect ? "PERFECT" : undefined) };
     } else {
       this.banner = { text: "DRAW", sub };
@@ -531,6 +544,8 @@ export class FightGame {
       if (this.over) return;
       this.over = true;
       const winner = a.wins === b.wins ? null : a.wins > b.wins ? 0 : 1;
+      if (winner === 0 && this.mode === "cpu") unlock("fight-win");
+      record("fight", this.mode === "cpu" ? this.stats.maxCombo[0] : Math.max(...this.stats.maxCombo));
       this.onEnd({
         winner,
         rounds: [a.wins, b.wins],
@@ -556,10 +571,11 @@ export class FightGame {
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
     this.acc += dt * this.slow;
-    while (this.acc >= TICK) {
+    while (this.acc >= TICK && !this.leaving) {
       this.acc -= TICK;
       this.step();
     }
+    if (this.leaving) this.leaving += dt;
     this.wreck.update(dt * this.slow, window.scrollY + this.floorY);
     this.render();
     if (this.running) this.raf = requestAnimationFrame(this.frame);
@@ -1224,6 +1240,7 @@ export class FightGame {
     ctx.translate(-window.scrollX, -window.scrollY);
     this.wreck.draw(ctx, window.scrollY - 200, window.scrollY + vh + 200);
     ctx.restore();
+    if (this.leaving) return;
 
     // floor: a dotted rule like the page's own
     ctx.fillStyle = "#3f3f46";

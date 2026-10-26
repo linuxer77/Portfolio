@@ -1,26 +1,40 @@
 import { docBox, glyphOf, textNodes } from "../doom/page";
 import { snapshotBox } from "../streetfighter/wreck";
+import { record, unlock } from "@/lib/arcade";
 import type { Sound } from "./sound";
 
 // ==========================================
-// GAME OF LIFE mode: the page becomes Conway's Game of Life. A scan line sweeps down and
-// every letter (and every bright pixel of the project images) is rasterized into live cells
-// in its own colour, so at first the page still reads, just made of cells. Then it evolves:
-// new cells are born cyan, age through violet and pink, and still lifes settle amber, with a
-// blue afterglow where cells die. Draw with the pointer, rain gliders, pause and step.
-// Esc sweeps the page back. Nothing in the DOM changes; the board is drawn on this canvas.
+// GAME OF LIFE mode: the page as Conway's Game of Life. Every letter (and every bright pixel
+// of the project images) is read into cells, but the page stays as it is until you click it:
+// life ripples out from where you clicked, and only cells it has reached evolve. Newborn
+// cells spread it further, so a glider crashing into a paragraph sets that paragraph off too.
+// Known creatures (gliders, blinkers, blocks, beehives…) are found and labelled as they form.
+// Nothing in the DOM changes: woken cells are drawn on this canvas, the rest is the real page.
 // ==========================================
 
-const CELL = 3; // px per cell
-const BAND = 140; // rows simulated beyond the screen, above and below
-const SWEEP_TIME = 1.1;
-export const SPEEDS = [2, 4, 8, 12, 20, 30, 60];
+const CELL = 5; // px per cell
+const BAND = 100; // rows simulated beyond the screen, above and below
+const WAVE_SPEED = 26; // cells per second the ripple from a click spreads
+const WAVE_MAX = 70; // cells: how far one click's ripple reaches
+const SCAN_EVERY = 0.35; // seconds between pattern searches
+const MAX_LABELS = 40;
+const FADE_TIME = 0.6;
+export const SPEEDS = [2, 4, 8, 12, 20, 30];
+
+export type Kind = "ship" | "oscillator" | "still";
 
 export interface LifeStats {
   generation: number;
   population: number;
   speed: number;
   paused: boolean;
+  awake: boolean;
+}
+
+export interface LifeReport {
+  generation: number;
+  cells: number;
+  creatures: { name: string; kind: Kind; count: number }[];
 }
 
 // age → colour: born cyan, then violet, pink, and amber once it has sat still for a while
@@ -39,14 +53,101 @@ const PALETTE = Array.from({ length: 64 }, (_, age) => {
   return c0.map((v, k) => Math.round(v + (c1[k] - v) * t)) as [number, number, number];
 });
 
-// a glider, heading down-right; mirrored for the other directions
-const GLIDER = [
-  [1, 0],
-  [2, 1],
-  [0, 2],
-  [1, 2],
-  [2, 2],
+export const KIND_COLOUR: Record<Kind, string> = { ship: "#67e8f9", oscillator: "#c4b5fd", still: "#fbbf24" };
+
+// ---------- the creatures it knows ----------
+
+type Cells = [number, number][];
+
+const parse = (rows: string[]): Cells =>
+  rows.flatMap((row, y) => [...row].flatMap((c, x) => (c === "#" ? [[x, y] as [number, number]] : [])));
+
+const normalise = (cells: Cells): Cells => {
+  const mx = Math.min(...cells.map((c) => c[0]));
+  const my = Math.min(...cells.map((c) => c[1]));
+  return cells.map(([x, y]) => [x - mx, y - my] as [number, number]).sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+};
+
+const keyOf = (cells: Cells) => normalise(cells).join(";");
+
+// the eight ways a shape can be turned or mirrored
+const TRANSFORMS: ((x: number, y: number) => [number, number])[] = [
+  (x, y) => [x, y],
+  (x, y) => [-x, y],
+  (x, y) => [x, -y],
+  (x, y) => [-x, -y],
+  (x, y) => [y, x],
+  (x, y) => [-y, x],
+  (x, y) => [y, -x],
+  (x, y) => [-y, -x],
 ];
+
+/** The same key for a shape however it's turned. */
+const canonical = (cells: Cells) =>
+  TRANSFORMS.map((t) => keyOf(cells.map(([x, y]) => t(x, y)))).reduce((a, b) => (a < b ? a : b));
+
+/** Runs a tiny Life board one step, for working out every phase of a creature. */
+function stepCells(cells: Cells): Cells {
+  const alive = new Set(cells.map(([x, y]) => `${x},${y}`));
+  const counts = new Map<string, number>();
+  for (const [x, y] of cells) {
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const k = `${x + dx},${y + dy}`;
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
+  }
+  const out: Cells = [];
+  for (const [k, n] of counts) {
+    if (n === 3 || (n === 2 && alive.has(k))) {
+      const [x, y] = k.split(",").map(Number);
+      out.push([x, y]);
+    }
+  }
+  return out;
+}
+
+const KNOWN = new Map<string, { name: string; kind: Kind }>();
+const remember = (name: string, kind: Kind, start: string[], phases = 1) => {
+  let cells = parse(start);
+  for (let i = 0; i < phases; i++) {
+    KNOWN.set(canonical(cells), { name, kind });
+    cells = stepCells(cells);
+  }
+};
+remember("BLOCK", "still", ["##", "##"]);
+remember("BEEHIVE", "still", [".##.", "#..#", ".##."]);
+remember("LOAF", "still", [".##.", "#..#", ".#.#", "..#."]);
+remember("BOAT", "still", ["##.", "#.#", ".#."]);
+remember("TUB", "still", [".#.", "#.#", ".#."]);
+remember("SHIP", "still", ["##.", "#.#", ".##"]);
+remember("POND", "still", [".##.", "#..#", "#..#", ".##."]);
+remember("BLINKER", "oscillator", ["###"], 2);
+remember("TOAD", "oscillator", [".###", "###."], 2);
+remember("BEACON", "oscillator", ["##..", "##..", "..##", "..##"], 2);
+remember("GLIDER", "ship", [".#.", "..#", "###"], 4);
+
+// gliders: every phase in every orientation, mapped to the way it's heading
+const GLIDER_SE = [".#.", "..#", "###"];
+const HEADING = new Map<string, string>();
+{
+  let phase = parse(GLIDER_SE);
+  for (let p = 0; p < 4; p++) {
+    for (const t of TRANSFORMS) {
+      const [dx, dy] = t(1, 1);
+      HEADING.set(keyOf(phase.map(([x, y]) => t(x, y))), dy > 0 ? (dx > 0 ? "↘" : "↙") : dx > 0 ? "↗" : "↖");
+    }
+    phase = stepCells(phase);
+  }
+}
+
+interface Label {
+  text: string;
+  kind: Kind;
+  x: number; // centre, document px
+  y: number; // top of the creature
+}
 
 export class LifeGame {
   private ctx: CanvasRenderingContext2D;
@@ -61,21 +162,31 @@ export class LifeGame {
   private orig = new Uint8Array(0);
   private base = new Uint32Array(0);
   private trail = new Uint8Array(0);
+  /** cells life has reached; the rest of the page stays as it is */
+  private awake = new Uint8Array(0);
+  private waves: { x: number; y: number; r: number }[] = [];
+  private labels: Label[] = [];
+  private counts = new Map<string, { kind: Kind; count: number }>();
+  private seen = new Uint8Array(0);
   private frameCanvas = document.createElement("canvas");
   private frameCtx = this.frameCanvas.getContext("2d")!;
   private frameImg: ImageData | null = null;
 
-  private phase: "in" | "life" | "out" = "in";
-  private phaseT = 0;
+  private ready = false;
+  private leaving = 0;
   private generation = 0;
   private population = 0;
-  private speedIndex = 3;
+  private woken = 0;
+  private speedIndex = 1;
+  /** the speed creeps up on its own until the visitor picks one */
+  private autoSpeed = true;
+  private rampT = 0;
   private paused = false;
   private acc = 0;
-  private painting = false;
-  private pointer = { x: 0, y: 0 };
-  private onDone: (() => void) | null = null;
+  private scanT = 0;
   private statsT = 0;
+  private press: { x: number; y: number; moved: boolean } | null = null;
+  private onDone: (() => void) | null = null;
 
   private running = false;
   private raf = 0;
@@ -96,13 +207,11 @@ export class LifeGame {
 
   start() {
     this.build();
-    this.population = this.countVisible();
-    this.phase = "in";
-    this.phaseT = 0;
-    this.sound.sweep(true);
+    this.ready = true;
     this.running = true;
     this.last = performance.now();
     this.raf = requestAnimationFrame(this.frame);
+    this.emit();
   }
 
   stop() {
@@ -117,66 +226,102 @@ export class LifeGame {
     this.headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
   }
 
-  togglePause() {
-    this.paused = !this.paused;
+  setPaused(paused: boolean) {
+    this.paused = paused;
     this.emit();
   }
 
+  togglePause() {
+    this.setPaused(!this.paused);
+  }
+
   step() {
-    if (this.phase !== "life") return;
+    if (!this.ready) return;
     this.paused = true;
     this.tick();
     this.emit();
   }
 
   faster(by: number) {
+    this.autoSpeed = false;
     this.speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, this.speedIndex + by));
     this.emit();
   }
 
-  /** Paints live cells under the pointer while it's down. */
-  draw(clientX: number, clientY: number, down: boolean) {
-    this.pointer = { x: clientX, y: clientY };
-    this.painting = down;
-    if (down) this.paint(clientX, clientY);
+  /** Pointer down: a click wakes the page here; a drag draws new cells. */
+  down(clientX: number, clientY: number) {
+    this.press = { x: clientX, y: clientY, moved: false };
+  }
+
+  move(clientX: number, clientY: number) {
+    const p = this.press;
+    if (!p) return;
+    if (!p.moved && Math.hypot(clientX - p.x, clientY - p.y) > 6) p.moved = true;
+    if (p.moved) {
+      p.x = clientX;
+      p.y = clientY;
+      this.paint(clientX, clientY);
+    }
+  }
+
+  up(clientX: number, clientY: number) {
+    const p = this.press;
+    this.press = null;
+    if (p && !p.moved) this.wake(clientX, clientY);
   }
 
   /** A rain of gliders across the screen, heading every which way. */
   gliders() {
-    if (this.phase !== "life") return;
+    if (!this.ready) return;
     const [top, bottom] = this.visibleRows();
-    for (let n = 0; n < 14; n++) {
-      const x0 = 4 + Math.floor(Math.random() * (this.W - 8));
-      const y0 = top + Math.floor(Math.random() * (bottom - top - 4));
-      const fx = Math.random() < 0.5;
-      const fy = Math.random() < 0.5;
-      for (const [dx, dy] of GLIDER) this.set(x0 + (fx ? 2 - dx : dx), y0 + (fy ? 2 - dy : dy));
+    const shape = parse(GLIDER_SE);
+    for (let n = 0; n < 12; n++) {
+      const x0 = 6 + Math.floor(Math.random() * (this.W - 12));
+      const y0 = top + 3 + Math.floor(Math.random() * Math.max(1, bottom - top - 8));
+      const t = TRANSFORMS[Math.floor(Math.random() * 4)];
+      for (const [x, y] of shape) {
+        const [tx, ty] = t(x - 1, y - 1);
+        this.set(x0 + tx, y0 + ty);
+      }
+      this.wakeArea(x0, y0, 3);
     }
     this.sound.spark();
   }
 
   /** A sprinkle of random cells over the screen. */
   soup() {
-    if (this.phase !== "life") return;
+    if (!this.ready) return;
     const [top, bottom] = this.visibleRows();
     for (let y = top; y < bottom; y++) {
-      for (let x = 1; x < this.W - 1; x++) if (Math.random() < 0.06) this.set(x, y);
+      for (let x = 1; x < this.W - 1; x++) {
+        this.awakeCell(y * this.W + x);
+        if (Math.random() < 0.08) this.set(x, y);
+      }
     }
     this.sound.spark();
   }
 
-  /** Leaving: sweep the page back in, then close. */
+  /** What the page turned into, for the report card. */
+  report(): LifeReport {
+    const creatures = [...this.counts.entries()]
+      .map(([name, { kind, count }]) => ({ name, kind, count }))
+      .sort((a, b) => b.count - a.count);
+    return { generation: this.generation, cells: this.woken, creatures };
+  }
+
+  /** Leaving: the woken cells fade out over the real page, then close. */
   exit(done: () => void) {
-    if (this.phase === "out") return;
+    record("life", this.generation);
+    if (this.onDone) return;
+    if (!this.woken) return done();
     this.onDone = done;
-    this.phase = "out";
-    this.phaseT = 0;
+    this.leaving = 0.0001;
     this.sound.sweep(false);
   }
 
   // ---------- the board ----------
 
-  /** Rasterizes the page, text and images, into the starting cells. */
+  /** Rasterizes the page, text and images, into cells. Nothing moves until it's woken. */
   private build() {
     const docW = document.documentElement.clientWidth;
     const docH = document.documentElement.scrollHeight;
@@ -189,7 +334,9 @@ export class LifeGame {
     this.orig = new Uint8Array(n);
     this.base = new Uint32Array(n);
     this.trail = new Uint8Array(n);
+    this.awake = new Uint8Array(n);
     this.generation = 0;
+    this.woken = 0;
 
     const raster = document.createElement("canvas");
     raster.width = W;
@@ -220,15 +367,62 @@ export class LifeGame {
       const g = px[i * 4 + 1];
       const b = px[i * 4 + 2];
       const a = px[i * 4 + 3];
-      // lit pixels come alive; the black backgrounds of the image boxes don't
-      if (a < 90 || Math.max(r, g, b) < 70) continue;
+      // lit pixels become cells; the black backgrounds of the image boxes don't
+      if (a < 70 || Math.max(r, g, b) < 60) continue;
       this.cur[i] = 1;
       this.orig[i] = 1;
       this.age[i] = 40;
-      // brighten a touch: a cell is a pixel of the letter, so it reads a little dimmer
       const k = Math.min(1.6, 255 / Math.max(r, g, b));
       this.base[i] = (Math.min(255, r * k) << 16) | (Math.min(255, g * k) << 8) | Math.min(255, b * k);
     }
+  }
+
+  private awakeCell(i: number) {
+    if (this.awake[i]) return;
+    this.awake[i] = 1;
+    this.woken++;
+  }
+
+  private wakeArea(cx: number, cy: number, r: number) {
+    for (let y = Math.max(1, cy - r); y <= Math.min(this.H - 2, cy + r); y++) {
+      for (let x = Math.max(1, cx - r); x <= Math.min(this.W - 2, cx + r); x++) this.awakeCell(y * this.W + x);
+    }
+  }
+
+  /** A click: life ripples out from here. */
+  private wake(clientX: number, clientY: number) {
+    if (!this.ready || this.leaving) return;
+    unlock("life-awake");
+    const x = Math.floor((clientX + window.scrollX) / CELL);
+    const y = Math.floor((clientY + window.scrollY) / CELL);
+    this.waves.push({ x, y, r: 0 });
+    this.sound.spark();
+    this.emit();
+  }
+
+  /** Grows each ripple, waking the ring of cells it passes over. */
+  private spreadWaves(dt: number) {
+    for (const w of this.waves) {
+      const r0 = w.r;
+      const r1 = Math.min(WAVE_MAX, r0 + WAVE_SPEED * dt);
+      for (let dy = -Math.ceil(r1); dy <= Math.ceil(r1); dy++) {
+        const y = w.y + dy;
+        if (y < 1 || y > this.H - 2) continue;
+        const outer = r1 * r1 - dy * dy;
+        if (outer < 0) continue;
+        const xo = Math.floor(Math.sqrt(outer));
+        const inner = r0 * r0 - dy * dy;
+        const xi = inner > 0 ? Math.ceil(Math.sqrt(inner)) : 0;
+        for (const side of [-1, 1]) {
+          for (let dx = xi; dx <= xo; dx++) {
+            const x = w.x + side * dx;
+            if (x > 0 && x < this.W - 1) this.awakeCell(y * this.W + x);
+          }
+        }
+      }
+      w.r = r1;
+    }
+    this.waves = this.waves.filter((w) => w.r < WAVE_MAX);
   }
 
   private set(x: number, y: number) {
@@ -240,19 +434,12 @@ export class LifeGame {
   }
 
   private paint(clientX: number, clientY: number) {
-    if (this.phase !== "life") return;
+    if (!this.ready) return;
     const cx = Math.floor((clientX + window.scrollX) / CELL);
     const cy = Math.floor((clientY + window.scrollY) / CELL);
     for (let dy = -1; dy <= 1; dy++)
-      for (let dx = -1; dx <= 1; dx++) if (Math.random() < 0.75) this.set(cx + dx, cy + dy);
-  }
-
-  /** Live cells on screen right now. */
-  private countVisible() {
-    const [top, bottom] = this.visibleRows();
-    let n = 0;
-    for (let i = top * this.W; i < bottom * this.W; i++) n += this.cur[i];
-    return n;
+      for (let dx = -1; dx <= 1; dx++) if (Math.random() < 0.7) this.set(cx + dx, cy + dy);
+    this.wakeArea(cx, cy, 3);
   }
 
   private visibleRows(): [number, number] {
@@ -261,13 +448,17 @@ export class LifeGame {
     return [top, bottom];
   }
 
-  /** One generation, B3/S23, on the rows around the screen; the rest of the page waits. */
+  /**
+   * One generation, B3/S23, on woken cells in the rows around the screen. Cells still asleep
+   * hold still but count as neighbours; a birth next to them wakes them, so life spreads.
+   */
   private tick() {
-    const { W, cur, next, age, orig, trail } = this;
+    const { W, cur, next, age, orig, trail, awake } = this;
     const [top, bottom] = this.visibleRows();
     const y0 = Math.max(1, top - BAND);
     const y1 = Math.min(this.H - 2, bottom + BAND);
     next.set(cur);
+    const spread: number[] = [];
     let births = 0;
     let deaths = 0;
     let population = 0;
@@ -275,6 +466,7 @@ export class LifeGame {
       const row = y * W;
       for (let x = 1; x < W - 1; x++) {
         const i = row + x;
+        if (!awake[i]) continue;
         const n =
           cur[i - W - 1] +
           cur[i - W] +
@@ -284,8 +476,7 @@ export class LifeGame {
           cur[i + W - 1] +
           cur[i + W] +
           cur[i + W + 1];
-        const alive = cur[i];
-        if (alive) {
+        if (cur[i]) {
           if (n === 2 || n === 3) {
             if (age[i] < 255) age[i]++;
             if (y >= top && y < bottom) population++;
@@ -295,21 +486,93 @@ export class LifeGame {
             trail[i] = 150;
             deaths++;
           }
-        } else {
-          if (n === 3) {
-            next[i] = 1;
-            age[i] = 0;
-            births++;
-            if (y >= top && y < bottom) population++;
-          } else if (trail[i]) trail[i] = trail[i] > 14 ? trail[i] - 14 : 0;
-        }
+        } else if (n === 3) {
+          next[i] = 1;
+          age[i] = 0;
+          births++;
+          spread.push(i);
+          if (y >= top && y < bottom) population++;
+        } else if (trail[i]) trail[i] = trail[i] > 14 ? trail[i] - 14 : 0;
       }
+    }
+    for (const i of spread) {
+      this.awakeCell(i - W - 1);
+      this.awakeCell(i - W);
+      this.awakeCell(i - W + 1);
+      this.awakeCell(i - 1);
+      this.awakeCell(i + 1);
+      this.awakeCell(i + W - 1);
+      this.awakeCell(i + W);
+      this.awakeCell(i + W + 1);
     }
     this.cur = next;
     this.next = cur;
     this.generation++;
+    if (this.generation === 1000) unlock("life-1000");
     this.population = population;
     this.sound.generation(births, deaths);
+  }
+
+  /** Finds small known creatures on screen and labels them. */
+  private scan() {
+    const { W, cur, awake } = this;
+    const [top, bottom] = this.visibleRows();
+    const size = (bottom - top) * W;
+    if (this.seen.length < size) this.seen = new Uint8Array(size);
+    else this.seen.fill(0, 0, size);
+    const labels: Label[] = [];
+    const counts = new Map<string, { kind: Kind; count: number }>();
+    const stack: number[] = [];
+    for (let y = top; y < bottom; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        const s = (y - top) * W + x;
+        if (!cur[i] || !awake[i] || this.seen[s]) continue;
+        // flood-fill one clump of touching cells; give up on anything big
+        const cells: Cells = [];
+        let big = false;
+        stack.push(i);
+        this.seen[s] = 1;
+        while (stack.length) {
+          const j = stack.pop()!;
+          const jx = j % W;
+          const jy = (j - jx) / W;
+          if (cells.length < 16) cells.push([jx, jy]);
+          else big = true;
+          for (let dy = -1; dy <= 1; dy++) {
+            const ny = jy + dy;
+            if (ny < top || ny >= bottom) continue;
+            for (let dx = -1; dx <= 1; dx++) {
+              const k = ny * W + jx + dx;
+              const ks = (ny - top) * W + jx + dx;
+              if (cur[k] && awake[k] && !this.seen[ks]) {
+                this.seen[ks] = 1;
+                stack.push(k);
+              }
+            }
+          }
+        }
+        if (big) continue;
+        const found = KNOWN.get(canonical(cells));
+        if (!found) continue;
+        const text = found.name === "GLIDER" ? `GLIDER ${HEADING.get(keyOf(cells)) ?? ""}`.trim() : found.name;
+        const tally = counts.get(found.name) ?? { kind: found.kind, count: 0 };
+        tally.count++;
+        counts.set(found.name, tally);
+        if (labels.length < MAX_LABELS) {
+          const cx = cells.reduce((a, c) => a + c[0], 0) / cells.length;
+          const cy = Math.min(...cells.map((c) => c[1]));
+          labels.push({ text, kind: found.kind, x: (cx + 0.5) * CELL, y: cy * CELL });
+        }
+      }
+    }
+    this.labels = labels;
+    if ((counts.get("GLIDER")?.count ?? 0) >= 15) unlock("life-gliders");
+    // the report keeps the most of each creature seen at once
+    for (const [name, c] of counts) {
+      const best = this.counts.get(name);
+      if (!best || c.count > best.count) this.counts.set(name, c);
+    }
   }
 
   // ---------- loop ----------
@@ -324,31 +587,33 @@ export class LifeGame {
   };
 
   private update(dt: number) {
-    this.phaseT += dt;
-    if (this.phase === "in") {
-      if (this.phaseT >= SWEEP_TIME + 0.5) {
-        this.phase = "life";
-        this.phaseT = 0;
-      }
-      return;
-    }
-    if (this.phase === "out") {
-      if (this.phaseT >= SWEEP_TIME && this.onDone) {
+    if (this.leaving) {
+      this.leaving += dt;
+      if (this.leaving >= FADE_TIME && this.onDone) {
         const done = this.onDone;
         this.onDone = null;
         done();
       }
       return;
     }
-    if (this.painting) this.paint(this.pointer.x, this.pointer.y);
-    if (!this.paused) {
+    this.spreadWaves(dt);
+    if (this.press?.moved) this.paint(this.press.x, this.press.y);
+    if (!this.paused && this.woken) {
+      // a gentle start, so the first generations can be followed, then it picks up
+      if (this.autoSpeed && this.speedIndex < 3 && (this.rampT += dt) > 6) {
+        this.rampT = 0;
+        this.speedIndex++;
+      }
       this.acc += dt * SPEEDS[this.speedIndex];
-      // never more than a few generations per frame, so a slow device doesn't spiral
       for (let n = 0; this.acc >= 1 && n < 4; n++) {
         this.acc -= 1;
         this.tick();
       }
       if (this.acc > 1) this.acc = 0;
+    }
+    if ((this.scanT -= dt) <= 0) {
+      this.scanT = SCAN_EVERY;
+      if (this.woken) this.scan();
     }
     if ((this.statsT -= dt) <= 0) {
       this.statsT = 0.25;
@@ -362,21 +627,11 @@ export class LifeGame {
       population: this.population,
       speed: SPEEDS[this.speedIndex],
       paused: this.paused,
+      awake: this.woken > 0 || this.waves.length > 0,
     });
   }
 
   // ---------- rendering ----------
-
-  /** How far down the screen the board reaches during a sweep, in viewport px. */
-  private sweepLine() {
-    const vh = window.innerHeight;
-    const span = vh - this.headerBottom;
-    const p = Math.min(1, this.phaseT / SWEEP_TIME);
-    const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
-    if (this.phase === "in") return this.headerBottom + span * e;
-    if (this.phase === "out") return this.headerBottom + span * (1 - e);
-    return vh;
-  }
 
   private render() {
     const { ctx, W } = this;
@@ -385,26 +640,30 @@ export class LifeGame {
     const vh = window.innerHeight;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, vw, vh);
-    const line = this.sweepLine();
-    if (line <= this.headerBottom + 0.5) return;
+    if (!this.ready || !this.woken) {
+      this.drawWaves();
+      return;
+    }
 
-    // the board, from the header down to the sweep line, one pixel per cell, scaled up crisp
-    const [top] = this.visibleRows();
-    const rows = Math.min(this.H - top, Math.ceil((line - this.headerBottom) / CELL) + 2);
-    if (rows <= 0) return;
+    // woken cells only, one pixel per cell, scaled up crisp; asleep, the real page shows through
+    const [top, bottom] = this.visibleRows();
+    const rows = bottom - top + 1;
     if (this.frameCanvas.width !== W || this.frameCanvas.height !== rows || !this.frameImg) {
       this.frameCanvas.width = W;
       this.frameCanvas.height = rows;
       this.frameImg = this.frameCtx.createImageData(W, rows);
     }
-    const img = this.frameImg;
-    const d = img.data;
-    const { cur, age, orig, base, trail } = this;
+    const d = this.frameImg.data;
+    const { cur, age, orig, base, trail, awake } = this;
     for (let y = 0; y < rows; y++) {
       const row = (top + y) * W;
       for (let x = 0; x < W; x++) {
         const i = row + x;
         const o = (y * W + x) * 4;
+        if (!awake[i]) {
+          d[o + 3] = 0;
+          continue;
+        }
         d[o + 3] = 255;
         if (cur[i]) {
           if (orig[i]) {
@@ -425,46 +684,64 @@ export class LifeGame {
           d[o + 1] = t * 0.25;
           d[o + 2] = t * 0.75;
         } else {
-          // the buffer is reused frame to frame, so empty cells have to be cleared
           d[o] = d[o + 1] = d[o + 2] = 0;
         }
       }
     }
-    this.frameCtx.putImageData(img, 0, 0);
+    this.frameCtx.putImageData(this.frameImg, 0, 0);
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, this.headerBottom, vw, line - this.headerBottom);
+    ctx.rect(0, this.headerBottom, vw, vh - this.headerBottom);
     ctx.clip();
+    ctx.globalAlpha = this.leaving ? Math.max(0, 1 - this.leaving / FADE_TIME) : 1;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.frameCanvas, 0, top * CELL - window.scrollY, W * CELL, rows * CELL);
+    if (!this.leaving) this.drawLabels();
     ctx.restore();
+    this.drawWaves();
+  }
 
-    // the scan line, while it sweeps
-    if (this.phase !== "life") {
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      const glow = ctx.createLinearGradient(0, line - 24, 0, line + 2);
-      glow.addColorStop(0, "rgba(103,232,249,0)");
-      glow.addColorStop(1, "rgba(103,232,249,0.45)");
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, line - 24, vw, 26);
-      ctx.fillStyle = "rgba(220,250,255,0.95)";
-      ctx.fillRect(0, line - 1, vw, 2);
-      ctx.restore();
-    }
-
-    if (this.phase === "life") {
-      ctx.font = `bold ${vw < 640 ? 10 : 12}px ${this.font}`;
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = "rgba(0,0,0,0.8)";
-      ctx.fillRect(0, this.headerBottom + 8, vw < 640 ? 230 : 330, 24);
-      ctx.fillStyle = "#67e8f9";
-      ctx.fillText(
-        `GEN ${this.generation.toLocaleString()} · POP ${this.population.toLocaleString()} · ${SPEEDS[this.speedIndex]}/s${this.paused ? " · PAUSED" : ""}`,
-        16,
-        this.headerBottom + 20
+  /** The ripples spreading from each click. */
+  private drawWaves() {
+    const { ctx } = this;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const w of this.waves) {
+      const p = w.r / WAVE_MAX;
+      ctx.strokeStyle = `rgba(103,232,249,${0.85 * (1 - p)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(
+        (w.x + 0.5) * CELL - window.scrollX,
+        (w.y + 0.5) * CELL - window.scrollY,
+        Math.max(1, w.r * CELL),
+        0,
+        Math.PI * 2
       );
-      ctx.textBaseline = "alphabetic";
+      ctx.stroke();
     }
+    ctx.restore();
+  }
+
+  /** Names over the creatures it recognises, without letting labels pile up on each other. */
+  private drawLabels() {
+    const { ctx } = this;
+    ctx.font = `bold 10px ${this.font}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    const placed: [number, number, number][] = [];
+    for (const l of this.labels) {
+      const x = l.x - window.scrollX;
+      const y = l.y - window.scrollY - 3;
+      if (y < this.headerBottom + 12) continue;
+      const w = ctx.measureText(l.text).width + 6;
+      if (placed.some(([px, py, pw]) => Math.abs(px - x) < (pw + w) / 2 && Math.abs(py - y) < 13)) continue;
+      placed.push([x, y, w]);
+      ctx.fillStyle = "rgba(0,0,0,0.75)";
+      ctx.fillRect(x - w / 2, y - 12, w, 12);
+      ctx.fillStyle = KIND_COLOUR[l.kind];
+      ctx.fillText(l.text, x, y);
+    }
+    ctx.textBaseline = "alphabetic";
   }
 }
