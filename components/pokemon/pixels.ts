@@ -8,6 +8,8 @@
 
 /** Colour ramps, brightest first. */
 export const FIRE = ["#fffbe0", "#ffe25c", "#ffb020", "#f86818", "#d02c10", "#7c1408"];
+export const BLUEFIRE = ["#f0ffff", "#a0f0ff", "#40c8ff", "#2070f0", "#2030b0", "#101860"];
+export const DARK = ["#6a5a80", "#3a2c4c", "#22182e", "#120c1a"];
 export const WATER = ["#ffffff", "#c8f0ff", "#68c8f8", "#2890e8", "#1458b8", "#0c2c70"];
 export const ICE = ["#ffffff", "#e0faff", "#a0e8f8", "#58c0e8", "#2c88c8"];
 export const GHOST = ["#f4dcff", "#c890f8", "#9050e0", "#6028b0", "#3c1478", "#1c0838"];

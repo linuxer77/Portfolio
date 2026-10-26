@@ -1,12 +1,24 @@
 import type { Species } from "./sprites";
 
 // ==========================================
-// The roster's numbers: each Pokémon's moves (one per button), base stats, types, and the
-// slice of the type chart these three need. Powers are per hit; for streams (Flamethrower,
-// Hydro Pump, Ice Beam) they're per tick.
+// The roster's numbers: each Pokémon's moves (one per button), its Mega Evolution's moves
+// (which take over the same buttons), base stats, types, and the slice of the type chart
+// these need. Powers are per hit; for streams (Flamethrower, Hydro Pump, Ice Beam, Heat Wave)
+// they're per tick.
 // ==========================================
 
-export type Kind = "fire" | "water" | "ice" | "ground" | "dragon" | "dark" | "flying" | "normal" | "ghost" | "poison";
+export type Kind =
+  | "fire"
+  | "water"
+  | "ice"
+  | "ground"
+  | "dragon"
+  | "dark"
+  | "flying"
+  | "normal"
+  | "ghost"
+  | "poison"
+  | "fighting";
 
 /** J, K, L, U, O and I on the keyboard. */
 export type Slot = "melee" | "s1" | "s2" | "s3" | "s4" | "burst";
@@ -51,10 +63,51 @@ export const MOVES: Record<Species, Record<Slot, Move>> = {
   },
 };
 
+/** After Mega Evolution, the same buttons do these. */
+export const MEGA_MOVES: Record<Species, Record<Slot, Move>> = {
+  charizard: {
+    melee: { name: "DRAGON TAIL", short: "TAIL", kind: "dragon", power: 12, cooldown: 0.6 },
+    s1: { name: "HEAT WAVE", short: "HEAT", kind: "fire", power: 3.6, cooldown: 2.6 },
+    s2: { name: "FLARE BLITZ", short: "BLITZ", kind: "fire", power: 26, cooldown: 4.5 },
+    s3: { name: "DRAGON PULSE", short: "PULSE", kind: "dragon", power: 21, cooldown: 3.5 },
+    s4: { name: "DRAGON DANCE", short: "DANCE", kind: "dragon", power: 0, cooldown: 10 },
+    burst: { name: "INFERNO OVERDRIVE", short: "INFERNO", kind: "fire", power: 70, cooldown: 0 },
+  },
+  blastoise: {
+    melee: { name: "AQUA TAIL", short: "AQUA", kind: "water", power: 14, cooldown: 0.6 },
+    s1: { name: "WATER PULSE", short: "W.PULSE", kind: "water", power: 11, cooldown: 2.6 },
+    s2: { name: "DARK PULSE", short: "D.PULSE", kind: "dark", power: 18, cooldown: 4 },
+    s3: { name: "AURA SPHERE", short: "AURA", kind: "fighting", power: 17, cooldown: 3 },
+    s4: { name: "SHELL SMASH", short: "SMASH", kind: "normal", power: 0, cooldown: 10 },
+    burst: { name: "HYDRO VORTEX", short: "VORTEX", kind: "water", power: 64, cooldown: 0 },
+  },
+  gengar: {
+    melee: { name: "SHADOW CLAW", short: "CLAW", kind: "ghost", power: 13, cooldown: 0.55 },
+    s1: { name: "SLUDGE WAVE", short: "S.WAVE", kind: "poison", power: 17, cooldown: 3.5 },
+    s2: { name: "SHADOW SNEAK", short: "SNEAK", kind: "ghost", power: 15, cooldown: 3 },
+    s3: { name: "HEX", short: "HEX", kind: "ghost", power: 14, cooldown: 2.4 },
+    s4: { name: "CURSE", short: "CURSE", kind: "ghost", power: 0, cooldown: 12 },
+    burst: { name: "NEVER-ENDING NIGHTMARE", short: "N.MARE", kind: "ghost", power: 70, cooldown: 0 },
+  },
+};
+
+export const MEGA_NAME: Record<Species, string> = {
+  charizard: "MEGA CHARIZARD X",
+  blastoise: "MEGA BLASTOISE",
+  gengar: "MEGA GENGAR",
+};
+
 export const STATS: Record<Species, { hp: number; speed: number }> = {
   charizard: { hp: 153, speed: 108 },
   blastoise: { hp: 185, speed: 92 },
   gengar: { hp: 135, speed: 116 },
+};
+
+/** Mega Charizard X turns Fire/Dragon; the others keep their types. */
+export const MEGA_TYPES: Record<Species, Kind[]> = {
+  charizard: ["fire", "dragon"],
+  blastoise: ["water"],
+  gengar: ["ghost", "poison"],
 };
 
 export const TYPES: Record<Species, Kind[]> = {
@@ -65,16 +118,18 @@ export const TYPES: Record<Species, Kind[]> = {
 
 /** attacker kind → defender type → multiplier (1 when missing) */
 const CHART: Partial<Record<Kind, Partial<Record<Kind, number>>>> = {
-  fire: { fire: 0.5, water: 0.5 },
-  water: { fire: 2, water: 0.5 },
-  ice: { flying: 2, fire: 0.5, water: 0.5 },
+  fire: { fire: 0.5, water: 0.5, dragon: 0.5 },
+  water: { fire: 2, water: 0.5, dragon: 0.5 },
+  ice: { flying: 2, fire: 0.5, water: 0.5, dragon: 2 },
   ground: { fire: 2, poison: 2, flying: 0 },
   dark: { ghost: 2 },
+  dragon: { dragon: 2 },
+  fighting: { ghost: 0, flying: 0.5, poison: 0.5 },
   ghost: { ghost: 2 },
   normal: { ghost: 0 },
   poison: { poison: 0.5, ghost: 0.5 },
 };
 
-export function effectiveness(kind: Kind, target: Species) {
-  return TYPES[target].reduce((m, t) => m * (CHART[kind]?.[t] ?? 1), 1);
+export function effectiveness(kind: Kind, target: Species, mega = false) {
+  return (mega ? MEGA_TYPES : TYPES)[target].reduce((m, t) => m * (CHART[kind]?.[t] ?? 1), 1);
 }

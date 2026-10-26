@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom";
 import TouchControls from "@/components/arcade/TouchControls";
 import { BattleGame, type BattleStats } from "./game";
-import { MOVES, SLOT_KEY, SLOTS } from "./moves";
+import { MEGA_MOVES, MEGA_NAME, MOVES, SLOT_KEY, SLOTS } from "./moves";
 import { Sound } from "./sound";
 import { loadMon, type Species } from "./sprites";
 
@@ -43,6 +43,7 @@ const KEYS: [string, string][] = [
   ["MOVES", "K  L  U  O"],
   ["BURST", "I, when the meter fills"],
   ["DODGE", "Space"],
+  ["MEGA EVOLVE", "E, once your HP is below 40%"],
 ];
 
 interface Match {
@@ -78,6 +79,8 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
   // your pick while you choose a rival, then the match (kept for rematches)
   const [choice, setChoice] = useState<Species | null>(null);
   const [match, setMatch] = useState<Match | null>(null);
+  // your Pokémon has Mega Evolved: the touch buttons show its Mega moves
+  const [megaOn, setMegaOn] = useState(false);
   const [watch, setWatch] = useState(false);
   const [end, setEnd] = useState<BattleStats | null>(null);
   const [muted, setMuted] = useState(false);
@@ -112,11 +115,22 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
     const sound = new Sound();
     soundRef.current = sound;
     setMuted(sound.muted);
-    Promise.all([loadMon("charizard"), loadMon("blastoise"), loadMon("gengar")])
-      .then(([charizard, blastoise, gengar]) => {
+    Promise.all([
+      loadMon("charizard"),
+      loadMon("blastoise"),
+      loadMon("gengar"),
+      loadMon("charizard", "charizard-mega"),
+      loadMon("gengar", "gengar-mega"),
+    ])
+      .then(([charizard, blastoise, gengar, megaCharizard, megaGengar]) => {
         if (cancelled) return;
-        gameRef.current = new BattleGame(canvas, { charizard, blastoise, gengar }, sound, setEnd, shake);
+        // there's no Mega Blastoise sprite: it keeps its own, with a cannon drawn on
+        const megas = { charizard: megaCharizard, gengar: megaGengar };
+        gameRef.current = new BattleGame(canvas, { charizard, blastoise, gengar }, megas, sound, setEnd, shake);
         gameRef.current.setTouch(window.matchMedia("(pointer: coarse)").matches);
+        gameRef.current.onMega = (id) => {
+          if (id === 0) setMegaOn(true);
+        };
         setLoading(false);
       })
       .catch(() => setFailed(true));
@@ -158,6 +172,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
     setEnd(null);
     setChoice(null);
     setMatch(m);
+    setMegaOn(false);
     gameRef.current.start(m.mine, m.rival, m.watch);
   }, []);
 
@@ -234,7 +249,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
 
   if (!mounted) return null;
 
-  const moves = match && !match.watch ? MOVES[match.mine] : null;
+  const moves = match && !match.watch ? (megaOn ? MEGA_MOVES : MOVES)[match.mine] : null;
 
   return createPortal(
     <div data-arcade className="font-mono">
@@ -279,6 +294,9 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
                   onTap: () => gameRef.current?.press(slot),
                 })),
                 { label: moves.burst.short, tone: "finish", onTap: () => gameRef.current?.press("burst") },
+                ...(megaOn
+                  ? []
+                  : [{ label: "MEGA", tone: "finish" as const, onTap: () => gameRef.current?.press("mega") }]),
               ]}
               onKey={(code, down) => gameRef.current?.key(code, down)}
             />
@@ -286,7 +304,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
             <div className="pointer-events-none fixed inset-x-0 bottom-3 z-[47] text-center text-[10px] uppercase tracking-widest text-zinc-500">
               {match?.watch
                 ? "CPU vs CPU · sit back and watch · esc exit"
-                : "WASD move · J attack · K L U O moves · I burst · space dodge · esc exit"}
+                : "WASD move · J attack · K L U O moves · I burst · E mega · space dodge · esc exit"}
             </div>
           )}
         </>
@@ -412,6 +430,18 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
                             <span className="text-zinc-600">{SLOT_KEY[slot]}</span> {MOVES[r.species][slot].name}
                           </span>
                         ))}
+                      </div>
+                      <div className="border-t border-dotted border-zinc-800 pt-2 text-[10px]">
+                        <div className="mb-0.5 font-bold tracking-wider text-fuchsia-300">
+                          E → {MEGA_NAME[r.species]}
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-zinc-400">
+                          {SLOTS.map((slot) => (
+                            <span key={slot} className={slot === "burst" ? "text-fuchsia-300" : ""}>
+                              {MEGA_MOVES[r.species][slot].name}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </button>
                   ))}

@@ -39,8 +39,9 @@ const image = (src: string) =>
     img.src = src;
   });
 
-export async function loadMon(species: Species): Promise<Mon> {
-  const base = `/pokemon/${species}`;
+/** Loads a Pokémon's sheets; `form` picks another folder, e.g. "charizard-mega". */
+export async function loadMon(species: Species, form: string = species): Promise<Mon> {
+  const base = `/pokemon/${form}`;
   const data = (await fetch(`${base}/anims.json`).then((r) => r.json())) as {
     anims: Record<string, Omit<Anim, "img" | "length">>;
   };

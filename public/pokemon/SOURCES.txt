@@ -9,3 +9,11 @@ Pokemon is (c) Nintendo / Creatures / GAME FREAK. Fan use only.
 Gengar (0094):
 2022-12-17 00:13:11.432426	CHUNSOFT	CUR	Unspecified	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Lick,Twirl,Swing,Double,Rotate,Hop
 2023-04-22 22:29:17.717502	<@!237286997645983744>	CUR	PMDCollab_1	EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint
+Mega charizard (0006/0001):
+2021-11-04 23:42:49.305726	KEVIN0ITACHI	CUR	PMDCollab_1	Walk,Attack,Shoot,SpAttack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate,Cringe
+2026-03-22 18:33:18.762140	<@!350050109741858829>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Swing,Double,Rotate,Hop,Cringe
+2026-03-29 23:00:48.129950	<@!479925530129596426>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Swing,Double,Rotate,Hop,Cringe
+Mega gengar (0094/0001):
+2024-09-30 22:42:15.037570	<@!653416391201783856>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Charge,Twirl,Swing,Double,Rotate
+2024-10-22 02:17:17.065530	<@!237286997645983744>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Charge,Swing,Double,Rotate
+2024-12-21 22:32:40.814474	<@!544245909639397378>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Lick,Twirl,Swing,Double,Rotate,Hop

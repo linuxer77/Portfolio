@@ -225,6 +225,18 @@ export class Sound {
     this.tone(1200, 1200, 0.1, "triangle", 0.06, 0.05);
   }
 
+  /** Mega Evolution: a shimmering arpeggio climbing up, then a burst. */
+  megaEvolve() {
+    [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => this.tone(f, f, 0.22, "triangle", 0.07, i * 0.09));
+    this.hiss(0.9, "bandpass", 1500, 7000, 0.15, 0, 3, 0.3);
+  }
+
+  /** Something huge falling from the sky. */
+  incoming(dur: number) {
+    this.tone(1800, 300, dur, "sine", 0.1);
+    this.hiss(dur, "bandpass", 3000, 600, 0.2, 0, 4, 0.2);
+  }
+
   /** A Burst's cut-in: a rising swoosh and a stab. */
   cutin() {
     this.hiss(0.45, "bandpass", 600, 6000, 0.3, 0, 2, 0.02);
