@@ -115,7 +115,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
   const [size, setSize] = useState<1 | 3>(1);
   const [team, setTeam] = useState<Species[]>([]);
   const [rivalTeam, setRivalTeam] = useState<Species[]>([]);
-  // your Pokémon out right now, and whether your team's one Mega Evolution is spent
+  // your Pokémon out right now, and whether it has used its Mega Evolution
   const [cur, setCur] = useState<Species | null>(null);
   const [megaSpent, setMegaSpent] = useState(false);
   const [match, setMatch] = useState<Match | null>(null);
@@ -175,6 +175,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
           if (id !== 0) return;
           setCur(species);
           setMegaOn(false);
+          setMegaSpent(false);
         };
         setLoading(false);
       })

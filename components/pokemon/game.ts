@@ -82,6 +82,8 @@ const HYPER = ["#ffffff", "#fff1c0", "#ffc060", "#ff8030", "#c04010"];
 const SOLAR = ["#ffffff", "#f8ffc0", "#c8f060", "#78d038", "#2f8a20"];
 const JADE = ["#f0fff4", "#9cf0b0", "#3cc870", "#1c8a48", "#0c4a28"];
 const MAGMA = ["#fff4c0", "#ffb030", "#f05010", "#a01808", "#400804"];
+/** Mewtwo's psychic glow, white-hot to deep violet */
+const ZEN = ["#ffffff", "#ffe0f4", "#ff9ce0", "#e860c8", "#a83098"];
 const RAGE = ["#fff0f0", "#ff9090", "#e02848", "#8a1040", "#3a0828"];
 /** The colour a legendary's lunge streams off its body. */
 const LUNGE_PAL: Record<string, string[]> = {
@@ -4808,6 +4810,9 @@ export class BattleGame {
     } else if (slot === "s2") {
       f.state = "blink";
       f.invuln = 0.3;
+      // where it vanished from, for the column of light it leaves behind
+      f.tx = f.x;
+      f.ty = f.y;
       this.sound.teleport();
       this.psyPuff(f.x, f.y);
     } else {
@@ -4923,7 +4928,12 @@ export class BattleGame {
             this.flashes.push({ x, y, t: 0, r: 40 * k, colour: PINK[1] });
           }
         }
-        if (f.landed && f.t < 0.55) o.z = Math.min(44 * k, o.z + 140 * k * dt);
+        if (f.landed && f.t < 0.55) {
+          o.z = Math.min(44 * k, o.z + 140 * k * dt);
+          // bits of the page float up around what it holds
+          if (Math.random() < 0.7)
+            this.spawn("psy", o.x + rand(-30, 30) * k, o.y + rand(-12, 12) * k, 0, 0, 0.6, 2 * k, 0, rand(60, 140) * k);
+        }
         if (f.landed && !f.hits && f.t >= 0.55) {
           // and thrown, hard, the way Mewtwo is facing
           f.hits = 1;
@@ -4935,6 +4945,7 @@ export class BattleGame {
           this.strike(f, o, "s1", dx, dy, 520);
           this.wreck.crater(o.x, o.y, 8 * k);
           this.dust(o.x, o.y, 14);
+          this.bursts.push({ kind: "psywave", owner: f.id, x: o.x, y: o.y, t: 0, max: 80 * k, hit: true, wreckT: 0 });
         }
         if (f.t >= 0.75) this.toFree(f);
         break;
@@ -4951,6 +4962,7 @@ export class BattleGame {
           f.x = Math.max(a.l, Math.min(a.r, f.x + Math.cos(ang) * 150 * k));
           f.y = Math.max(a.t, Math.min(a.b, f.y + Math.sin(ang) * 150 * k));
           f.vx = f.vy = f.kx = f.ky = 0;
+          f.trail.push({ x: f.tx, y: f.ty, z: f.z, a: 0.9 });
           this.psyPuff(f.x, f.y);
         }
         if (f.t >= 0.25) this.toFree(f);
@@ -4998,6 +5010,19 @@ export class BattleGame {
     const k = this.k;
     const t = fin.t;
     f.z = Math.min(26 * k, f.z + 80 * k * dt);
+    if (t < 1.6)
+      for (let i = 0; i < 2; i++)
+        this.spawn(
+          "psy",
+          f.x + rand(-16, 16) * k,
+          f.y,
+          0,
+          0,
+          0.5,
+          rand(2, 3.5) * k,
+          f.z + rand(0, 20) * k,
+          rand(80, 200) * k
+        );
     // a psychic ring every quarter second, sweeping out to the edges of the screen
     const wave = Math.floor(t / 0.25);
     if (t < 1.4 && wave > fin.next) {
@@ -5343,9 +5368,8 @@ export class BattleGame {
       a.t + (a.b - a.t) * (id === 0 ? 0.7 : 0.32)
     );
     f.cpu = loser.cpu;
-    // the team's tallies carry on, and so does its one Mega Evolution
+    // the team's tallies carry on; every Pokémon gets its own Mega Evolution
     f.stats = loser.stats;
-    f.megaUsed = loser.megaUsed || loser.mega;
     this.f![id] = f;
     // a Primal's weather leaves with it
     if (loser.mega && (loser.species === "groudon" || loser.species === "kyogre") && this.weather) {
@@ -6041,16 +6065,35 @@ export class BattleGame {
     const k = this.k;
     const p = s.t / 0.22;
     if (s.kind === "psycut") {
-      // Psycho Cut: a glowing crescent blade of psychic power
-      const n = 13;
+      // Psycho Cut: a crescent blade of psychic power, layered, with fading afterimages behind it
+      const n = 16;
       const sweep = Math.min(1, p * 3);
-      for (let i = 0; i < n * sweep; i++) {
-        const a = s.angle - 1.2 + (i / (n - 1)) * 2.4;
-        const r = 20 * k;
-        const x = s.fromX + Math.cos(a) * r * 1.3;
-        const y = s.fromY - 12 * k + Math.sin(a) * r;
-        g.dot(x, y, i % 3 ? PINK[1] : PINK[0], i > 2 && i < n - 3 ? 3 : 2);
+      const fade = 1 - Math.max(0, (p - 0.5) * 2);
+      for (const [lag, r0, alpha] of [
+        [0.5, 18, 0.3],
+        [0.25, 21, 0.55],
+        [0, 24, 1],
+      ]) {
+        g.alpha = alpha * fade;
+        let px = 0;
+        let py = 0;
+        const shown = Math.floor(n * Math.max(0, sweep - lag * 0.4));
+        for (let i = 0; i <= shown; i++) {
+          const a = s.angle - 1.25 + (i / n) * 2.5;
+          // thickest in the middle of the crescent
+          const thick = Math.sin((i / n) * Math.PI);
+          const x = s.fromX + Math.cos(a) * r0 * k * 1.3;
+          const y = s.fromY - 12 * k + Math.sin(a) * r0 * k;
+          if (i > 0) {
+            g.line(px, py, x, y, ZEN[4], Math.round(2 + thick * 4));
+            g.line(px, py, x, y, ZEN[2], Math.round(1 + thick * 2.5));
+            g.line(px, py, x, y, ZEN[0], 1);
+          }
+          px = x;
+          py = y;
+        }
       }
+      g.alpha = 1;
       return;
     }
     if (s.kind === "tail") {
@@ -6176,17 +6219,30 @@ export class BattleGame {
       return;
     }
     if (s.kind === "psyshard") {
-      // a psychic crystal: a little diamond, glinting
+      // a psychic crystal, glinting, with a streak of light behind it
       const dx = Math.cos(s.angle);
       const dy = Math.sin(s.angle);
-      g.line(s.x - dx * 7 * k, y - dy * 7 * k, s.x + dx * 7 * k, y + dy * 7 * k, PINK[3], 4);
-      g.line(s.x - dx * 6 * k, y - dy * 6 * k, s.x + dx * 6 * k, y + dy * 6 * k, PINK[1], 2);
-      g.dot(s.x + dx * 3 * k, y + dy * 3 * k, "#fff", 1);
+      g.alpha = 0.5;
+      g.line(s.x - dx * 26 * k, y - dy * 26 * k, s.x - dx * 6 * k, y - dy * 6 * k, ZEN[3], 2);
+      g.alpha = 1;
+      g.line(s.x - dx * 8 * k, y - dy * 8 * k, s.x + dx * 8 * k, y + dy * 8 * k, ZEN[4], 6);
+      g.line(s.x - dx * 7 * k, y - dy * 7 * k, s.x + dx * 7 * k, y + dy * 7 * k, ZEN[3], 4);
+      g.line(s.x - dx * 5 * k, y - dy * 5 * k, s.x + dx * 6 * k, y + dy * 6 * k, ZEN[1], 2);
+      g.dot(s.x + dx * 3 * k, y + dy * 3 * k, "#fff", 2);
+      if (Math.floor(t * 12 + s.angle * 10) % 4 === 0) {
+        g.line(s.x - 4 * k, y, s.x + 4 * k, y, "#fff", 1);
+        g.line(s.x, y - 4 * k, s.x, y + 4 * k, "#fff", 1);
+      }
       return;
     }
     if (s.kind === "star") {
-      // Swift: a spinning five-pointed star
+      // Swift: a spinning five-pointed star, trailing sparkles
       const spin = t * 12;
+      const sp = Math.hypot(s.vx, s.vy) || 1;
+      for (let i = 1; i <= 5; i++) {
+        const q = i * 5 * k;
+        g.dot(s.x - (s.vx / sp) * q, y - (s.vy / sp) * q, i % 2 ? "#fde047" : "#ffffff", i < 3 ? 2 : 1);
+      }
       for (let i = 0; i < 5; i++) {
         const a = spin + (i / 5) * Math.PI * 2;
         g.line(s.x, y, s.x + Math.cos(a) * 7 * k, y + Math.sin(a) * 7 * k, "#d8b020", 3);
@@ -6240,11 +6296,39 @@ export class BattleGame {
     const t = this.clock;
     const flick = Math.floor(t * 30);
     if (b.kind === "futuresight") {
-      // eight psychic orbs, circling in tighter and tighter until they meet
+      // a rune burned into the page, eight orbs circling in on it, then a pillar of light from the sky
+      if (b.t >= 0.9 && b.t < 1.3) {
+        const q = (b.t - 0.9) / 0.4;
+        const top = window.scrollY + this.headerBottom;
+        const w = 22 * k * (1 - q);
+        g.alpha = 1 - q * 0.5;
+        g.line(b.x, top, b.x, b.y, ZEN[3], Math.max(1, Math.round((w * 2.2) / g.p)));
+        g.line(b.x, top, b.x, b.y, ZEN[1], Math.max(1, Math.round((w * 1.2) / g.p)));
+        g.line(b.x, top, b.x, b.y, ZEN[0], Math.max(1, Math.round((w * 0.5) / g.p)));
+        g.alpha = 1;
+      }
       if (b.t > 1.05) return;
       const p = Math.min(1, b.t);
       const r = b.max * (1 - p * p);
-      g.ring(b.x, b.y, b.max * 0.55, PINK[3], 0.5, 1, 0.5, Math.floor(t * 10));
+      const rune = Math.min(1, b.t / 0.3);
+      const R = b.max * 0.7 * rune;
+      g.ring(b.x, b.y, R, ZEN[3], 0.5, 2, 0.15, Math.floor(t * 10));
+      g.ring(b.x, b.y, R * 0.8, ZEN[2], 0.5, 1, 0.4, Math.floor(t * 10) + 7);
+      // a hexagram, turning
+      for (const off of [0, Math.PI]) {
+        for (let i = 0; i < 3; i++) {
+          const a0 = b.t * 1.5 + off + (i / 3) * Math.PI * 2;
+          const a1 = b.t * 1.5 + off + ((i + 1) / 3) * Math.PI * 2;
+          g.line(
+            b.x + Math.cos(a0) * R * 0.78,
+            b.y + Math.sin(a0) * R * 0.39,
+            b.x + Math.cos(a1) * R * 0.78,
+            b.y + Math.sin(a1) * R * 0.39,
+            Math.floor(t * 16 + i) % 3 ? ZEN[2] : ZEN[0],
+            1
+          );
+        }
+      }
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2 + b.t * 6;
         const x = b.x + Math.cos(a) * r;
@@ -6640,9 +6724,10 @@ export class BattleGame {
     }
     // lunges: the move's colour streaming off the body, a bow shock in front, speed lines
     for (const f of this.f!) {
-      if (f.state !== "legend") continue;
-      const name = this.legendName(f);
-      const pal = LUNGE_PAL[name];
+      const zen = f.state === "zen";
+      if (f.state !== "legend" && !zen) continue;
+      const name = zen ? "ZEN HEADBUTT" : this.legendName(f);
+      const pal = zen ? ZEN : LUNGE_PAL[name];
       if (!pal) continue;
       const sp = Math.hypot(f.vx, f.vy);
       const cy = f.y - f.z - 14 * k;
@@ -6979,55 +7064,121 @@ export class BattleGame {
       if (f.state === "hidden" || f.state === "gone") continue;
       const cy = f.y - f.z - 16 * k;
       if (f.barrier > 0) {
-        // a hexagonal shield, shimmering
-        const r = 30 * k;
-        const fade = Math.min(1, f.barrier / 0.3);
+        // a dome of hexagonal cells, a shimmer sweeping across it
+        const r = 32 * k;
+        const fade = Math.min(1, f.barrier / 0.3) * Math.min(1, (1.5 - f.barrier) / 0.12 + 0.3);
+        const c = 6.5 * k;
+        const sweep = ((t * 1.6) % 1) * 2.4 - 1.2;
         g.alpha = fade;
-        for (let i = 0; i < 6; i++) {
-          const a0 = (i / 6) * Math.PI * 2 + Math.PI / 6;
-          const a1 = ((i + 1) / 6) * Math.PI * 2 + Math.PI / 6;
-          const c = (Math.floor(t * 12) + i) % 3 === 0 ? "#ffffff" : i % 2 ? PINK[1] : "#a0e8f8";
-          g.line(f.x + Math.cos(a0) * r, cy + Math.sin(a0) * r, f.x + Math.cos(a1) * r, cy + Math.sin(a1) * r, c, 2);
-        }
+        for (let qy = -5; qy <= 5; qy++)
+          for (let qx = -5; qx <= 5; qx++) {
+            const hx = (qx + (qy % 2 ? 0.5 : 0)) * c * 1.73;
+            const hy = qy * c * 1.5;
+            const d = Math.hypot(hx, hy);
+            if (d > r - c * 0.6) continue;
+            const shine = Math.abs(hx / r - sweep) < 0.22;
+            const col = shine ? "#ffffff" : d > r * 0.6 ? "#a0e8f8" : PINK[1];
+            for (let i = 0; i < 6; i++) {
+              const a0 = (i / 6) * Math.PI * 2 + Math.PI / 6;
+              const a1 = ((i + 1) / 6) * Math.PI * 2 + Math.PI / 6;
+              g.line(
+                f.x + hx + Math.cos(a0) * c,
+                cy + hy * 0.9 + Math.sin(a0) * c * 0.9,
+                f.x + hx + Math.cos(a1) * c,
+                cy + hy * 0.9 + Math.sin(a1) * c * 0.9,
+                col,
+                1
+              );
+            }
+          }
+        g.ring(f.x, cy, r, "#ffffff", 0.9, 1, 0.1, Math.floor(t * 12));
         g.alpha = 1;
       }
-      if (f.held > 0) {
-        // held by the mind: a pulsing pink outline of light
-        const pulse = 1 + Math.sin(t * 20) * 0.1;
-        g.ring(f.x, cy, 22 * k * pulse, PINK[1], 1.1, 2, 0.2, Math.floor(t * 16));
-        g.ring(f.x, cy, 26 * k * pulse, PINK[2], 1.1, 1, 0.5, Math.floor(t * 16) + 3);
-      }
-      if (f.state === "psy" && f.landed && f.t < 0.6) {
-        // Psychic's link from Mewtwo to what it holds: a wavering line of force
-        const o = this.other(f);
-        const ox = o.x;
-        const oy = o.y - o.z - 16 * k;
-        let px = f.x;
-        let py = f.y - 20 * k;
-        for (let i = 1; i <= 10; i++) {
-          const q = i / 10;
-          const x = f.x + (ox - f.x) * q + Math.sin(q * 12 + t * 30) * 4 * k;
-          const y = f.y - 20 * k + (oy - f.y + 20 * k) * q + Math.cos(q * 10 + t * 25) * 4 * k;
-          g.line(px, py, x, y, i % 2 ? PINK[1] : PINK[0], 2);
-          px = x;
-          py = y;
+      if (f.species === "mewtwo" && f.state === "blink") {
+        // Teleport: where it was, a column of light collapses to nothing, glitching
+        const q = Math.min(1, f.t / 0.25);
+        const w = Math.max(1, Math.round(((1 - q) * 16 * k) / g.p));
+        g.line(f.tx, f.ty + 4 * k, f.tx, f.ty - 60 * k, ZEN[2], w + 2);
+        g.line(f.tx, f.ty + 4 * k, f.tx, f.ty - 60 * k, ZEN[0], w);
+        for (let i = 0; i < 5; i++) {
+          const gy = f.ty - hash(i + Math.floor(t * 30)) * 50 * k;
+          const gw = (10 + hash(i * 3 + Math.floor(t * 30)) * 30) * k * (1 - q);
+          g.line(f.tx - gw, gy, f.tx + gw, gy, i % 2 ? ZEN[1] : "#a0e8f8", 1);
+        }
+        // and where it's going, rings opening up
+        if (f.t >= 0.1) {
+          const o2 = (f.t - 0.1) / 0.15;
+          g.ring(f.x, f.y - 14 * k, (6 + o2 * 30) * k, ZEN[1], 0.6, 2, 0.2, Math.floor(t * 20));
+          g.ring(f.x, f.y - 14 * k, (2 + o2 * 18) * k, ZEN[0], 0.6, 1, 0.4, Math.floor(t * 20) + 4);
         }
       }
+      if (f.species === "mewtwo" && f.state === "buff") {
+        // Recover: halos of light rising through it
+        for (let i = 0; i < 3; i++) {
+          const q = (f.t * 2 + i / 3) % 1;
+          g.ring(
+            f.x,
+            f.y - q * 46 * k,
+            (22 - q * 10) * k,
+            i % 2 ? ZEN[1] : "#ffffff",
+            0.4,
+            1,
+            0.2,
+            Math.floor(t * 20) + i
+          );
+        }
+        g.ditherDisc(f.x, f.y, 24 * k, ZEN[2], 0.4, Math.floor(t * 10) % 2);
+      }
+      if (f.species === "mewtwo" && f.state === "psy" && f.t < 0.6) {
+        // its hand blazes as it reaches out with its mind
+        const hx = f.x + Math.cos(f.aimAngle) * 16 * k;
+        const hy = cy + Math.sin(f.aimAngle) * 10 * k;
+        g.disc(hx, hy, (5 + Math.sin(t * 40)) * k, ZEN[3]);
+        g.disc(hx, hy, 3 * k, ZEN[0]);
+      }
+      if (f.held > 0 && this.other(f).species === "mewtwo") {
+        // held by the mind: tilted rings of force turning round it, sparks caught in them
+        const pulse = 1 + Math.sin(t * 20) * 0.1;
+        g.ring(f.x, cy, 22 * k * pulse, PINK[1], 1.1, 2, 0.2, Math.floor(t * 16));
+        for (let ring = 0; ring < 3; ring++) {
+          const tilt = ring * 1.05 + t * 0.8;
+          for (let i = 0; i < 14; i++) {
+            const a = (i / 14) * Math.PI * 2 + t * (4 + ring);
+            const ex = Math.cos(a) * 28 * k;
+            const ey = Math.sin(a) * 9 * k;
+            const x = f.x + ex * Math.cos(tilt) - ey * Math.sin(tilt);
+            const y = cy + ex * Math.sin(tilt) * 0.6 + ey * Math.cos(tilt);
+            g.dot(x, y, i % 4 === 0 ? "#ffffff" : ZEN[2 + (ring % 2)], i % 4 === 0 ? 2 : 1);
+          }
+        }
+      }
+      if (f.state === "psy" && f.landed && f.t < 0.6) this.psyLink(g, f, this.other(f));
     }
     for (const b of this.bolts) {
-      // Thunderbolt: a jagged bolt with a white-hot core, flickering
+      // Thunderbolt: a jagged bolt with a white-hot core, glowing, forking, flickering
       if (Math.floor(b.t * 30) % 3 === 2) continue;
       const n = 9;
       let px = b.x0;
       let py = b.y0;
+      const flick = Math.floor(b.t * 20);
       for (let i = 1; i <= n; i++) {
         const q = i / n;
-        const j = i === n ? 0 : (hash(i + b.seed + Math.floor(b.t * 20)) - 0.5) * 22 * k;
+        const j = i === n ? 0 : (hash(i + b.seed + flick) - 0.5) * 22 * k;
         const x = b.x0 + (b.x1 - b.x0) * q + j;
         const y = b.y0 + (b.y1 - b.y0) * q + j * 0.5;
+        g.alpha = 0.35;
+        g.line(px, py, x, y, "#fde047", 10);
+        g.alpha = 1;
         g.line(px, py, x, y, "#d8b020", 5);
         g.line(px, py, x, y, "#fde047", 3);
         g.line(px, py, x, y, "#ffffff", 1);
+        // forks splitting off
+        if (i > 1 && i < n && hash(i * 7 + b.seed + flick) > 0.55) {
+          const a = Math.atan2(b.y1 - b.y0, b.x1 - b.x0) + (hash(i * 3 + flick) > 0.5 ? 0.9 : -0.9);
+          const len = (12 + hash(i + flick) * 18) * k;
+          g.line(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len, "#fde047", 2);
+          g.line(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len, "#ffffff", 1);
+        }
         px = x;
         py = y;
       }
@@ -7035,14 +7186,107 @@ export class BattleGame {
     }
     const fin = this.finale;
     if (fin?.kind === "mewtwo") {
-      // Mewtwo's eyes blaze, and psychic energy spirals round it
       const m = this.f![fin.owner];
+      const o = this.other(m);
+      if (fin.mega) this.drawShatter(g, fin);
+      else if (fin.hit && fin.hits === 0 && fin.t < 1.55) {
+        // Psystrike: spears of psychic force form all round the held foe, then drive in at once
+        const ox = o.x;
+        const oy = o.y - o.z - 16 * k;
+        const n = 22;
+        const close = Math.min(1, Math.max(0, (fin.t - 1.25) / 0.25));
+        for (let i = 0; i < n; i++) {
+          const born = 0.5 + (i / n) * 0.55;
+          if (fin.t < born) continue;
+          const grow = Math.min(1, (fin.t - born) / 0.12);
+          const a = (i / n) * Math.PI * 2 + hash(i) * 0.2;
+          const d = (150 - close * close * 130 + hash(i * 3) * 30) * k;
+          const len = 34 * k * grow;
+          const x0 = ox + Math.cos(a) * (d + len);
+          const y0 = oy + Math.sin(a) * (d + len) * 0.7;
+          const x1 = ox + Math.cos(a) * d;
+          const y1 = oy + Math.sin(a) * d * 0.7;
+          g.line(x0, y0, x1, y1, ZEN[4], 4);
+          g.line(x0, y0, x1, y1, ZEN[2], 2);
+          g.line(x0, y0, x1, y1, ZEN[0], 1);
+          g.dot(x1, y1, "#ffffff", 2);
+        }
+      }
+      if (o.held > 0) this.psyLink(g, m, o);
+      // Mewtwo's eyes blaze, and psychic energy spirals round it
       for (let i = 0; i < 10; i++) {
         const a = t * 5 + (i / 10) * Math.PI * 2;
         const r = (20 + Math.sin(t * 6 + i) * 4) * k;
         g.disc(m.x + Math.cos(a) * r, m.y - m.z - 16 * k + Math.sin(a) * r * 0.6, 2 * k, i % 2 ? PINK[0] : PINK[2]);
       }
     }
+  }
+
+  /** A wavering line of psychic force from Mewtwo to what it holds. */
+  private psyLink(g: PixelLayer, f: Fighter, o: Fighter) {
+    const k = this.k;
+    const t = this.clock;
+    const ox = o.x;
+    const oy = o.y - o.z - 16 * k;
+    for (const [amp, colour, width] of [
+      [6, ZEN[3], 3],
+      [4, ZEN[1], 2],
+      [2, ZEN[0], 1],
+    ] as const) {
+      let px = f.x;
+      let py = f.y - f.z - 20 * k;
+      for (let i = 1; i <= 14; i++) {
+        const q = i / 14;
+        const x = f.x + (ox - f.x) * q + Math.sin(q * 12 + t * 30) * amp * k;
+        const y = f.y - f.z - 20 * k + (oy - f.y + f.z + 20 * k) * q + Math.cos(q * 10 + t * 25) * amp * k;
+        g.line(px, py, x, y, colour, width);
+        px = x;
+        py = y;
+      }
+    }
+  }
+
+  /**
+   * Shattered Psyche: the screen cracks like glass, a web out from its middle; with the last slam
+   * the glass bursts outward and falls away.
+   */
+  private drawShatter(g: PixelLayer, fin: NonNullable<BattleGame["finale"]>) {
+    const t = fin.t;
+    if (t < 0.4) return;
+    const v = this.view();
+    const cx = v.x + v.w / 2;
+    const cy = v.y + v.h * 0.55;
+    const R = Math.hypot(v.w, v.h) * 0.6;
+    const spokes = 16;
+    const rings = [0.1, 0.22, 0.38, 0.58, 0.82, 1.1];
+    const grow = Math.min(1, (t - 0.4) / 0.6);
+    const burst = Math.max(0, t - 2.8);
+    const fade = burst > 0 ? Math.max(0, 1 - burst / 0.55) : 1;
+    if (fade <= 0) return;
+    const pt = (i: number, j: number) => {
+      const a = ((i % spokes) / spokes) * Math.PI * 2 + (hash(i * 7 + j) - 0.5) * 0.25;
+      const r = R * rings[j] * (0.9 + hash(i * 13 + j * 5) * 0.2);
+      // bursting: every piece flies straight out from the middle
+      const out = 1 + burst * 2.2;
+      return { x: cx + Math.cos(a) * r * out, y: cy + Math.sin(a) * r * out * 0.8 + burst * burst * 400 };
+    };
+    const shown = grow * rings.length;
+    const flick = Math.floor(this.clock * 14);
+    g.alpha = fade;
+    for (let j = 0; j < rings.length && j < shown; j++)
+      for (let i = 0; i < spokes; i++) {
+        const p0 = j === 0 ? { x: cx, y: cy + burst * burst * 400 } : pt(i, j - 1);
+        const p1 = pt(i, j);
+        const p2 = pt(i + 1, j);
+        const glint = (i + j + flick) % 7 === 0;
+        g.line(p0.x, p0.y, p1.x, p1.y, ZEN[3], 3);
+        g.line(p0.x, p0.y, p1.x, p1.y, glint ? "#ffffff" : ZEN[1], 1);
+        if (hash(i * 3 + j * 11) > 0.25) {
+          g.line(p1.x, p1.y, p2.x, p2.y, ZEN[3], 2);
+          g.line(p1.x, p1.y, p2.x, p2.y, glint ? "#ffffff" : "#e0f6ff", 1);
+        }
+      }
+    g.alpha = 1;
   }
 
   /** Mega bits over everything: the evolving orb, boosts, curses, confusion, the Mega Bursts. */
