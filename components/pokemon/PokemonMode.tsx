@@ -10,8 +10,8 @@ import { loadMon, type Species } from "./sprites";
 
 // ==========================================
 // POKÉMON mode shell: loads the roster, lays the battle canvas over the live page, lets you
-// pick your Pokémon and your rival's, routes keyboard and touch input, shakes the page on big
-// hits, and shows the result. Launched from the terminal with `pokemon`.
+// pick your Pokémon and your rival's (or two CPUs to watch), routes keyboard and touch input,
+// shakes the page on big hits, and shows the result. Launched from the terminal with `pokemon`.
 // ==========================================
 
 const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -48,6 +48,8 @@ const KEYS: [string, string][] = [
 interface Match {
   mine: Species;
   rival: Species;
+  /** CPU vs CPU */
+  watch: boolean;
 }
 
 function Btn({ children, onClick, primary = false }: { children: ReactNode; onClick: () => void; primary?: boolean }) {
@@ -76,6 +78,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
   // your pick while you choose a rival, then the match (kept for rematches)
   const [choice, setChoice] = useState<Species | null>(null);
   const [match, setMatch] = useState<Match | null>(null);
+  const [watch, setWatch] = useState(false);
   const [end, setEnd] = useState<BattleStats | null>(null);
   const [muted, setMuted] = useState(false);
   const [touch, setTouch] = useState(false);
@@ -155,7 +158,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
     setEnd(null);
     setChoice(null);
     setMatch(m);
-    gameRef.current.start(m.mine, m.rival);
+    gameRef.current.start(m.mine, m.rival, m.watch);
   }, []);
 
   /** The rivals on offer once you've picked: everyone else, then a random one. */
@@ -165,9 +168,9 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
       if (!choice) return;
       const others = ROSTER.filter((r) => r.species !== choice);
       const r = others[i] ?? others[Math.floor(Math.random() * others.length)];
-      play({ mine: choice, rival: r.species });
+      play({ mine: choice, rival: r.species, watch });
     },
-    [choice, play]
+    [choice, play, watch]
   );
 
   /** Back to the pick screen. */
@@ -213,6 +216,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
           if (n >= 0 && n <= rivals.length) chooseRival(n);
           else if (e.code === "Backspace") setChoice(null);
         } else if (n >= 0 && ROSTER[n]) setChoice(ROSTER[n].species);
+        else if (e.code === "KeyC") setWatch((w) => !w);
         return;
       }
       if (gameRef.current?.key(e.code, true) || e.code === "Space") e.preventDefault();
@@ -230,7 +234,7 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
 
   if (!mounted) return null;
 
-  const moves = match ? MOVES[match.mine] : null;
+  const moves = match && !match.watch ? MOVES[match.mine] : null;
 
   return createPortal(
     <div data-arcade className="font-mono">
@@ -280,7 +284,9 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
             />
           ) : (
             <div className="pointer-events-none fixed inset-x-0 bottom-3 z-[47] text-center text-[10px] uppercase tracking-widest text-zinc-500">
-              WASD move · J attack · K L U O moves · I burst · space dodge · esc exit
+              {match?.watch
+                ? "CPU vs CPU · sit back and watch · esc exit"
+                : "WASD move · J attack · K L U O moves · I burst · space dodge · esc exit"}
             </div>
           )}
         </>
@@ -301,11 +307,19 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
             {end ? (
               <>
                 <div className="space-y-1 text-center">
-                  <h2 className="text-2xl font-bold tracking-tight">{end.won ? "YOU WIN!" : "YOU LOST…"}</h2>
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    {end.watch
+                      ? `${(end.won ? end.species : end.foe).toUpperCase()} WINS!`
+                      : end.won
+                        ? "YOU WIN!"
+                        : "YOU LOST…"}
+                  </h2>
                   <p className="text-xs text-zinc-400">
-                    {end.won
-                      ? `${end.species.toUpperCase()} beat ${end.foe.toUpperCase()}.`
-                      : `${end.foe.toUpperCase()} was too strong this time.`}{" "}
+                    {end.watch
+                      ? `${(end.won ? end.species : end.foe).toUpperCase()} beat ${(end.won ? end.foe : end.species).toUpperCase()}.`
+                      : end.won
+                        ? `${end.species.toUpperCase()} beat ${end.foe.toUpperCase()}.`
+                        : `${end.foe.toUpperCase()} was too strong this time.`}{" "}
                     The page took {end.letters} letters of damage. It all goes back when you exit.
                   </p>
                 </div>
@@ -314,8 +328,8 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
                     [
                       ["TIME", formatTime(end.time)],
                       ["DAMAGE", `${end.dealt} – ${end.taken}`],
-                      ["SUPER EFFECTIVE", String(end.supers)],
-                      ["HP LEFT", `${Math.round(end.hpLeft * 100)}%`],
+                      [end.watch ? `${end.species.toUpperCase()} SUPERS` : "SUPER EFFECTIVE", String(end.supers)],
+                      [end.watch ? `${end.species.toUpperCase()} HP` : "HP LEFT", `${Math.round(end.hpLeft * 100)}%`],
                     ] as const
                   ).map(([label, value]) => (
                     <div key={label} className="border-b border-dotted border-zinc-800 pb-1">
@@ -336,14 +350,37 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
               <>
                 <div className="space-y-1 text-center">
                   <h2 className="text-2xl font-bold tracking-tight">
-                    {choice ? "CHOOSE YOUR RIVAL" : "POKÉMON ARENA"}
+                    {choice ? (watch ? "CHOOSE CPU 2" : "CHOOSE YOUR RIVAL") : "POKÉMON ARENA"}
                   </h2>
                   <p className="text-xs text-zinc-400">
                     {choice
-                      ? `You'll send out ${choice.toUpperCase()}. Who does the CPU send out?`
+                      ? watch
+                        ? `CPU 1 sends out ${choice.toUpperCase()}. Who does CPU 2 send out?`
+                        : `You'll send out ${choice.toUpperCase()}. Who does the CPU send out?`
                       : "A live battle on this page, seen from above. Every move lands on the page too. Exit and it all goes back."}
                   </p>
                 </div>
+                {!choice && (
+                  <div className="flex justify-center gap-2 text-[11px] uppercase tracking-wider">
+                    {([false, true] as const).map((w) => (
+                      <button
+                        key={String(w)}
+                        type="button"
+                        onClick={() => setWatch(w)}
+                        className={`border border-dotted px-3 py-1.5 transition-colors ${
+                          watch === w
+                            ? "border-white bg-white font-bold text-black"
+                            : "border-zinc-700 text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        {w ? "CPU vs CPU" : "You vs CPU"}
+                      </button>
+                    ))}
+                    <span className="self-center text-[10px] normal-case tracking-normal text-zinc-600">
+                      [C] to switch
+                    </span>
+                  </div>
+                )}
                 <div className={`grid gap-3 ${choice ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
                   {(choice ? rivals : ROSTER).map((r, i) => (
                     <button
@@ -402,8 +439,8 @@ export default function PokemonMode({ onClose }: { onClose: () => void }) {
                   </table>
                 )}
                 <p className="text-center text-[10px] text-zinc-600">
-                  You vs the CPU. Types matter: water drowns Charizard, Bite and Earthquake hurt Gengar, and Ground
-                  can&apos;t touch a flyer.
+                  {watch ? "Pick both sides, then watch." : "You vs the CPU."} Types matter: water drowns Charizard,
+                  Bite and Earthquake hurt Gengar, and Ground can&apos;t touch a flyer.
                 </p>
               </>
             )}

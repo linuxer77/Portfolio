@@ -15,7 +15,8 @@ import type { Sound } from "./sound";
 // through Gengar, Ground can't touch a Flying type), and so do statuses: burn, poison,
 // paralysis, sleep and freeze. Like the games, the battle opens with Poké Balls and ends with
 // a faint and a recall. Every move is drawn in pixels on the sprites' own grid (pixels.ts).
-// Exit and the page flies back together.
+// You can fight the CPU, or sit back and watch two CPUs fight it out. Exit and the page flies
+// back together.
 // ==========================================
 
 const TICK = 1 / 60;
@@ -190,6 +191,8 @@ export interface BattleStats {
   supers: number;
   letters: number;
   hpLeft: number;
+  /** CPU vs CPU: nobody's "you", so it's just who won */
+  watch: boolean;
 }
 
 const STATUS_NAME: Record<Status, string> = { brn: "BRN", psn: "PSN", par: "PAR", slp: "SLP", frz: "FRZ" };
@@ -251,6 +254,8 @@ export class BattleGame {
   private last = 0;
   private screenFlash = 0;
   private sentOut = false;
+  /** CPU vs CPU: both sides play themselves */
+  private watch = false;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -289,8 +294,9 @@ export class BattleGame {
     cancelAnimationFrame(this.raf);
   }
 
-  /** A battle: you send out `species`, the CPU sends out `foe`. */
-  start(species: Species, foe: Species) {
+  /** A battle: you send out `species`, the CPU sends out `foe` (or, watching, a CPU sends out each). */
+  start(species: Species, foe: Species, watch = false) {
+    this.watch = watch;
     this.sound.unlock();
     this.wreck.reset();
     this.particles = [];
@@ -311,11 +317,12 @@ export class BattleGame {
       this.fighter(0, species, a.l + (a.r - a.l) * 0.28, a.t + (a.b - a.t) * 0.7),
       this.fighter(1, foe, a.l + (a.r - a.l) * 0.72, a.t + (a.b - a.t) * 0.32),
     ];
+    this.f[0].cpu = watch;
     this.phase = "intro";
     this.phaseT = 0;
     this.time = 0;
     this.sentOut = false;
-    this.say(`RIVAL sent out ${foe.toUpperCase()}!`);
+    this.say(`${watch ? "CPU 2" : "RIVAL"} sent out ${foe.toUpperCase()}!`);
     this.throwBall(1);
   }
 
@@ -426,7 +433,7 @@ export class BattleGame {
   }
 
   private name(f: Fighter) {
-    return `${f.id === 1 ? "Foe " : ""}${f.species.toUpperCase()}`;
+    return `${f.id === 1 && !this.watch ? "Foe " : ""}${f.species.toUpperCase()}`;
   }
 
   private say(text: string) {
@@ -485,7 +492,7 @@ export class BattleGame {
     const [me] = this.f!;
     if (this.phaseT > 1.0 && !this.sentOut) {
       this.sentOut = true;
-      this.say(`Go! ${me.species.toUpperCase()}!`);
+      this.say(this.watch ? `CPU 1 sent out ${me.species.toUpperCase()}!` : `Go! ${me.species.toUpperCase()}!`);
       this.throwBall(0);
     }
     if (this.phaseT > 2.3) {
@@ -1802,8 +1809,9 @@ export class BattleGame {
     }
     if (this.phaseT > 2.1 && this.phaseT - TICK <= 2.1) {
       const won = loser === foe;
-      this.say(won ? "Player defeated RIVAL!" : "Player is out of usable POKéMON!");
-      if (won) this.sound.win();
+      if (this.watch) this.say(`${winner.species.toUpperCase()} wins!`);
+      else this.say(won ? "Player defeated RIVAL!" : "Player is out of usable POKéMON!");
+      if (won || this.watch) this.sound.win();
       else this.sound.lose();
       winner.face = Math.PI / 2;
     }
@@ -1820,8 +1828,10 @@ export class BattleGame {
         supers: me.stats.supers,
         letters: this.wreck.destroyed,
         hpLeft: me.hp / STATS[me.species].hp,
+        watch: this.watch,
       };
-      if (won) {
+      // records and achievements are for battles you fought yourself
+      if (won && !this.watch) {
         unlock("poke-win");
         if (me.species === "charizard" && foe.species === "blastoise") unlock("poke-underdog");
         if (me.species === "gengar") unlock("poke-haunted");
@@ -1834,7 +1844,7 @@ export class BattleGame {
 
   private lowHpAlarm(dt: number) {
     const me = this.f![0];
-    if (this.phase !== "battle" || me.hp <= 0 || me.hp / STATS[me.species].hp > 0.2) return;
+    if (this.watch || this.phase !== "battle" || me.hp <= 0 || me.hp / STATS[me.species].hp > 0.2) return;
     this.lowBeep -= dt;
     if (this.lowBeep <= 0) {
       this.lowBeep = 0.25;
@@ -1963,7 +1973,8 @@ export class BattleGame {
       g.ditherDisc(f.x, f.y, 14 * k * s, "#000", 0.38, 0);
       g.disc(f.x, f.y, 10 * k * s, "#000", 0.38);
       // your Pokémon gets a dotted marker ring, so you never lose it in a busy fight
-      if (f.id === 0 && this.phase === "battle") g.ring(f.x, f.y, 18 * k * s, "#38bdf8", 0.42, 1, 0.5, 1);
+      if (f.id === 0 && !this.watch && this.phase === "battle")
+        g.ring(f.x, f.y, 18 * k * s, "#38bdf8", 0.42, 1, 0.5, 1);
     }
     for (const fl of this.flashes) {
       const p = fl.t / 0.35;
